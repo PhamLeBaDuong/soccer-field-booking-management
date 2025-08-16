@@ -1,5 +1,7 @@
 const { Pool } = require("pg");
 require("dotenv").config();
+const {PrismaClient} = require("@prisma/client");
+const prisma = new PrismaClient();
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -14,3 +16,4 @@ pool.connect()
   .catch((err) => console.error("❌ Connection error", err));
 
 module.exports = pool;
+module.exports = prisma;
