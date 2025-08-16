@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import authRoutes from "./routes/authRoute.js";
 
 dotenv.config();
 
@@ -15,6 +16,8 @@ app.get("/", (req, res) => {
   res.json({ message: "Soccer field booking API is running!" });
 });
 
+app.use("/api/auth", authRoutes);
+
 // Example booking route
 app.get("/bookings", (req, res) => {
   res.json([
@@ -22,6 +25,7 @@ app.get("/bookings", (req, res) => {
     { id: 2, field: "Field B", time: "2025-08-21 20:00", status: "pending" }
   ]);
 });
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
