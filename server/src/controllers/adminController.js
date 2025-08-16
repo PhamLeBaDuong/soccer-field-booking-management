@@ -77,7 +77,7 @@ export async function addComplex(req, res) {
                 location,
                 ownerid,
                 description: description || null,
-                createdAt: new Date.now(),
+                createdAt: new Date(),
             },
         });
         res.status(201).json({ message: "Complex created successfully", complex: newComplex });
@@ -103,7 +103,7 @@ export async function addField(req, res) {
                 endTime,
                 indoor,
                 lights,
-                createdAt: new Date.now(),
+                createdAt: new Date(),
             },
         });
         res.status(201).json({ message: "Field created successfully", field: newField });

@@ -62,6 +62,7 @@ model Booking {
   userId    String?
   field     Field    @relation(fields: [fieldId], references: [id])
   fieldId   String
+  needMatching Boolean @default(false)
   startTime DateTime
   endTime   DateTime
   status    String   @default("pending")
