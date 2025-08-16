@@ -17,6 +17,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", import("./routes/adminRoute.js").then(module => module.default));
 
 // Example booking route
 app.get("/bookings", (req, res) => {

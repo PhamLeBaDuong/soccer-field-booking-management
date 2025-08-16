@@ -76,3 +76,19 @@ export async function login(req, res) {
         res.status(500).json({ error: "Internal server error" });
     }
 }
+
+export async function getUserId(req, res) {
+    const token = req.headers.authorization;
+
+    if (!token) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+    try {
+        const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decodedToken.id;
+        res.json({ userId });
+    } catch (error) {
+        console.error("Token verification error:", error);
+        res.status(401).json({ error: "Invalid token" });
+    }
+}
