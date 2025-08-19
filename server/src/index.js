@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import authRoutes from "./routes/authRoute.js";
 import adminRoutes from "./routes/adminRoute.js";
+import bookingRoutes from "./routes/bookingRoute.js";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 // Example booking route
 app.get("/bookings", (req, res) => {
