@@ -10,14 +10,13 @@ export async function createBooking(userId, startTime, endTime, needMatching, te
     const response = await prisma.booking.create({
         data: {
             userId,
-            startTime,
-            endTime,
-            isMatchingRequired,
+            startTime: new Date(startTime),
+            endTime: new Date(endTime),
             totalPrice: fieldPrice * ((new Date(endTime) - new Date(startTime)) / (1000 * 60 * 60)),
-            currency,
+            currency: currency || "VND",
             fieldId,
             teamSize,
-            createdAt: new Date.now(),
+            createdAt: new Date(),
             needMatching: needMatching || false,
             status: "pending",
         },
@@ -87,7 +86,7 @@ export async function getMachingBookingsByField(teamsize, fieldId, startTime, en
     const bookings = await prisma.booking.findMany({
         where: {
             fieldId,
-            teamsize: { equals: teamsize },
+            teamSize: { equals: parseInt(teamsize) },
             needMatching: true,
             AND: [
                 { startTime: { lt: new Date(endTime) } },

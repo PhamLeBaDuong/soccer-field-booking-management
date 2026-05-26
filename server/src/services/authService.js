@@ -67,7 +67,11 @@ export async function login(username, password) {
             throw new Error("Invalid password");
         }
 
-        const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign(
+            { id: user.id, username: user.username, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
+        );
         return { token, user };
         // res.status(200).json({ message: "Login successful", token });
     // } catch (error) {

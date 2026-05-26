@@ -19,6 +19,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # Prisma
 server/src/prisma/dev.db
@@ -33,10 +34,22 @@ coverage/
 next-env.d.ts
 
 # Editor and OS files
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
 .idea/
+*.suo
+*.user
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
+Desktop.ini
+
+# Secrets & certs
+*.pem
+*.key
 
 # Local caches
 .cache/

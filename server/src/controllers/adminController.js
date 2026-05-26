@@ -64,20 +64,22 @@ export async function getFieldsByComplexId(req, res) {
 // Add Controller
 
 export async function addComplex(req, res) {
-    const { ownerid, name, location, description } = req.body;
+    const { ownerId, name, address, description } = req.body;
 
-    if (!ownerid || !name || !location) {
-        return res.status(400).json({ error: "Name and location are required" });
+    if (!ownerId || !name || !address) {
+        return res.status(400).json({ error: "Owner ID, Name, and Address are required" });
     }
 
     try {
         const newComplex = await prisma.complex.create({
             data: {
                 name,
-                location,
-                ownerid,
-                description: description || null,
+                address,
+                desc: description || null,
                 createdAt: new Date(),
+                owner: {
+                    connect: { id: ownerId },
+                },
             },
         });
         res.status(201).json({ message: "Complex created successfully", complex: newComplex });
@@ -88,9 +90,9 @@ export async function addComplex(req, res) {
 }
 
 export async function addField(req, res) {
-    const { complexId, name, type, price, startTime, endTime, indoor, lights } = req.body;
-    if (!complexId || !name || !type || !price || !startTime || !endTime || !indoor || !lights) {
-        return res.status(400).json({ error: "All fields are required" });
+    const { complexId, name, type, startTime, endTime, indoor, lights, price } = req.body;
+    if (!complexId || !name || !type || !startTime || !endTime) {
+        return res.status(400).json({ error: "complexId, name, type, startTime and endTime are required" });
     }
     try {
         const newField = await prisma.field.create({
@@ -98,11 +100,11 @@ export async function addField(req, res) {
                 complexId,
                 name,
                 type,
-                price,
-                startTime,
-                endTime,
-                indoor,
-                lights,
+                startTime: new Date(startTime),
+                endTime: new Date(endTime),
+                indoor: indoor ?? false,
+                lights: lights ?? false,
+                metadata: price != null ? { price } : undefined,
                 createdAt: new Date(),
             },
         });
@@ -117,15 +119,15 @@ export async function addField(req, res) {
 
 export async function updateComplex(req, res) {
     const { id } = req.params;
-    const { name, location, description } = req.body;
+    const { name, address, description } = req.body;
 
     try {
         const updatedComplex = await prisma.complex.update({
             where: { id },
             data: {
                 name,
-                location,
-                description: description || null,
+                address,
+                desc: description || null,
             },
         });
         res.status(200).json({ message: "Complex updated successfully", complex: updatedComplex });
@@ -139,18 +141,21 @@ export async function updateField(req, res) {
     const { id } = req.params;
     const { name, type, price, startTime, endTime, indoor, lights } = req.body;
 
+    // Build update payload — price lives in metadata since the schema has no price column
+    const data = {
+        ...(name !== undefined && { name }),
+        ...(type !== undefined && { type }),
+        ...(startTime !== undefined && { startTime: new Date(startTime) }),
+        ...(endTime !== undefined && { endTime: new Date(endTime) }),
+        ...(indoor !== undefined && { indoor }),
+        ...(lights !== undefined && { lights }),
+        ...(price !== undefined && { metadata: { price } }),
+    };
+
     try {
         const updatedField = await prisma.field.update({
             where: { id },
-            data: {
-                name,
-                type,
-                price,
-                startTime,
-                endTime,
-                indoor,
-                lights,
-            },
+            data,
         });
         res.status(200).json({ message: "Field updated successfully", field: updatedField });
     } catch (error) {

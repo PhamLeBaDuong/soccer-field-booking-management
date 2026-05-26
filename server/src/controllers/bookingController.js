@@ -6,7 +6,7 @@ export async function createBooking(req, res) {
     const { userId, startTime, endTime, needMatching, teamSize, fieldPrice, currency, fieldId } = req.body;
 
     try {
-        const booking = await bookingService.createBooking(userId, startDate, endDate, needMatching, teamSize, fieldPrice, currency, fieldId);
+        const booking = await bookingService.createBooking(userId, startTime, endTime, needMatching, teamSize, fieldPrice, currency, fieldId);
         res.status(201).json(booking);
     } catch (error) {
         console.error("Error creating booking:", error);
@@ -125,9 +125,10 @@ export async function matchBooking(req, res) {
 
 export async function confirmBooking(req, res) {
     const { bookingId } = req.params;
+    const { startTime, endTime } = req.body;
 
     try {
-        const confirmedBooking = await bookingService.confirmBooking(bookingId);
+        const confirmedBooking = await bookingService.confirmBooking(bookingId, startTime, endTime);
         res.json(confirmedBooking);
     } catch (error) {
         console.error("Error confirming booking:", error);

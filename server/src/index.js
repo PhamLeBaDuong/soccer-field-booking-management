@@ -22,15 +22,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingRoutes);
 
-// Example booking route
-app.get("/bookings", (req, res) => {
-  res.json([
-    { id: 1, field: "Field A", time: "2025-08-20 18:00", status: "confirmed" },
-    { id: 2, field: "Field B", time: "2025-08-21 20:00", status: "pending" }
-  ]);
-});
-
-
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
