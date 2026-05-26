@@ -40,10 +40,10 @@ export async function getFieldByBookingId(req, res) {
 
 export async function updateBooking(req, res) {
     const { bookingId } = req.params;
-    const { startDate, endDate } = req.body;
+    const { startTime, endTime } = req.body;
 
     try {
-        const updatedBooking = await bookingService.updateBooking(bookingId, { startDate, endDate });
+        const updatedBooking = await bookingService.updateBooking(bookingId, { startTime, endTime });
         res.json(updatedBooking);
     } catch (error) {
         console.error("Error updating booking:", error);
@@ -52,10 +52,10 @@ export async function updateBooking(req, res) {
 }
 
 export async function cancelBooking(req, res) {
-    const { id } = req.params;
+    const { bookingId } = req.params;
 
     try {
-        const canceledBooking = await bookingService.cancelBooking(id);
+        const canceledBooking = await bookingService.cancelBooking(bookingId);
         res.json(canceledBooking);
     } catch (error) {
         console.error("Error canceling booking:", error);
@@ -88,10 +88,10 @@ export async function getAvailableBookings(req, res) {
 }
 
 export async function getMatchingBookings(req, res) {
-    const { teamsize, startTime, endTime } = req.body;
+    const { teamsize, startTime, endTime } = req.query;
 
     try {
-        const matchedBookings = await bookingService.matchBooking(teamsize, startTime, endTime);
+        const matchedBookings = await bookingService.getMatchingBookings(teamsize, startTime, endTime);
         res.json(matchedBookings);
     } catch (error) {
         console.error("Error matching bookings:", error);

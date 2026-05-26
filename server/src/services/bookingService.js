@@ -67,7 +67,7 @@ export async function getMatchingBookings(teamSize, startTime, endTime) {
     }
     const bookings = await prisma.booking.findMany({
         where: {
-            teamSize: { equals: teamSize },
+            teamSize: { equals: parseInt(teamSize) },
             needMatching: true,
             AND: [
                 { startTime: { lt: new Date(endTime) } },
