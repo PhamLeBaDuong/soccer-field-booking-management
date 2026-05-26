@@ -112,7 +112,7 @@ export default function FieldsPage() {
           <FieldGrid fields={filteredFields} loading={loading} />
         ) : (
           <EmptyState
-            icon={<span className="text-lg">⌕</span>}
+            icon={<span className="text-lg">?</span>}
             title="No fields found"
             description="Try a different search, field type, or surface filter."
             action={{ label: "Reset Filters", onClick: () => router.push(ROUTES.fields) }}
@@ -122,4 +122,3 @@ export default function FieldsPage() {
     </div>
   );
 }
-

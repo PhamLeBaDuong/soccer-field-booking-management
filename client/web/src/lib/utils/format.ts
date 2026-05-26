@@ -45,7 +45,7 @@ export function formatDateRange(startTime: string, endTime: string): string {
     hour12: false,
   }).format(end);
 
-  return `${date} · ${startLabel}-${endLabel}`;
+  return `${date} - ${startLabel}-${endLabel}`;
 }
 
 export function toDisplayTime(value: string): string {
@@ -107,4 +107,3 @@ export function getInitials(name: string): string {
     .slice(0, 2)
     .toUpperCase();
 }
-

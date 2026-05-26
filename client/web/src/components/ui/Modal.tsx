@@ -101,7 +101,7 @@ export function Modal({
             type="button"
             aria-label="Close modal"
           >
-            ×
+            x
           </button>
         </div>
         <div className="max-h-[65vh] overflow-y-auto p-5">{children}</div>
@@ -114,4 +114,3 @@ export function Modal({
     </div>
   );
 }
-

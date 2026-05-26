@@ -48,7 +48,16 @@ export async function getAdminFields(): Promise<Field[]> {
 export async function createComplex(payload: ComplexPayload): Promise<Complex> {
   if (shouldUseMockData()) {
     warnMockData("Create complex");
-    return { id: `complex-${Date.now()}`, ...payload, owner: payload.ownerId };
+    return {
+      id: `complex-${Date.now()}`,
+      name: payload.name,
+      description: payload.description,
+      address: payload.address,
+      lat: payload.lat ?? 0,
+      lng: payload.lng ?? 0,
+      owner: payload.ownerId,
+      fieldsCount: 0,
+    };
   }
 
   const response = await apiFetch<{ complex: unknown }>("/api/admin/complexes", {
@@ -64,7 +73,15 @@ export async function updateComplex(
 ): Promise<Complex> {
   if (shouldUseMockData()) {
     warnMockData("Update complex");
-    return { id, ...payload, owner: payload.ownerId };
+    return {
+      id,
+      name: payload.name,
+      description: payload.description,
+      address: payload.address,
+      lat: payload.lat ?? 0,
+      lng: payload.lng ?? 0,
+      owner: payload.ownerId,
+    };
   }
 
   const response = await apiFetch<{ complex: unknown }>(`/api/admin/complexes/${id}`, {
@@ -151,4 +168,3 @@ export async function deleteField(id: string): Promise<void> {
     method: "DELETE",
   });
 }
-
