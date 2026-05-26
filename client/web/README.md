@@ -1,5 +1,24 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Frontend Setup
+
+Create `client/web/.env.local` when you need custom API settings:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_USE_MOCK=false
+```
+
+Install and run from `client/web`:
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+Set `NEXT_PUBLIC_USE_MOCK=true` to use the built-in PitchBook demo data when the backend is unavailable.
+
 ## Getting Started
 
 First, run the development server:
