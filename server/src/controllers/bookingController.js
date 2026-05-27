@@ -1,151 +1,85 @@
-import * as bookingService from '../services/bookingService.js';
+import * as bookingService from "../services/bookingService.js";
 
+function handleError(res, error) {
+    const clientPhrases = [
+        "required", "already booked", "not found", "not pending",
+        "already canceled", "already confirmed", "flexible bookings must",
+        "not seeking", "already in a match", "no longer available",
+        "new time slot", "cannot be teamsizeflexible", "cannot exceed",
+        "must be a positive integer", "must be false",
+    ];
+    const msg = error.message?.toLowerCase() ?? "";
+    const isClient = clientPhrases.some(p => msg.includes(p));
+    if (isClient) return res.status(400).json({ error: error.message });
+    console.error(error);
+    return res.status(500).json({ error: "Internal server error" });
+}
 
+// ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createBooking(req, res) {
-    const { userId, startTime, endTime, needMatching, teamSize, fieldPrice, currency, fieldId } = req.body;
-
     try {
-        const booking = await bookingService.createBooking(userId, startTime, endTime, needMatching, teamSize, fieldPrice, currency, fieldId);
+        const booking = await bookingService.createBooking(req.body);
         res.status(201).json(booking);
-    } catch (error) {
-        console.error("Error creating booking:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+    } catch (error) { handleError(res, error); }
 }
 
 export async function getBookingById(req, res) {
-    const { bookingId } = req.params;
-
     try {
-        const booking = await bookingService.getBookingById(bookingId);
-        res.json(booking);
-    } catch (error) {
-        console.error("Error fetching booking:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.getBookingById(req.params.bookingId));
+    } catch (error) { handleError(res, error); }
 }
 
 export async function getFieldByBookingId(req, res) {
-    const { bookingId } = req.params;
-
     try {
-        const field = await bookingService.getFieldByBookingId(bookingId);
-        res.json(field);
-    } catch (error) {
-        console.error("Error fetching field by booking ID:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
-
-export async function updateBooking(req, res) {
-    const { bookingId } = req.params;
-    const { startTime, endTime } = req.body;
-
-    try {
-        const updatedBooking = await bookingService.updateBooking(bookingId, { startTime, endTime });
-        res.json(updatedBooking);
-    } catch (error) {
-        console.error("Error updating booking:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
-
-export async function cancelBooking(req, res) {
-    const { bookingId } = req.params;
-
-    try {
-        const canceledBooking = await bookingService.cancelBooking(bookingId);
-        res.json(canceledBooking);
-    } catch (error) {
-        console.error("Error canceling booking:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.getFieldByBookingId(req.params.bookingId));
+    } catch (error) { handleError(res, error); }
 }
 
 export async function getBookingsByUserId(req, res) {
-    const { userId } = req.params;
-
     try {
-        const bookings = await bookingService.getBookingsByUserId(userId);
-        res.json(bookings);
-    } catch (error) {
-        console.error("Error fetching user bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.getBookingsByUserId(req.params.userId));
+    } catch (error) { handleError(res, error); }
 }
 
-export async function getAvailableBookings(req, res) {
-    const { fieldId, startDate, endDate } = req.query;
-
+/**
+ * GET /api/bookings/occupied?fieldId=X&startTime=Y&endTime=Z
+ * Returns confirmed bookings (occupied slots) for the frontend calendar.
+ */
+export async function getOccupiedSlots(req, res) {
+    const { fieldId, startTime, endTime } = req.query;
     try {
-        const availableBookings = await bookingService.getAvailableBookings(fieldId, startDate, endDate);
-        res.json(availableBookings);
-    } catch (error) {
-        console.error("Error fetching available bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
-
-export async function getMatchingBookings(req, res) {
-    const { teamsize, startTime, endTime } = req.query;
-
-    try {
-        const matchedBookings = await bookingService.getMatchingBookings(teamsize, startTime, endTime);
-        res.json(matchedBookings);
-    } catch (error) {
-        console.error("Error matching bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
-
-export async function getMachingBookingsByField(req, res) {
-    const { fieldId, startTime, endTime, teamsize } = req.query;
-
-    try {
-        const matchingBookings = await bookingService.getMachingBookingsByField(teamsize, fieldId, startTime, endTime);
-        res.json(matchingBookings);
-    } catch (error) {
-        console.error("Error fetching matching bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-}
-
-export async function matchBooking(req, res) {
-    const { booking1Id, booking2Id, startTime, endTime, fieldId } = req.body;
-
-    try {
-        const result = await bookingService.matchBooking(booking1Id, booking2Id, startTime, endTime, fieldId);
-        res.json(result);
-    } catch (error) {
-        console.error("Error matching bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.getOccupiedSlots(fieldId, startTime, endTime));
+    } catch (error) { handleError(res, error); }
 }
 
 export async function confirmBooking(req, res) {
-    const { bookingId } = req.params;
-    const { startTime, endTime } = req.body;
-
     try {
-        const confirmedBooking = await bookingService.confirmBooking(bookingId, startTime, endTime);
-        res.json(confirmedBooking);
-    } catch (error) {
-        console.error("Error confirming booking:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.confirmBooking(req.params.bookingId));
+    } catch (error) { handleError(res, error); }
 }
 
-export async function getUserBookings(req, res) {
-    const { userId } = req.params;
-
+export async function cancelBooking(req, res) {
     try {
-        const bookings = await bookingService.getBookingsByUserId(userId);
-        res.json(bookings);
-    } catch (error) {
-        console.error("Error fetching user bookings:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
+        res.json(await bookingService.cancelBooking(req.params.bookingId));
+    } catch (error) { handleError(res, error); }
 }
 
+export async function updateBooking(req, res) {
+    try {
+        res.json(await bookingService.updateBooking(req.params.bookingId, req.body));
+    } catch (error) { handleError(res, error); }
+}
 
+// ─── Match-finding ────────────────────────────────────────────────────────────
+
+/**
+ * GET /api/bookings/:bookingId/matches
+ * Returns all bookings compatible for matching with this one.
+ * The user picks one and calls POST /api/matches/request to form the match.
+ */
+export async function findMatchesForBooking(req, res) {
+    try {
+        res.json(await bookingService.findMatchesForBooking(req.params.bookingId));
+    } catch (error) { handleError(res, error); }
+}

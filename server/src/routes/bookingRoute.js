@@ -4,34 +4,31 @@ import {
     getBookingById,
     getFieldByBookingId,
     getBookingsByUserId,
-    getAvailableBookings,
-    getMachingBookingsByField,
-    getMatchingBookings,
-    matchBooking,
+    getOccupiedSlots,
     confirmBooking,
     cancelBooking,
     updateBooking,
+    findMatchesForBooking,
 } from "../controllers/bookingController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// All booking routes require a valid token
 router.use(authenticate);
 
-// Static routes MUST come before dynamic /:bookingId routes to avoid param conflicts
-router.get("/available", getAvailableBookings);
-router.get("/matching", getMatchingBookings);
-router.get("/matchingbyfieldid", getMachingBookingsByField);
-router.get("/user/:userId", getBookingsByUserId);
-router.post("/match", matchBooking);
+// Static routes first — prevents /:bookingId from swallowing them
+router.get("/occupied",          getOccupiedSlots);      // ?fieldId&startTime&endTime
+router.get("/user/:userId",      getBookingsByUserId);
 
-// Dynamic routes
-router.post("/", createBooking);
-router.get("/:bookingId", getBookingById);
-router.get("/:bookingId/field", getFieldByBookingId);
-router.post("/confirm/:bookingId", confirmBooking);
-router.put("/:bookingId", updateBooking);
-router.delete("/:bookingId", cancelBooking);
+// Single-booking CRUD
+router.post("/",                 createBooking);
+router.get("/:bookingId",        getBookingById);
+router.get("/:bookingId/field",  getFieldByBookingId);
+router.put("/:bookingId",        updateBooking);
+router.delete("/:bookingId",     cancelBooking);
+router.post("/:bookingId/confirm",  confirmBooking);
+
+// Match-finding — returns candidates; the user then calls POST /api/matches/request
+router.get("/:bookingId/matches", findMatchesForBooking);
 
 export default router;

@@ -8,16 +8,16 @@ generator client {
 }
 
 model User {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   name       String
-  username   String   @unique
-  email      String   @unique
+  username   String    @unique
+  email      String    @unique
   phone      String?
   password   String?
-  role       String   @default("player")
+  role       String    @default("player")
   metadata   Json?
-  createdAt  DateTime @default(now())
-  fields     Field[]  @relation("owner_fields")
+  createdAt  DateTime  @default(now())
+  fields     Field[]   @relation("owner_fields")
   complexes  Complex[] @relation("owner_complexes")
   bookings   Booking[]
 }
@@ -34,46 +34,119 @@ model Complex {
   createdAt DateTime @default(now())
   ownerId   String?
   owner     User?    @relation("owner_complexes", fields: [ownerId], references: [id])
+
   @@index([ownerId])
 }
 
 model Field {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   ownerId   String?
-  owner     User?    @relation("owner_fields", fields: [ownerId], references: [id])
+  owner     User?     @relation("owner_fields", fields: [ownerId], references: [id])
   complexId String
-  complex   Complex  @relation(fields: [complexId], references: [id])
+  complex   Complex   @relation(fields: [complexId], references: [id])
   name      String
   desc      String?
   address   String?
   type      String?
-  startTime DateTime
-  endTime   DateTime
-  listOccupiedStartTime DateTime[]
-  listOccupiedEndTime DateTime[]
-  indoor    Boolean  @default(false)
-  lights    Boolean  @default(false)
+  startTime DateTime  // field operating hours start
+  endTime   DateTime  // field operating hours end
+  indoor    Boolean   @default(false)
+  lights    Boolean   @default(false)
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   bookings  Booking[]
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Booking
+//
+//  User-facing match options:
+//    teamSize        – players per side (required).  When needMatching=true this is
+//                     the desired match team size and must equal the opponent's.
+//    needMatching    – true  → enter matchmaking queue looking for an opponent side
+//                     false → direct booking (both sides already arranged, or solo use)
+//
+//  Flexibility flags (all default false):
+//    timeFlexible     – no fixed start/end time; accept whatever slot is agreed at confirm
+//    fieldFlexible    – no fixed field; accept the field resolved at confirm time
+//                      (pass lat/lng to enable location-based matching priority)
+//    teamSizeFlexible – NOT allowed when needMatching=true; only valid for direct bookings
+//
+//  lat / lng          – user's location at booking time; used to prioritise nearby
+//                       pending matches when fieldFlexible=true and no fieldId is set.
+//
+//  matchSideId is written by the system when a match is formed. Never set by users.
+// ─────────────────────────────────────────────────────────────────────────────
 model Booking {
-  id        String   @id @default(uuid())
-  user      User    @relation(fields: [userId], references: [id])
-  userId    String
-  field     Field    @relation(fields: [fieldId], references: [id])
-  fieldId   String
-  needMatching Boolean @default(false)
-  startTime DateTime
-  endTime   DateTime
-  status    String   @default("pending")
-  totalPrice Float   @default(0)
-  currency  String   @default("VND")
-  teamSize  Int
-  metadata  Json?
-  version   Int?      @default(1)
-  createdAt DateTime @default(now())
+  id               String     @id @default(uuid())
+  user             User       @relation(fields: [userId], references: [id])
+  userId           String
+  field            Field?     @relation(fields: [fieldId], references: [id])
+  fieldId          String?    // null when fieldFlexible = true
+
+  // Written by the system when a match is formed — never by the user directly
+  matchSide        MatchSide? @relation(fields: [matchSideId], references: [id])
+  matchSideId      String?
+
+  // User-facing match option
+  needMatching     Boolean    @default(false)
+
+  // Flexibility flags
+  timeFlexible     Boolean    @default(false)
+  fieldFlexible    Boolean    @default(false)
+  teamSizeFlexible Boolean    @default(false)  // must be false when needMatching=true
+
+  startTime        DateTime?
+  endTime          DateTime?
+
+  // User's location at booking time — used for proximity-based match priority
+  lat              Float?
+  lng              Float?
+
+  status           String     @default("pending")
+  totalPrice       Float      @default(0)
+  currency         String     @default("VND")
+  teamSize         Int        // desired players per side in the final match (must match opponent's)
+  groupSize        Int        @default(1) // how many players this booking actually brings (1 ≤ groupSize ≤ teamSize)
+  metadata         Json?
+  version          Int?       @default(1)
+  createdAt        DateTime   @default(now())
 
   @@index([fieldId, startTime, endTime])
+  @@index([matchSideId])
+  @@index([status, needMatching])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Match  –  the result of match-finding between two bookings/teams.
+//
+//  A Match always has exactly 2 MatchSides (side 1 and side 2).
+//  Each MatchSide holds 1+ bookings that together form that team.
+//
+//  Status flow:
+//    "pending"   – one or both sides are not yet fully assembled
+//    "ready"     – both sides are set, waiting for field/time to be confirmed
+//    "confirmed" – slot locked, all bookings confirmed
+//    "canceled"  – match canceled; bookings reverted to pending
+// ─────────────────────────────────────────────────────────────────────────────
+model Match {
+  id                String      @id @default(uuid())
+  status            String      @default("pending")
+  resolvedFieldId   String?
+  resolvedStartTime DateTime?
+  resolvedEndTime   DateTime?
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+  sides             MatchSide[]
+}
+
+// One side (team) in a Match.  sideNumber is 1 or 2.
+model MatchSide {
+  id         String    @id @default(uuid())
+  matchId    String
+  match      Match     @relation(fields: [matchId], references: [id])
+  sideNumber Int       // 1 or 2
+  bookings   Booking[]
+
+  @@index([matchId])
 }
