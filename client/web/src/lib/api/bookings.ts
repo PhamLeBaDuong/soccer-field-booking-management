@@ -135,7 +135,7 @@ export async function confirmBooking(
   endTime: string,
 ): Promise<Booking> {
   const fields = await getFields();
-  const response = await apiFetch<unknown>(`/api/bookings/confirm/${bookingId}`, {
+  const response = await apiFetch<unknown>(`/api/bookings/${bookingId}/confirm`, {
     method: "POST",
     body: JSON.stringify({ startTime, endTime }),
   });

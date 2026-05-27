@@ -34,9 +34,9 @@ export async function getFields(): Promise<Field[]> {
   }
 
   try {
-    const complexes = await getComplexes();
-    const response = await apiFetch<unknown[]>("/api/admin/fields");
-    return response.map((field) => normalizeField(field, complexes));
+    // /api/fields is the public read endpoint — complex is already embedded
+    const response = await apiFetch<unknown[]>("/api/fields");
+    return response.map((field) => normalizeField(field));
   } catch (error) {
     if (canFallBackToMock(error)) {
       warnMockData("Fields");
@@ -54,11 +54,8 @@ export async function getFieldsByComplexId(complexId: string): Promise<Field[]> 
   }
 
   try {
-    const response = await apiFetch<unknown[]>(
-      `/api/admin/complexes/${complexId}/fields`,
-    );
-    const complexes = await getComplexes();
-    return response.map((field) => normalizeField(field, complexes));
+    const response = await apiFetch<unknown[]>(`/api/fields?complexId=${complexId}`);
+    return response.map((field) => normalizeField(field));
   } catch (error) {
     if (canFallBackToMock(error)) {
       warnMockData("Complex fields");
@@ -70,13 +67,22 @@ export async function getFieldsByComplexId(complexId: string): Promise<Field[]> 
 }
 
 export async function getFieldById(fieldId: string): Promise<Field> {
-  const fields = await getFields();
-  const field = fields.find((item) => item.id === fieldId);
-
-  if (!field) {
-    throw new Error("Field not found");
+  if (shouldUseMockData()) {
+    const field = mockFields.find((item) => item.id === fieldId);
+    if (!field) throw new Error("Field not found");
+    return field;
   }
 
-  return field;
+  try {
+    const response = await apiFetch<unknown>(`/api/fields/${fieldId}`);
+    return normalizeField(response);
+  } catch (error) {
+    if (canFallBackToMock(error)) {
+      const field = mockFields.find((item) => item.id === fieldId);
+      if (!field) throw error;
+      return field;
+    }
+    throw error;
+  }
 }
 
