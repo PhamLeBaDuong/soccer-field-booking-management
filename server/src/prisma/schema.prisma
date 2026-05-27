@@ -7,21 +7,31 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  User
+// ─────────────────────────────────────────────────────────────────────────────
 model User {
-  id         String    @id @default(uuid())
-  name       String
-  username   String    @unique
-  email      String    @unique
-  phone      String?
-  password   String?
-  role       String    @default("player")
-  metadata   Json?
-  createdAt  DateTime  @default(now())
-  fields     Field[]   @relation("owner_fields")
-  complexes  Complex[] @relation("owner_complexes")
-  bookings   Booking[]
+  id               String       @id @default(uuid())
+  name             String
+  username         String       @unique
+  email            String       @unique
+  phone            String?
+  password         String?
+  role             String       @default("player")
+  metadata         Json?
+  createdAt        DateTime     @default(now())
+
+  fields           Field[]      @relation("owner_fields")
+  complexes        Complex[]    @relation("owner_complexes")
+  bookings         Booking[]
+  ledTeams         Team[]       @relation("team_leader")
+  teamMemberships  TeamMember[]
+  lobbySlots       LobbySlot[]
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Complex / Field
+// ─────────────────────────────────────────────────────────────────────────────
 model Complex {
   id        String   @id @default(uuid())
   name      String
@@ -39,114 +49,200 @@ model Complex {
 }
 
 model Field {
-  id        String    @id @default(uuid())
-  ownerId   String?
-  owner     User?     @relation("owner_fields", fields: [ownerId], references: [id])
-  complexId String
-  complex   Complex   @relation(fields: [complexId], references: [id])
-  name      String
-  desc      String?
-  address   String?
-  type      String?
-  startTime DateTime  // field operating hours start
-  endTime   DateTime  // field operating hours end
-  indoor    Boolean   @default(false)
-  lights    Boolean   @default(false)
-  metadata  Json?
-  createdAt DateTime  @default(now())
-  bookings  Booking[]
+  id           String      @id @default(uuid())
+  ownerId      String?
+  owner        User?       @relation("owner_fields", fields: [ownerId], references: [id])
+  complexId    String
+  complex      Complex     @relation(fields: [complexId], references: [id])
+  name         String
+  desc         String?
+  address      String?
+  type         String?
+  startTime    DateTime    // operating hours start
+  endTime      DateTime    // operating hours end
+  indoor       Boolean     @default(false)
+  lights       Boolean     @default(false)
+  pricePerHour Float       @default(0)
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+
+  bookings     Booking[]
+  matchPosts   MatchPost[]
+  lobbies      Lobby[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Booking
+//  Team
 //
-//  User-facing match options:
-//    teamSize        – players per side (required).  When needMatching=true this is
-//                     the desired match team size and must equal the opponent's.
-//    needMatching    – true  → enter matchmaking queue looking for an opponent side
-//                     false → direct booking (both sides already arranged, or solo use)
-//
-//  Flexibility flags (all default false):
-//    timeFlexible     – no fixed start/end time; accept whatever slot is agreed at confirm
-//    fieldFlexible    – no fixed field; accept the field resolved at confirm time
-//                      (pass lat/lng to enable location-based matching priority)
-//    teamSizeFlexible – NOT allowed when needMatching=true; only valid for direct bookings
-//
-//  lat / lng          – user's location at booking time; used to prioritise nearby
-//                       pending matches when fieldFlexible=true and no fieldId is set.
-//
-//  matchSideId is written by the system when a match is formed. Never set by users.
+//  A named group of players led by one user.
+//  size — how many players this team fields per match side.
+//  rating — calculated externally; stored here for display.
 // ─────────────────────────────────────────────────────────────────────────────
-model Booking {
-  id               String     @id @default(uuid())
-  user             User       @relation(fields: [userId], references: [id])
-  userId           String
-  field            Field?     @relation(fields: [fieldId], references: [id])
-  fieldId          String?    // null when fieldFlexible = true
+model Team {
+  id         String       @id @default(uuid())
+  name       String
+  size       Int          // players per side (must equal opponent team's size for a match)
+  rating     Float        @default(0)
+  leaderId   String
+  leader     User         @relation("team_leader", fields: [leaderId], references: [id])
+  members    TeamMember[]
+  matchPosts MatchPost[]
+  createdAt  DateTime     @default(now())
 
-  // Written by the system when a match is formed — never by the user directly
-  matchSide        MatchSide? @relation(fields: [matchSideId], references: [id])
-  matchSideId      String?
+  @@index([leaderId])
+}
 
-  // User-facing match option
-  needMatching     Boolean    @default(false)
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
 
-  // Flexibility flags
-  timeFlexible     Boolean    @default(false)
-  fieldFlexible    Boolean    @default(false)
-  teamSizeFlexible Boolean    @default(false)  // must be false when needMatching=true
-
-  startTime        DateTime?
-  endTime          DateTime?
-
-  // User's location at booking time — used for proximity-based match priority
-  lat              Float?
-  lng              Float?
-
-  status           String     @default("pending")
-  totalPrice       Float      @default(0)
-  currency         String     @default("VND")
-  teamSize         Int        // desired players per side in the final match (must match opponent's)
-  groupSize        Int        @default(1) // how many players this booking actually brings (1 ≤ groupSize ≤ teamSize)
-  metadata         Json?
-  version          Int?       @default(1)
-  createdAt        DateTime   @default(now())
-
-  @@index([fieldId, startTime, endTime])
-  @@index([matchSideId])
-  @@index([status, needMatching])
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Match  –  the result of match-finding between two bookings/teams.
+//  MatchPost  –  a team's public advertisement seeking an opponent
 //
-//  A Match always has exactly 2 MatchSides (side 1 and side 2).
-//  Each MatchSide holds 1+ bookings that together form that team.
+//  visibility: "public"  – listed publicly, no code needed to accept
+//              "private" – hidden; only reachable via the generated code
+//  status:     "open"    – waiting for an opponent
+//              "matched" – accepted; a Match record has been created
+//              "canceled"
 //
-//  Status flow:
-//    "pending"   – one or both sides are not yet fully assembled
-//    "ready"     – both sides are set, waiting for field/time to be confirmed
-//    "confirmed" – slot locked, all bookings confirmed
-//    "canceled"  – match canceled; bookings reverted to pending
+//  code is auto-generated (short UUID) when visibility="private".
+//  preferredStartTime / preferredEndTime are the team's desired slot;
+//  fieldId optionally pins the venue.  lat/lng are used for proximity matching
+//  when no fieldId is set.
+// ─────────────────────────────────────────────────────────────────────────────
+model MatchPost {
+  id                 String    @id @default(uuid())
+  teamId             String
+  team               Team      @relation(fields: [teamId], references: [id])
+  fieldId            String?
+  field              Field?    @relation(fields: [fieldId], references: [id])
+  lat                Float?
+  lng                Float?
+  preferredStartTime DateTime?
+  preferredEndTime   DateTime?
+  visibility         String    @default("public")   // "public" | "private"
+  code               String?   @unique              // access code for private posts
+  status             String    @default("open")     // "open" | "matched" | "canceled"
+
+  match              Match?    @relation("post_match")
+
+  createdAt          DateTime  @default(now())
+
+  @@index([teamId])
+  @@index([status, visibility])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Lobby  –  slot-based open lobby for individual players at a specific field/time
+//
+//  initialSize: how many players the host already brings (accounts for friends
+//               who show up without booking individually).
+//  A lobby is "full" when:  initialSize + slots.count  >=  teamSize
+//
+//  status: "open"    – accepting new slots
+//          "full"    – capacity reached; awaiting auto-match
+//          "matched" – paired with another lobby; a Match has been created
+//          "canceled"
+// ─────────────────────────────────────────────────────────────────────────────
+model Lobby {
+  id          String      @id @default(uuid())
+  fieldId     String
+  field       Field       @relation(fields: [fieldId], references: [id])
+  startTime   DateTime
+  endTime     DateTime
+  teamSize    Int
+  initialSize Int         @default(1)
+  creatorId   String
+  status      String      @default("open")   // "open" | "full" | "matched" | "canceled"
+  slots       LobbySlot[]
+
+  // Set by the system when this lobby is paired into a Match
+  matchId     String?
+  match       Match?      @relation("lobby_matches", fields: [matchId], references: [id])
+
+  createdAt   DateTime    @default(now())
+
+  @@index([fieldId, startTime])
+  @@index([status])
+  @@index([teamSize, status, fieldId])
+}
+
+model LobbySlot {
+  id       String   @id @default(uuid())
+  lobbyId  String
+  lobby    Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@unique([lobbyId, userId])
+  @@index([lobbyId])
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Match  –  a confirmed pairing: two teams (via MatchPost) or two full lobbies
+//
+//  source:  "post"  – formed when a team accepted a MatchPost
+//           "lobby" – formed when two full lobbies at the same field/time were paired
+//  status:  "confirmed" | "canceled"
+//
+//  fieldId, startTime, endTime are always concrete — set at creation.
 // ─────────────────────────────────────────────────────────────────────────────
 model Match {
-  id                String      @id @default(uuid())
-  status            String      @default("pending")
-  resolvedFieldId   String?
-  resolvedStartTime DateTime?
-  resolvedEndTime   DateTime?
-  metadata          Json?
-  createdAt         DateTime    @default(now())
-  sides             MatchSide[]
+  id          String     @id @default(uuid())
+  source      String     // "post" | "lobby"
+  status      String     @default("confirmed")
+  fieldId     String
+  startTime   DateTime
+  endTime     DateTime
+
+  // Populated when source="post"
+  matchPostId String?    @unique
+  matchPost   MatchPost? @relation("post_match", fields: [matchPostId], references: [id])
+
+  // Populated when source="lobby" (exactly 2 lobbies)
+  lobbies     Lobby[]    @relation("lobby_matches")
+
+  bookings    Booking[]
+
+  createdAt   DateTime   @default(now())
+
+  @@index([fieldId, startTime])
+  @@index([status])
 }
 
-// One side (team) in a Match.  sideNumber is 1 or 2.
-model MatchSide {
-  id         String    @id @default(uuid())
+// ─────────────────────────────────────────────────────────────────────────────
+//  Booking  –  system-created only; records a user's confirmed slot in a match.
+//
+//  Created for every participant (team member / lobby slot holder) when a Match
+//  is formed.  Only created when Match.startTime >= now at formation time.
+// ─────────────────────────────────────────────────────────────────────────────
+model Booking {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  fieldId    String
+  field      Field    @relation(fields: [fieldId], references: [id])
   matchId    String
-  match      Match     @relation(fields: [matchId], references: [id])
-  sideNumber Int       // 1 or 2
-  bookings   Booking[]
+  match      Match    @relation(fields: [matchId], references: [id])
+  startTime  DateTime
+  endTime    DateTime
+  totalPrice Float    @default(0)
+  currency   String   @default("VND")
+  status     String   @default("confirmed")
+  createdAt  DateTime @default(now())
 
+  @@index([userId])
+  @@index([fieldId, startTime, endTime])
   @@index([matchId])
 }

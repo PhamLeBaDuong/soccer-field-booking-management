@@ -1,34 +1,20 @@
 import express from "express";
 import {
-    createBooking,
     getBookingById,
-    getFieldByBookingId,
     getBookingsByUserId,
     getOccupiedSlots,
-    confirmBooking,
-    cancelBooking,
-    updateBooking,
-    findMatchesForBooking,
 } from "../controllers/bookingController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// Slot availability feed — used by frontend calendar (unauthenticated is fine)
+router.get("/occupied", getOccupiedSlots);  // ?fieldId&startTime&endTime
+
+// Authenticated read routes
 router.use(authenticate);
 
-// Static routes first — prevents /:bookingId from swallowing them
-router.get("/occupied",          getOccupiedSlots);      // ?fieldId&startTime&endTime
-router.get("/user/:userId",      getBookingsByUserId);
-
-// Single-booking CRUD
-router.post("/",                 createBooking);
-router.get("/:bookingId",        getBookingById);
-router.get("/:bookingId/field",  getFieldByBookingId);
-router.put("/:bookingId",        updateBooking);
-router.delete("/:bookingId",     cancelBooking);
-router.post("/:bookingId/confirm",  confirmBooking);
-
-// Match-finding — returns candidates; the user then calls POST /api/matches/request
-router.get("/:bookingId/matches", findMatchesForBooking);
+router.get("/user/:userId",   getBookingsByUserId);
+router.get("/:bookingId",     getBookingById);
 
 export default router;
