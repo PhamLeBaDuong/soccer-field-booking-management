@@ -3,6 +3,16 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  CalendarCheck,
+  Clock3,
+  Search,
+  Sparkles,
+  Trophy,
+  UsersRound,
+  XCircle,
+} from "lucide-react";
 import { BookingCard } from "@/components/bookings/BookingCard";
 import { buttonClasses } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -71,49 +81,50 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-sm text-gray-500">{today}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-gray-900">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="pitch-hero-bg reveal-up overflow-hidden rounded-[8px] px-5 py-8 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:px-8 lg:px-10 lg:py-10">
+        <div className="max-w-3xl">
+          <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            {today}
+          </p>
+          <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-[0] text-white sm:text-5xl">
             Good morning, {user.name}
           </h1>
+          <p className="mt-4 max-w-xl text-base leading-7 text-white/76">
+            Your next match, field, and team plan in one quiet command center.
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link className={buttonClasses("secondary", "lg", "bg-white text-neutral-950 hover:bg-white/92")} href={ROUTES.fields}>
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              Book a Field
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <Link className={buttonClasses("ghost", "lg", "bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/16")} href={ROUTES.matching}>
+              <Search className="h-4 w-4" aria-hidden="true" />
+              Find a Match
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link className={buttonClasses("primary")} href={ROUTES.fields}>
-            Book a Field
-          </Link>
-          <Link className={buttonClasses("secondary")} href={ROUTES.matching}>
-            Find a Match
-          </Link>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <HeroStat icon={Trophy} label="Total" value={stats.total} />
+          <HeroStat icon={Clock3} label="Upcoming" value={stats.upcoming} />
+          <HeroStat icon={UsersRound} label="Pending" value={stats.pending} />
+          <HeroStat icon={XCircle} label="Canceled" value={stats.canceled} />
         </div>
-      </div>
+      </section>
 
       {error ? <div className="mt-6"><ErrorState message={error} onRetry={refresh} /></div> : null}
 
-      <section className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          ["Total Bookings", stats.total],
-          ["Upcoming", stats.upcoming],
-          ["Pending", stats.pending],
-          ["Canceled", stats.canceled],
-        ].map(([label, value]) => (
-          <Card key={label}>
-            <CardContent>
-              <p className="text-sm text-gray-500">{label}</p>
-              <p className="mt-3 font-mono text-3xl font-semibold text-gray-900">
-                {statLabel(Number(value))}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </section>
-
       <section className="mt-8">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Upcoming bookings</h2>
-          <Link className="text-sm font-medium text-green-700" href={ROUTES.bookings}>
+          <div>
+            <p className="text-xs font-semibold uppercase text-stone-500">Next up</p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">Upcoming bookings</h2>
+          </div>
+          <Link className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-900 hover:underline" href={ROUTES.bookings}>
             View all
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
         {loading ? (
@@ -142,36 +153,62 @@ export default function DashboardPage() {
         )}
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent activity</h2>
+      <section className="mt-8 pb-8">
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase text-stone-500">Log</p>
+          <h2 className="mt-1 text-2xl font-semibold text-neutral-950">Recent activity</h2>
+        </div>
         <Card>
-          <CardContent className="divide-y divide-gray-100 p-0">
+          <CardContent className="divide-y divide-stone-100 p-0">
             {recent.length ? (
               recent.map((booking) => (
                 <div
                   key={booking.id}
-                  className="flex items-center justify-between gap-4 p-4"
+                  className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-stone-50/70"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-semibold text-neutral-950">
                       {booking.field?.name ?? "Soccer field"}
                     </p>
-                    <p className="text-sm text-gray-500">{booking.status}</p>
+                    <p className="text-sm capitalize text-stone-500">{booking.status}</p>
                   </div>
                   <Link
-                    className="text-sm font-medium text-green-700"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-900 hover:underline"
                     href={`/bookings/${booking.id}`}
                   >
                     Open
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </div>
               ))
             ) : (
-              <div className="p-6 text-sm text-gray-500">No recent bookings.</div>
+              <div className="p-6 text-sm text-stone-500">No recent bookings.</div>
             )}
           </CardContent>
         </Card>
       </section>
+    </div>
+  );
+}
+
+function HeroStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Trophy;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-[8px] border border-white/14 bg-white/12 p-4 backdrop-blur">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-white/70">{label}</p>
+        <Icon className="h-4 w-4 text-white/70" aria-hidden="true" />
+      </div>
+      <p className="mt-3 font-mono text-3xl font-semibold text-white">
+        {statLabel(value)}
+      </p>
     </div>
   );
 }
@@ -190,4 +227,3 @@ function DashboardSkeleton() {
     </div>
   );
 }
-

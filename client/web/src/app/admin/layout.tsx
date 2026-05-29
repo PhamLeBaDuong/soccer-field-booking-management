@@ -9,7 +9,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading || !authorized) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="app-background p-6">
         <Skeleton className="h-10 w-60" />
         <Skeleton className="mt-6 h-80" />
       </div>
@@ -17,12 +17,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="app-background">
       <Sidebar />
-      <main className="lg:pl-60">
+      <main className="lg:pl-64">
         <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
   );
 }
-

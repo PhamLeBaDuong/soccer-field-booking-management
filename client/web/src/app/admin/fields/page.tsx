@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Edit3, MapPinned, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -145,21 +146,28 @@ export default function AdminFieldsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
+      <div className="hairline-panel flex items-center justify-between gap-4 rounded-[8px] p-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Fields</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+            <MapPinned className="h-4 w-4" aria-hidden="true" />
+            Inventory
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-neutral-950">Fields</h1>
+          <p className="mt-1 text-sm text-stone-500">
             Manage pitch availability, prices, and amenities.
           </p>
         </div>
-        <Button onClick={openCreate}>Add Field</Button>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add Field
+        </Button>
       </div>
       {error ? <div className="mt-6"><ErrorState message={error} onRetry={refresh} /></div> : null}
       <Card className="mt-6 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100 text-sm">
-              <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <table className="min-w-full divide-y divide-stone-100 text-sm">
+              <thead className="bg-stone-50 text-left text-xs uppercase text-stone-500">
                 <tr>
                   <th className="px-5 py-3">Complex</th>
                   <th className="px-5 py-3">Field</th>
@@ -171,26 +179,26 @@ export default function AdminFieldsPage() {
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-stone-100 bg-white">
                 {items.map((field) => (
-                  <tr key={field.id}>
-                    <td className="px-5 py-4 text-gray-600">
+                  <tr key={field.id} className="hover:bg-stone-50/70">
+                    <td className="px-5 py-4 text-stone-600">
                       {field.complex?.name ?? "Complex"}
                     </td>
-                    <td className="px-5 py-4 font-medium text-gray-900">
+                    <td className="px-5 py-4 font-semibold text-neutral-950">
                       <Link href={`/admin/fields/${field.id}`}>{field.name}</Link>
                     </td>
-                    <td className="px-5 py-4 text-gray-600">{field.type}</td>
-                    <td className="px-5 py-4 text-gray-600">
+                    <td className="px-5 py-4 text-stone-600">{field.type}</td>
+                    <td className="px-5 py-4 text-stone-600">
                       {field.indoor ? "Yes" : "No"}
                     </td>
-                    <td className="px-5 py-4 text-gray-600">
+                    <td className="px-5 py-4 text-stone-600">
                       {field.lights ? "Yes" : "No"}
                     </td>
-                    <td className="px-5 py-4 font-mono text-gray-900">
+                    <td className="px-5 py-4 font-mono text-neutral-950">
                       {formatCurrency(field.metadata.price, field.metadata.currency)}
                     </td>
-                    <td className="px-5 py-4 font-mono text-gray-600">
+                    <td className="px-5 py-4 font-mono text-stone-600">
                       {field.startTime}-{field.endTime}
                     </td>
                     <td className="px-5 py-4">
@@ -200,6 +208,7 @@ export default function AdminFieldsPage() {
                           size="sm"
                           onClick={() => openEdit(field)}
                         >
+                          <Edit3 className="h-4 w-4" aria-hidden="true" />
                           Edit
                         </Button>
                         {confirmDelete === field.id ? (
@@ -208,6 +217,7 @@ export default function AdminFieldsPage() {
                             size="sm"
                             onClick={() => removeField(field.id)}
                           >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Confirm
                           </Button>
                         ) : (
@@ -216,6 +226,7 @@ export default function AdminFieldsPage() {
                             size="sm"
                             onClick={() => setConfirmDelete(field.id)}
                           >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Delete
                           </Button>
                         )}
@@ -279,9 +290,9 @@ function FieldModal({
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-1.5 sm:col-span-2">
-          <span className="text-sm font-medium text-gray-800">Complex</span>
+          <span className="text-sm font-semibold text-neutral-900">Complex</span>
           <select
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="select-control"
             value={form.complexId}
             onChange={(event) => setForm({ ...form, complexId: event.target.value })}
           >
@@ -343,18 +354,18 @@ function FieldModal({
           value={form.currency}
           onChange={(event) => setForm({ ...form, currency: event.target.value })}
         />
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
           <input
-            className="h-4 w-4 accent-green-600"
+            className="h-4 w-4 accent-neutral-950"
             type="checkbox"
             checked={form.indoor}
             onChange={(event) => setForm({ ...form, indoor: event.target.checked })}
           />
           Indoor
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
           <input
-            className="h-4 w-4 accent-green-600"
+            className="h-4 w-4 accent-neutral-950"
             type="checkbox"
             checked={form.lights}
             onChange={(event) => setForm({ ...form, lights: event.target.checked })}
@@ -365,4 +376,3 @@ function FieldModal({
     </Modal>
   );
 }
-

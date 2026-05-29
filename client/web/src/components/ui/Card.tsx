@@ -9,7 +9,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-gray-200 bg-white shadow-sm",
+        "rounded-[8px] border border-stone-200/80 bg-white/82 shadow-[0_18px_48px_rgba(23,23,23,0.06)] backdrop-blur",
         className,
       )}
       {...props}
@@ -26,7 +26,7 @@ export function CardHeader({
   className?: string;
   children: ReactNode;
 }) {
-  return <div className={cn("border-b border-gray-100 p-5", className)}>{children}</div>;
+  return <div className={cn("border-b border-stone-200/70 p-5", className)}>{children}</div>;
 }
 
 export function CardContent({
@@ -38,4 +38,3 @@ export function CardContent({
 }) {
   return <div className={cn("p-5", className)}>{children}</div>;
 }
-

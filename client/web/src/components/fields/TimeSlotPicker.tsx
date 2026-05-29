@@ -96,15 +96,15 @@ export function TimeSlotPicker({
             disabled={occupiedSlot}
             onClick={() => selectSlot(slot)}
             className={cn(
-              "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-              "focus:outline-none focus:ring-2 focus:ring-green-500",
+              "rounded-[8px] border px-3 py-2 text-sm font-semibold transition-all",
+              "focus:outline-none focus:ring-2 focus:ring-green-700",
               occupiedSlot &&
-                "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 line-through",
+                "cursor-not-allowed border-stone-200 bg-stone-100 text-stone-400 line-through",
               !occupiedSlot &&
                 !selected &&
-                "border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:bg-green-50",
-              selected && "border-green-600 bg-green-100 text-green-800",
-              startSelected && "ring-2 ring-blue-400",
+                "border-stone-200 bg-white/82 text-neutral-700 hover:border-green-700/40 hover:bg-emerald-50",
+              selected && "border-neutral-950 bg-neutral-950 text-white shadow-[0_10px_24px_rgba(23,23,23,0.14)]",
+              startSelected && "ring-2 ring-amber-300",
             )}
           >
             {minutesToTime(slot.start)}-{minutesToTime(slot.end)}
@@ -114,4 +114,3 @@ export function TimeSlotPicker({
     </div>
   );
 }
-

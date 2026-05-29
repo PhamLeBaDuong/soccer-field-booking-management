@@ -45,12 +45,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={cn(
-              "min-w-72 rounded-xl border px-4 py-3 text-sm shadow-lg",
+              "min-w-72 rounded-[8px] border px-4 py-3 text-sm font-medium shadow-[0_18px_48px_rgba(23,23,23,0.16)] backdrop-blur",
               toast.tone === "success" &&
-                "border-green-200 bg-green-50 text-green-800",
-              toast.tone === "error" && "border-red-200 bg-red-50 text-red-800",
+                "border-emerald-200 bg-emerald-50/95 text-emerald-900",
+              toast.tone === "error" && "border-red-200 bg-red-50/95 text-red-800",
               toast.tone === "info" &&
-                "border-blue-200 bg-blue-50 text-blue-800",
+                "border-sky-200 bg-sky-50/95 text-sky-900",
             )}
             role="status"
           >
@@ -70,4 +70,3 @@ export function useToast() {
 
   return context;
 }
-

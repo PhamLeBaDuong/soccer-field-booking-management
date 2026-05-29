@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LockKeyhole, LogIn, Trophy, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -60,21 +61,36 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-grid flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-green-600 text-white">
-            PB
-          </div>
-          <h1 className="mt-3 text-2xl font-semibold text-gray-900">
+    <div className="auth-grid grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
+      <section className="pitch-hero-bg hidden min-h-screen items-end p-10 text-white lg:flex">
+        <div className="max-w-xl">
+          <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
             {APP_NAME}
+          </p>
+          <h1 className="mt-5 text-5xl font-semibold tracking-[0]">
+            Reserve the beautiful game.
           </h1>
+          <p className="mt-4 text-base leading-7 text-white/74">
+            Premium fields, quiet workflows, and match-ready schedules.
+          </p>
         </div>
+      </section>
+      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-6 text-center lg:hidden">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-[8px] bg-neutral-950 text-white">
+              <Trophy className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <h1 className="mt-3 text-2xl font-semibold text-neutral-950">
+              {APP_NAME}
+            </h1>
+          </div>
         <Card>
           <CardContent>
-            <h2 className="text-xl font-semibold text-gray-900">Login</h2>
+            <h2 className="text-2xl font-semibold text-neutral-950">Login</h2>
             {apiError ? (
-              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+              <p className="mt-4 rounded-[8px] bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">
                 {apiError}
               </p>
             ) : null}
@@ -83,6 +99,7 @@ export default function LoginPage() {
                 label="Username or email"
                 name="identifier"
                 autoComplete="username"
+                leadingIcon={<UserRound className="h-4 w-4" aria-hidden="true" />}
                 value={identifier}
                 error={errors.identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
@@ -92,24 +109,26 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 autoComplete="current-password"
+                leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 value={password}
                 error={errors.password}
                 onChange={(event) => setPassword(event.target.value)}
               />
               <Button className="w-full" loading={submitting} type="submit">
+                <LogIn className="h-4 w-4" aria-hidden="true" />
                 Login
               </Button>
             </form>
-            <p className="mt-5 text-center text-sm text-gray-500">
+            <p className="mt-5 text-center text-sm text-stone-500">
               Need an account?{" "}
-              <Link className="font-medium text-green-700" href={ROUTES.register}>
+              <Link className="font-semibold text-neutral-950 hover:underline" href={ROUTES.register}>
                 Register
               </Link>
             </p>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );
 }
-

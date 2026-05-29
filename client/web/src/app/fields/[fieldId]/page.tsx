@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { ArrowLeft, Clock, CloudSun, MapPin, Trophy, Zap } from "lucide-react";
 import { AmenitiesList } from "@/components/fields/AmenitiesList";
 import { BookingForm } from "@/components/bookings/BookingForm";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -28,50 +29,56 @@ export default function FieldDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <Link className="text-sm font-medium text-green-700" href={ROUTES.fields}>
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="pitch-hero-bg mb-6 overflow-hidden rounded-[8px] px-5 py-8 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:px-8 lg:px-10">
+        <Link className="inline-flex items-center gap-2 text-sm font-semibold text-white/82 hover:text-white" href={ROUTES.fields}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to fields
         </Link>
-        <h1 className="mt-3 text-3xl font-semibold text-gray-900">{field.name}</h1>
-        <p className="mt-1 text-gray-500">
-          {field.complex?.name ?? "Independent field"}
-        </p>
-      </div>
+        <div className="mt-12 max-w-3xl">
+          <AmenitiesList field={field} />
+          <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{field.name}</h1>
+          <p className="mt-3 flex items-center gap-2 text-white/74">
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {field.complex?.name ?? "Independent field"}
+          </p>
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
         <div className="space-y-6">
           <Card>
             <CardContent>
-              <AmenitiesList field={field} />
-              <p className="mt-5 text-gray-600">
+              <p className="text-base leading-7 text-stone-600">
                 {field.description ||
                   "A well-maintained football pitch ready for your next match."}
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Info label="Address" value={field.address} />
+                <Info icon={MapPin} label="Address" value={field.address} />
                 <Info
+                  icon={Clock}
                   label="Operating hours"
                   value={`${field.startTime}-${field.endTime}`}
                 />
                 <Info
+                  icon={Trophy}
                   label="Price"
                   value={`${formatCurrency(
                     field.metadata.price,
                     field.metadata.currency,
                   )}/hr`}
                 />
-                <Info label="Surface" value={field.indoor ? "Indoor" : "Outdoor"} />
+                <Info icon={CloudSun} label="Surface" value={field.indoor ? "Indoor" : "Outdoor"} />
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent>
-              <h2 className="text-lg font-semibold text-gray-900">Amenities</h2>
+              <h2 className="text-lg font-semibold text-neutral-950">Amenities</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <Amenity title="Field type" value={field.type} />
-                <Amenity title="Lighting" value={field.lights ? "Available" : "No lights"} />
-                <Amenity title="Weather" value={field.indoor ? "Covered" : "Open air"} />
+                <Amenity icon={Trophy} title="Field type" value={field.type} />
+                <Amenity icon={Zap} title="Lighting" value={field.lights ? "Available" : "No lights"} />
+                <Amenity icon={CloudSun} title="Weather" value={field.indoor ? "Covered" : "Open air"} />
               </div>
             </CardContent>
           </Card>
@@ -80,8 +87,8 @@ export default function FieldDetailPage() {
         <Card className="bottom-0 lg:sticky lg:top-24 lg:self-start">
           <CardContent>
             <div className="mb-5">
-              <h2 className="text-lg font-semibold text-gray-900">Book this field</h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <h2 className="text-lg font-semibold text-neutral-950">Book this field</h2>
+              <p className="mt-1 text-sm text-stone-500">
                 {formatCurrency(field.metadata.price, field.metadata.currency)} per hour
               </p>
             </div>
@@ -93,20 +100,40 @@ export default function FieldDetailPage() {
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
-      <p className="text-xs font-medium uppercase text-gray-500">{label}</p>
-      <p className="mt-2 text-sm font-medium text-gray-900">{value}</p>
+    <div className="rounded-[8px] border border-stone-200 bg-white/66 p-4">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-neutral-950">{value}</p>
     </div>
   );
 }
 
-function Amenity({ title, value }: { title: string; value: string }) {
+function Amenity({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: typeof Trophy;
+  title: string;
+  value: string;
+}) {
   return (
-    <div className="rounded-lg bg-gray-50 p-4">
-      <p className="text-sm font-medium text-gray-900">{title}</p>
-      <p className="mt-1 text-sm text-gray-500">{value}</p>
+    <div className="rounded-[8px] bg-stone-50 p-4 ring-1 ring-stone-200/70">
+      <Icon className="h-4 w-4 text-stone-500" aria-hidden="true" />
+      <p className="mt-3 text-sm font-semibold text-neutral-950">{title}</p>
+      <p className="mt-1 text-sm text-stone-500">{value}</p>
     </div>
   );
 }
@@ -119,4 +146,3 @@ function FieldDetailSkeleton() {
     </div>
   );
 }
-
