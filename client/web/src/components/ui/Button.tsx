@@ -1,6 +1,7 @@
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { LoaderCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -8,19 +9,19 @@ type ButtonSize = "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500",
+    "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(23,23,23,0.16)] hover:bg-neutral-800 focus-visible:ring-green-700",
   secondary:
-    "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus-visible:ring-green-500",
+    "border border-stone-200 bg-white/80 text-neutral-900 shadow-[0_8px_24px_rgba(23,23,23,0.05)] hover:border-stone-300 hover:bg-white focus-visible:ring-green-700",
   ghost:
-    "text-gray-700 hover:bg-gray-100 focus-visible:ring-green-500",
+    "text-neutral-700 hover:bg-stone-100 focus-visible:ring-green-700",
   danger:
-    "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500",
+    "bg-red-600 text-white shadow-[0_10px_24px_rgba(220,38,38,0.18)] hover:bg-red-700 focus-visible:ring-red-500",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
   sm: "h-8 px-3 text-xs",
   md: "h-10 px-4 text-sm",
-  lg: "h-11 px-5 text-base",
+  lg: "h-11 px-5 text-sm",
 };
 
 export function buttonClasses(
@@ -29,7 +30,7 @@ export function buttonClasses(
   className?: string,
 ): string {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors",
+    "inline-flex items-center justify-center gap-2 rounded-[8px] font-semibold transition-all duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:opacity-60",
     variantClasses[variant],
@@ -59,10 +60,9 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
       ) : null}
       {children}
     </button>
   );
 }
-

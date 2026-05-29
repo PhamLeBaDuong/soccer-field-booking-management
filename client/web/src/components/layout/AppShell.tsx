@@ -13,8 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {hideNavbar ? null : <Navbar />}
-      <main className={hideNavbar ? "" : "pt-16"}>{children}</main>
+      <main className={hideNavbar ? "" : "app-background pt-16"}>{children}</main>
     </>
   );
 }
-

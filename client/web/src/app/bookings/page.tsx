@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarCheck, CheckCircle2, Clock3, ListFilter, Search, UsersRound, XCircle } from "lucide-react";
 import { BookingCard } from "@/components/bookings/BookingCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -23,6 +24,15 @@ const tabs: { label: string; value: BookingTab }[] = [
   { label: "Canceled", value: "canceled" },
 ];
 
+const tabIcons = {
+  all: ListFilter,
+  upcoming: Clock3,
+  pending: Search,
+  confirmed: CheckCircle2,
+  canceled: XCircle,
+  matching: UsersRound,
+} as const;
+
 export default function BookingsPage() {
   const router = useRouter();
   const { showToast } = useToast();
@@ -43,30 +53,28 @@ export default function BookingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">My bookings</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Track reservations, matches, and cancellations.
-          </p>
-        </div>
-      </div>
+      <section className="hairline-panel rounded-[8px] p-6">
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+          <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+          Schedule
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">
+          My bookings
+        </h1>
+        <p className="mt-2 text-sm text-stone-500">
+          Track reservations, matches, and cancellations.
+        </p>
+      </section>
 
       <div className="mt-6 flex gap-2 overflow-x-auto">
         {tabs.map((item) => (
-          <button
+          <TabButton
             key={item.value}
-            className={cn(
-              "shrink-0 rounded-lg border px-3 py-2 text-sm font-medium",
-              tab === item.value
-                ? "border-green-600 bg-green-50 text-green-700"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
-            )}
+            active={tab === item.value}
+            icon={tabIcons[item.value]}
+            label={item.label}
             onClick={() => setTab(item.value)}
-            type="button"
-          >
-            {item.label}
-          </button>
+          />
         ))}
       </div>
 
@@ -105,6 +113,34 @@ export default function BookingsPage() {
   );
 }
 
+function TabButton({
+  active,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: typeof ListFilter;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "flex shrink-0 items-center gap-2 rounded-[8px] border px-3 py-2 text-sm font-semibold transition-colors",
+        active
+          ? "border-neutral-950 bg-neutral-950 text-white"
+          : "border-stone-200 bg-white/78 text-stone-600 hover:bg-white hover:text-neutral-950",
+      )}
+      onClick={onClick}
+      type="button"
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      {label}
+    </button>
+  );
+}
+
 function filterBookings(bookings: Booking[], tab: BookingTab): Booking[] {
   if (tab === "all") {
     return bookings;
@@ -131,4 +167,3 @@ function BookingsSkeleton() {
     </div>
   );
 }
-

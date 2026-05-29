@@ -6,6 +6,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function Modal({
@@ -75,7 +76,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-sm"
       onMouseDown={onClose}
       onKeyDown={handleKeyDown}
       role="presentation"
@@ -83,30 +84,30 @@ export function Modal({
       <div
         ref={panelRef}
         className={cn(
-          "max-h-[90vh] w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-xl",
-          "border border-gray-200",
+          "max-h-[90vh] w-full max-w-xl overflow-hidden bg-white shadow-xl",
+          "rounded-[8px] border border-stone-200/90",
         )}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <h2 id="modal-title" className="text-base font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-stone-200/80 px-5 py-4">
+          <h2 id="modal-title" className="text-base font-semibold text-neutral-950">
             {title}
           </h2>
           <button
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="rounded-[8px] p-2 text-stone-500 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-green-700"
             onClick={onClose}
             type="button"
             aria-label="Close modal"
           >
-            x
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         <div className="max-h-[65vh] overflow-y-auto p-5">{children}</div>
         {footer ? (
-          <div className="border-t border-gray-100 bg-gray-50 px-5 py-4">
+          <div className="border-t border-stone-200/80 bg-stone-50 px-5 py-4">
             {footer}
           </div>
         ) : null}

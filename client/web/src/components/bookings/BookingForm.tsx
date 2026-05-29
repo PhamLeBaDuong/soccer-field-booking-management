@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, Check, UsersRound } from "lucide-react";
 import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -79,14 +80,15 @@ export function BookingForm({ field }: { field: Field }) {
       <Input
         label="Date"
         type="date"
+        leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
         value={date}
         min={todayInputValue()}
         onChange={(event) => setDate(event.target.value)}
       />
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-800">Time slot</span>
-          <span className="text-xs text-gray-500">1-hour slots</span>
+          <span className="text-sm font-semibold text-neutral-900">Time slot</span>
+          <span className="text-xs font-medium text-stone-500">1-hour slots</span>
         </div>
         <TimeSlotPicker
           startTime={field.startTime}
@@ -102,37 +104,38 @@ export function BookingForm({ field }: { field: Field }) {
         label="Team size"
         type="number"
         min={2}
+        leadingIcon={<UsersRound className="h-4 w-4" aria-hidden="true" />}
         value={teamSize}
         onChange={(event) => setTeamSize(event.target.value)}
       />
-      <label className="flex items-start gap-3 rounded-lg border border-gray-200 p-3">
+      <label className="flex items-start gap-3 rounded-[8px] border border-stone-200 bg-white/72 p-3">
         <input
-          className="mt-1 h-4 w-4 rounded border-gray-300 accent-green-600"
+          className="mt-1 h-4 w-4 rounded border-stone-300 accent-neutral-950"
           type="checkbox"
           checked={needMatching}
           onChange={(event) => setNeedMatching(event.target.checked)}
         />
         <span>
-          <span className="block text-sm font-medium text-gray-900">
+          <span className="block text-sm font-semibold text-neutral-950">
             Need matching?
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-stone-500">
             We will find another team to share the booking cost.
           </span>
         </span>
       </label>
-      <div className="rounded-lg bg-gray-50 p-4">
-        <div className="flex justify-between text-sm text-gray-600">
+      <div className="rounded-[8px] border border-stone-200 bg-stone-50/80 p-4">
+        <div className="flex justify-between text-sm text-stone-600">
           <span>Duration</span>
           <span className="font-mono">{hours || 0} hr</span>
         </div>
-        <div className="mt-2 flex justify-between text-sm text-gray-600">
+        <div className="mt-2 flex justify-between text-sm text-stone-600">
           <span>Rate</span>
           <span className="font-mono">
             {formatCurrency(field.metadata.price, field.metadata.currency)}
           </span>
         </div>
-        <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
+        <div className="mt-3 flex justify-between border-t border-stone-200 pt-3 font-semibold text-neutral-950">
           <span>Total</span>
           <span className="font-mono">
             {formatCurrency(total, field.metadata.currency)}
@@ -140,12 +143,12 @@ export function BookingForm({ field }: { field: Field }) {
         </div>
       </div>
       {error ? (
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>
+        <p className="rounded-[8px] bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">{error}</p>
       ) : null}
       <Button className="w-full" loading={loading} onClick={submitBooking}>
+        <Check className="h-4 w-4" aria-hidden="true" />
         Book Now
       </Button>
     </div>
   );
 }
-

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Building2, Edit3, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -126,21 +127,28 @@ export default function AdminComplexesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
+      <div className="hairline-panel flex items-center justify-between gap-4 rounded-[8px] p-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Complexes</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+            <Building2 className="h-4 w-4" aria-hidden="true" />
+            Locations
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-neutral-950">Complexes</h1>
+          <p className="mt-1 text-sm text-stone-500">
             Create and maintain field locations.
           </p>
         </div>
-        <Button onClick={openCreate}>Add Complex</Button>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Add Complex
+        </Button>
       </div>
       {error ? <div className="mt-6"><ErrorState message={error} onRetry={refresh} /></div> : null}
       <Card className="mt-6 overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100 text-sm">
-              <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+            <table className="min-w-full divide-y divide-stone-100 text-sm">
+              <thead className="bg-stone-50 text-left text-xs uppercase text-stone-500">
                 <tr>
                   <th className="px-5 py-3">Name</th>
                   <th className="px-5 py-3">Address</th>
@@ -149,19 +157,19 @@ export default function AdminComplexesPage() {
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
+              <tbody className="divide-y divide-stone-100 bg-white">
                 {items.map((complex) => (
-                  <tr key={complex.id}>
-                    <td className="px-5 py-4 font-medium text-gray-900">
+                  <tr key={complex.id} className="hover:bg-stone-50/70">
+                    <td className="px-5 py-4 font-semibold text-neutral-950">
                       <Link href={`/admin/complexes/${complex.id}`}>
                         {complex.name}
                       </Link>
                     </td>
-                    <td className="max-w-md px-5 py-4 text-gray-600">
+                    <td className="max-w-md px-5 py-4 text-stone-600">
                       {complex.address}
                     </td>
-                    <td className="px-5 py-4 text-gray-600">{complex.owner}</td>
-                    <td className="px-5 py-4 font-mono text-gray-900">
+                    <td className="px-5 py-4 text-stone-600">{complex.owner}</td>
+                    <td className="px-5 py-4 font-mono text-neutral-950">
                       {fields.filter((field) => field.complexId === complex.id).length}
                     </td>
                     <td className="px-5 py-4">
@@ -171,6 +179,7 @@ export default function AdminComplexesPage() {
                           size="sm"
                           onClick={() => openEdit(complex)}
                         >
+                          <Edit3 className="h-4 w-4" aria-hidden="true" />
                           Edit
                         </Button>
                         {confirmDelete === complex.id ? (
@@ -179,6 +188,7 @@ export default function AdminComplexesPage() {
                             size="sm"
                             onClick={() => removeComplex(complex.id)}
                           >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Confirm
                           </Button>
                         ) : (
@@ -187,6 +197,7 @@ export default function AdminComplexesPage() {
                             size="sm"
                             onClick={() => setConfirmDelete(complex.id)}
                           >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Delete
                           </Button>
                         )}
@@ -249,4 +260,3 @@ export default function AdminComplexesPage() {
     </div>
   );
 }
-

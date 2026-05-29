@@ -3,6 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import {
+  CalendarCheck,
+  ChevronDown,
+  LayoutDashboard,
+  LogIn,
+  LogOut,
+  MapPinned,
+  Shield,
+  Trophy,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { MobileNav, type NavItem } from "@/components/layout/MobileNav";
 import { buttonClasses } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/hooks";
@@ -12,14 +24,11 @@ import { cn } from "@/lib/utils/cn";
 
 function Logo() {
   return (
-    <Link className="flex items-center gap-2" href={ROUTES.dashboard}>
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-green-600 text-white">
-        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-          <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-          <path d="M12 5v14M3 12h18M7 9h2M15 15h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+    <Link className="flex items-center gap-3" href={ROUTES.dashboard}>
+      <span className="grid h-9 w-9 place-items-center rounded-[8px] bg-neutral-950 text-white shadow-[0_12px_24px_rgba(23,23,23,0.18)]">
+        <Trophy className="h-4 w-4" aria-hidden="true" />
       </span>
-      <span className="text-base font-semibold text-gray-900">{APP_NAME}</span>
+      <span className="text-base font-semibold text-neutral-950">{APP_NAME}</span>
     </Link>
   );
 }
@@ -29,15 +38,15 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const navItems: NavItem[] = [
-    { href: ROUTES.dashboard, label: "Dashboard" },
-    { href: ROUTES.fields, label: "Fields" },
-    { href: ROUTES.bookings, label: "My Bookings" },
-    { href: ROUTES.matching, label: "Matching" },
-    ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: "Admin" }] : []),
+    { href: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard },
+    { href: ROUTES.fields, label: "Fields", icon: MapPinned },
+    { href: ROUTES.bookings, label: "Bookings", icon: CalendarCheck },
+    { href: ROUTES.matching, label: "Matching", icon: UsersRound },
+    ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: "Admin", icon: Shield }] : []),
   ];
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
+    <header className="fixed left-0 right-0 top-0 z-40 border-b border-stone-200/70 bg-white/76 shadow-[0_8px_30px_rgba(23,23,23,0.05)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
         <nav className="hidden items-center gap-1 md:flex">
@@ -45,13 +54,14 @@ export function Navbar() {
             <Link
               key={item.href}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900",
+                "flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-neutral-950",
                 pathname.startsWith(item.href) &&
                   item.href !== ROUTES.home &&
-                  "bg-green-50 text-green-700",
+                  "bg-neutral-950 text-white hover:bg-neutral-900 hover:text-white",
               )}
               href={item.href}
             >
+              {item.icon ? <item.icon className="h-4 w-4" aria-hidden="true" /> : null}
               {item.label}
             </Link>
           ))}
@@ -60,40 +70,44 @@ export function Navbar() {
           {user ? (
             <div className="relative">
               <button
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="flex items-center gap-2 rounded-[8px] px-2 py-1.5 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-green-700"
                 onClick={() => setMenuOpen((current) => !current)}
                 type="button"
               >
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-green-100 text-sm font-semibold text-green-700">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-stone-950 text-sm font-semibold text-white">
                   {getInitials(user.name || user.username)}
                 </span>
-                <span className="text-sm font-medium text-gray-800">
+                <span className="text-sm font-semibold text-neutral-800">
                   {user.name || user.username}
                 </span>
+                <ChevronDown className="h-4 w-4 text-stone-500" aria-hidden="true" />
               </button>
               {menuOpen ? (
-                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+                <div className="absolute right-0 mt-2 w-52 rounded-[8px] border border-stone-200 bg-white/95 p-2 shadow-[0_18px_48px_rgba(23,23,23,0.12)] backdrop-blur-xl">
                   <Link
-                    className="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-stone-100"
                     href={ROUTES.dashboard}
                     onClick={() => setMenuOpen(false)}
                   >
+                    <UserRound className="h-4 w-4 text-stone-500" aria-hidden="true" />
                     Profile
                   </Link>
                   {user.role === "admin" ? (
                     <Link
-                      className="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-stone-100"
                       href={ROUTES.admin}
                       onClick={() => setMenuOpen(false)}
                     >
+                      <Shield className="h-4 w-4 text-stone-500" aria-hidden="true" />
                       Admin
                     </Link>
                   ) : null}
                   <button
-                    className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
                     onClick={logout}
                     type="button"
                   >
+                    <LogOut className="h-4 w-4" aria-hidden="true" />
                     Logout
                   </button>
                 </div>
@@ -101,6 +115,7 @@ export function Navbar() {
             </div>
           ) : (
             <Link className={buttonClasses("primary", "sm")} href={ROUTES.login}>
+              <LogIn className="h-4 w-4" aria-hidden="true" />
               Login
             </Link>
           )}
@@ -110,4 +125,3 @@ export function Navbar() {
     </header>
   );
 }
-

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CalendarDays, Clock, Search, UsersRound } from "lucide-react";
 import { MatchCard } from "@/components/matching/MatchCard";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -104,12 +105,18 @@ export default function MatchingPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Matching</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Find teams looking to share a field booking.
+      <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
+        <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
+          <UsersRound className="h-3.5 w-3.5" aria-hidden="true" />
+          Matching
         </p>
-      </div>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">
+          Find your next opponent
+        </h1>
+        <p className="mt-4 max-w-xl text-base leading-7 text-white/76">
+          Search open games by team size and time.
+        </p>
+      </section>
 
       <Card className="mt-6">
         <CardContent>
@@ -118,29 +125,34 @@ export default function MatchingPage() {
               label="Team size"
               type="number"
               min={2}
+              leadingIcon={<UsersRound className="h-4 w-4" aria-hidden="true" />}
               value={teamSize}
               onChange={(event) => setTeamSize(event.target.value)}
             />
             <Input
               label="Date"
               type="date"
+              leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
               value={date}
               onChange={(event) => setDate(event.target.value)}
             />
             <Input
               label="Start"
               type="time"
+              leadingIcon={<Clock className="h-4 w-4" aria-hidden="true" />}
               value={start}
               onChange={(event) => setStart(event.target.value)}
             />
             <Input
               label="End"
               type="time"
+              leadingIcon={<Clock className="h-4 w-4" aria-hidden="true" />}
               value={end}
               onChange={(event) => setEnd(event.target.value)}
             />
             <div className="flex items-end">
               <Button className="w-full" loading={loading} type="submit">
+                <Search className="h-4 w-4" aria-hidden="true" />
                 Search
               </Button>
             </div>
@@ -188,4 +200,3 @@ function MatchingSkeleton() {
     </div>
   );
 }
-

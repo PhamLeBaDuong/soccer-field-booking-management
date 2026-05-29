@@ -11,7 +11,7 @@ export function FieldGrid({
 }) {
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
           <CardSkeleton key={index} />
         ))}
@@ -20,11 +20,10 @@ export function FieldGrid({
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
       {fields.map((field) => (
         <FieldCard key={field.id} field={field} />
       ))}
     </div>
   );
 }
-

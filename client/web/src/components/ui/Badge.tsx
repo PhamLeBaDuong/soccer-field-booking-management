@@ -3,10 +3,10 @@ import type { BookingStatus } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 
 const statusClasses: Record<BookingStatus, string> = {
-  confirmed: "bg-green-100 text-green-700 ring-green-200",
-  pending: "bg-amber-100 text-amber-700 ring-amber-200",
-  canceled: "bg-red-100 text-red-700 ring-red-200",
-  matching: "bg-blue-100 text-blue-700 ring-blue-200",
+  confirmed: "bg-emerald-50 text-emerald-800 ring-emerald-200",
+  pending: "bg-amber-50 text-amber-800 ring-amber-200",
+  canceled: "bg-red-50 text-red-700 ring-red-200",
+  matching: "bg-sky-50 text-sky-800 ring-sky-200",
 };
 
 export function Badge({
@@ -25,10 +25,10 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
         status
           ? statusClasses[status]
-          : "bg-gray-100 text-gray-700 ring-gray-200",
+          : "bg-stone-100 text-stone-700 ring-stone-200",
         className,
       )}
     >
@@ -37,4 +37,3 @@ export function Badge({
     </span>
   );
 }
-
