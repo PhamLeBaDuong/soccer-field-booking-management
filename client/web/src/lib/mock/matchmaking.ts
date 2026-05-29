@@ -1,0 +1,102 @@
+import { mockFields } from "@/lib/mock/fields";
+import type { Lobby, MatchRequest, Team } from "@/lib/types";
+
+export const mockTeams: Team[] = [
+  {
+    id: "team-demo-5",
+    name: "District Five FC",
+    size: 5,
+    rating: 4.6,
+    leaderId: "demo-admin",
+    membersCount: 5,
+  },
+  {
+    id: "team-demo-7",
+    name: "Sunday Press",
+    size: 7,
+    rating: 4.3,
+    leaderId: "demo-admin",
+    membersCount: 7,
+  },
+];
+
+export const mockMatchRequests: MatchRequest[] = [
+  {
+    id: "request-river-5",
+    teamId: "team-river",
+    teamName: "River Side Rovers",
+    teamSize: 5,
+    fieldId: "field-green-5v5-a",
+    field: mockFields[0],
+    preferredStartTime: "2026-06-07T13:00:00.000Z",
+    preferredEndTime: "2026-06-07T15:00:00.000Z",
+    visibility: "public",
+    status: "open",
+    note: "Friendly pace, looking for a balanced 5v5 game.",
+  },
+  {
+    id: "request-district-7",
+    teamId: "team-district-east",
+    teamName: "District East",
+    teamSize: 7,
+    fieldId: "field-city-7v7-main",
+    field: mockFields[3],
+    preferredStartTime: "2026-06-09T12:00:00.000Z",
+    preferredEndTime: "2026-06-09T14:00:00.000Z",
+    visibility: "public",
+    status: "open",
+    note: "Booked the slot, need another 7v7 team.",
+  },
+  {
+    id: "request-saigon-11",
+    teamId: "team-saigon-pro",
+    teamName: "Saigon Pro XI",
+    teamSize: 11,
+    fieldId: "field-saigon-arena-11",
+    field: mockFields[7],
+    preferredStartTime: "2026-06-12T08:00:00.000Z",
+    preferredEndTime: "2026-06-12T10:00:00.000Z",
+    visibility: "public",
+    status: "open",
+    note: "Competitive but respectful full-size match.",
+  },
+];
+
+export const mockLobbies: Lobby[] = [
+  {
+    id: "lobby-green-5",
+    fieldId: "field-green-indoor",
+    field: mockFields[2],
+    startTime: "2026-06-06T18:00:00.000Z",
+    endTime: "2026-06-06T20:00:00.000Z",
+    teamSize: 10,
+    initialSize: 4,
+    joinedCount: 7,
+    creatorName: "Minh Nguyen",
+    status: "open",
+  },
+  {
+    id: "lobby-city-7",
+    fieldId: "field-city-7v7-main",
+    field: mockFields[3],
+    startTime: "2026-06-08T19:00:00.000Z",
+    endTime: "2026-06-08T21:00:00.000Z",
+    teamSize: 14,
+    initialSize: 6,
+    joinedCount: 11,
+    creatorName: "An Tran",
+    status: "open",
+  },
+  {
+    id: "lobby-saigon-5",
+    fieldId: "field-city-5v5-c",
+    field: mockFields[5],
+    startTime: "2026-06-10T12:00:00.000Z",
+    endTime: "2026-06-10T13:00:00.000Z",
+    teamSize: 10,
+    initialSize: 10,
+    joinedCount: 10,
+    creatorName: "Bao Le",
+    status: "confirmed",
+  },
+];

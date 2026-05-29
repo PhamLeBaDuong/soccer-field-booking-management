@@ -119,3 +119,44 @@ export interface MatchingSearch {
   fieldId?: string;
 }
 
+export type MatchRequestStatus = "open" | "matched" | "canceled";
+export type MatchRequestVisibility = "public" | "private";
+
+export interface Team {
+  id: string;
+  name: string;
+  size: number;
+  rating: number;
+  leaderId: string;
+  membersCount: number;
+}
+
+export interface MatchRequest {
+  id: string;
+  teamId: string;
+  teamName: string;
+  teamSize: number;
+  fieldId: string;
+  field?: Field;
+  preferredStartTime: string;
+  preferredEndTime: string;
+  visibility: MatchRequestVisibility;
+  status: MatchRequestStatus;
+  code?: string;
+  note?: string;
+}
+
+export type LobbyStatus = "open" | "full" | "confirmed" | "canceled";
+
+export interface Lobby {
+  id: string;
+  fieldId: string;
+  field?: Field;
+  startTime: string;
+  endTime: string;
+  teamSize: number;
+  initialSize: number;
+  joinedCount: number;
+  creatorName: string;
+  status: LobbyStatus;
+}
