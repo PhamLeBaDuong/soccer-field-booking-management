@@ -42,11 +42,13 @@ export function useField(fieldId: string | null): {
   refresh: () => Promise<void>;
 } {
   const [field, setField] = useState<Field | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!fieldId) {
+      setField(null);
+      setLoading(false);
       return;
     }
 

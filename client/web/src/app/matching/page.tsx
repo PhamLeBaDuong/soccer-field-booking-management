@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   CalendarDays,
   CheckCircle2,
-  Clock,
   Copy,
-  Eye,
-  EyeOff,
   Lock,
   Send,
   ShieldCheck,
@@ -15,6 +13,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -24,14 +23,21 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
 import { useBookingsContext } from "@/lib/bookings/context";
-import { acceptMatchPost, listMatchPosts } from "@/lib/api/matchPosts";
+import { acceptMatchPost } from "@/lib/api/matchPosts";
 import { createMatchPost } from "@/lib/api/teams";
 import { useMatchPosts } from "@/hooks/useMatchPosts";
 import { useTeams } from "@/hooks/useTeams";
 import { useFields } from "@/hooks/useFields";
-import type { Booking, Field, MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
+import { useField } from "@/hooks/useFields";
+import type { Booking, MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
-import { combineDateAndTime, formatCurrency, formatDateRange, todayInputValue } from "@/lib/utils/format";
+import {
+  combineDateAndTime,
+  formatCurrency,
+  formatDateRange,
+  timeToMinutes,
+  todayInputValue,
+} from "@/lib/utils/format";
 
 type PostForm = {
   teamId: string;
@@ -53,30 +59,45 @@ type BookingConfirmation = {
   currency?: string;
 };
 
-const BASE_FORM: Omit<PostForm, "teamId" | "fieldId"> = {
-  date:       todayInputValue(),
-  start:      "18:00",
-  end:        "20:00",
-  visibility: "public",
-  note:       "",
-};
-
+// Wrap in Suspense so useSearchParams works in Next.js App Router
 export default function MatchingPage() {
+  return (
+    <Suspense fallback={<MatchingSkeleton />}>
+      <MatchingContent />
+    </Suspense>
+  );
+}
+
+function MatchingContent() {
+  const searchParams = useSearchParams();
+  const urlFieldId = searchParams.get("fieldId") ?? "";
+
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
   const { addBookings } = useBookingsContext();
 
   const { fields, loading: fieldsLoading } = useFields();
-  const { teams, loading: teamsLoading, refresh: refreshTeams } = useTeams();
+  const { teams, loading: teamsLoading } = useTeams();
   const { posts, loading: postsLoading, error: postsError, refresh: refreshPosts } = useMatchPosts();
 
-  const [form, setForm] = useState<PostForm>({ teamId: "", fieldId: "", ...BASE_FORM });
+  const [form, setForm] = useState<PostForm>({
+    teamId: "",
+    fieldId: urlFieldId,
+    date: todayInputValue(),
+    start: "",
+    end: "",
+    visibility: "public",
+    note: "",
+  });
   const [activeTeamId, setActiveTeamId] = useState("");
   const [filterStatus, setFilterStatus] = useState<MatchRequestStatus | "all">("all");
   const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
 
-  // Default to first loaded team + field
+  // Load the currently selected field to get its operating hours + occupied slots
+  const { field: selectedField } = useField(form.fieldId || null);
+
+  // Default to first team once loaded
   useEffect(() => {
     if (teams.length > 0 && !form.teamId) {
       setForm((p) => ({ ...p, teamId: teams[0].id }));
@@ -84,6 +105,7 @@ export default function MatchingPage() {
     }
   }, [teams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Default to first field once loaded (only if not pre-selected from URL)
   useEffect(() => {
     if (fields.length > 0 && !form.fieldId) {
       setForm((p) => ({ ...p, fieldId: fields[0].id }));
@@ -101,13 +123,20 @@ export default function MatchingPage() {
     const field = fields.find((f) => f.id === form.fieldId);
     if (!team)  { showToast("Select a team.", "error");  return; }
     if (!field) { showToast("Select a field.", "error"); return; }
+    if (!form.start || !form.end) { showToast("Choose a time slot.", "error"); return; }
+
+    // Handle overnight fields: if end time < start time, booking ends next calendar day
+    const endDate =
+      timeToMinutes(form.end) < timeToMinutes(form.start)
+        ? (() => { const d = new Date(`${form.date}T00:00:00`); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })()
+        : form.date;
 
     try {
       await createMatchPost({
         teamId:             team.id,
         fieldId:            field.id,
         preferredStartTime: combineDateAndTime(form.date, form.start),
-        preferredEndTime:   combineDateAndTime(form.date, form.end),
+        preferredEndTime:   combineDateAndTime(endDate, form.end),
         visibility:         form.visibility,
         note:               form.note || undefined,
       });
@@ -131,7 +160,6 @@ export default function MatchingPage() {
       setAcceptedIds((prev) => [...prev, post.id]);
       await refreshPosts();
 
-      // Optimistic booking in context for instant Bookings tab feedback
       const field = post.field;
       if (field && user) {
         const hrs = (new Date(post.preferredEndTime).getTime() - new Date(post.preferredStartTime).getTime()) / 3_600_000;
@@ -152,13 +180,13 @@ export default function MatchingPage() {
       }
 
       setConfirmation({
-        postingTeam:  post.teamName,
+        postingTeam:   post.teamName,
         acceptingTeam: activeTeam.name,
-        fieldName:    post.field?.name ?? "Field",
-        dateRange:    formatDateRange(post.preferredStartTime, post.preferredEndTime),
-        teamSize:     post.teamSize,
+        fieldName:     post.field?.name ?? "Field",
+        dateRange:     formatDateRange(post.preferredStartTime, post.preferredEndTime),
+        teamSize:      post.teamSize,
         priceEstimate: (post.field?.metadata.price ?? 0) * 2,
-        currency:     post.field?.metadata.currency,
+        currency:      post.field?.metadata.currency,
       });
 
       showToast(`Match confirmed — ${activeTeam.name} vs ${post.teamName}!`);
@@ -245,10 +273,17 @@ export default function MatchingPage() {
             </div>
 
             <form className="mt-4 grid gap-3" onSubmit={handlePost}>
+              {/* Field selector */}
               <label className="block space-y-1.5">
                 <span className="text-sm font-semibold text-neutral-900">Field</span>
-                <select className="select-control" value={form.fieldId} disabled={fieldsLoading}
-                  onChange={(e) => setForm((p) => ({ ...p, fieldId: e.target.value }))}>
+                <select
+                  className="select-control"
+                  value={form.fieldId}
+                  disabled={fieldsLoading}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, fieldId: e.target.value, start: "", end: "" }))
+                  }
+                >
                   {fieldsLoading && <option>Loading…</option>}
                   {fields.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}</option>
@@ -256,17 +291,37 @@ export default function MatchingPage() {
                 </select>
               </label>
 
-              <Input label="Date" type="date"
+              {/* Date */}
+              <Input
+                label="Date"
+                type="date"
                 leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
-                value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Start" type="time"
-                  leadingIcon={<Clock className="h-4 w-4" aria-hidden="true" />}
-                  value={form.start} onChange={(e) => setForm((p) => ({ ...p, start: e.target.value }))} />
-                <Input label="End" type="time"
-                  leadingIcon={<Clock className="h-4 w-4" aria-hidden="true" />}
-                  value={form.end} onChange={(e) => setForm((p) => ({ ...p, end: e.target.value }))} />
+                value={form.date}
+                min={todayInputValue()}
+                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, start: "", end: "" }))}
+              />
+
+              {/* Time slot picker */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-neutral-900">Time slot</span>
+                  <span className="text-xs font-medium text-stone-500">1-hour slots</span>
+                </div>
+                <TimeSlotPicker
+                  key={form.fieldId + form.date}
+                  startTime={selectedField?.startTime ?? "06:00"}
+                  endTime={selectedField?.endTime ?? "22:00"}
+                  occupiedSlots={selectedField?.occupiedTimes ?? []}
+                  onRangeSelect={(s, e) => setForm((p) => ({ ...p, start: s, end: e }))}
+                />
+                {form.start && form.end && (
+                  <p className="mt-2 text-xs font-medium text-stone-500">
+                    Selected: {form.start} – {form.end}
+                  </p>
+                )}
               </div>
+
+              {/* Visibility + Note */}
               <div className="grid grid-cols-2 gap-3">
                 <label className="block space-y-1.5">
                   <span className="text-sm font-semibold text-neutral-900">Visibility</span>

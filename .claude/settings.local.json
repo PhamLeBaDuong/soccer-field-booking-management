@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(python -m json.tool)",
-      "Bash(curl -s http://localhost:5000/api/match-posts)"
+      "Bash(curl -s http://localhost:5000/api/match-posts)",
+      "Bash(npx tsc *)",
+      "PowerShell(Start-Process powershell -ArgumentList '-NoExit', '-Command', 'Set-Location \"d:\\\\soccer-field-booking-management\\\\server\"; npm run dev' -WindowStyle Normal)",
+      "PowerShell(Start-Process powershell -ArgumentList '-NoExit', '-Command', 'Set-Location \"d:\\\\soccer-field-booking-management\\\\client\\\\web\"; npm run dev' -WindowStyle Normal)"
     ]
   }
 }

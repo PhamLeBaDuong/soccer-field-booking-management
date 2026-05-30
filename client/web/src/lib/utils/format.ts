@@ -49,8 +49,17 @@ export function formatDateRange(startTime: string, endTime: string): string {
 }
 
 export function toDisplayTime(value: string): string {
+  // Already in HH:MM format — return as-is
   if (/^\d{2}:\d{2}$/.test(value)) {
     return value;
+  }
+
+  // ISO timestamp — extract the UTC HH:MM directly.
+  // Field operating hours are stored in UTC as a proxy for local time
+  // (e.g. "2000-01-01T06:00:00.000Z" means "opens at 06:00").
+  const isoMatch = value.match(/T(\d{2}:\d{2})/);
+  if (isoMatch) {
+    return isoMatch[1];
   }
 
   const date = new Date(value);
@@ -72,10 +81,11 @@ export function timeToMinutes(value: string): number {
 }
 
 export function minutesToTime(value: number): string {
-  const hours = Math.floor(value / 60)
+  const normalized = value % (24 * 60);
+  const hours = Math.floor(normalized / 60)
     .toString()
     .padStart(2, "0");
-  const minutes = (value % 60).toString().padStart(2, "0");
+  const minutes = (normalized % 60).toString().padStart(2, "0");
   return `${hours}:${minutes}`;
 }
 

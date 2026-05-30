@@ -27,18 +27,23 @@ export function TimeSlotPicker({
   const [selectedStart, setSelectedStart] = useState<number | null>(null);
   const [selectedEnd, setSelectedEnd] = useState<number | null>(null);
 
-  const occupied = useMemo(
-    () =>
-      occupiedSlots.map((slot) => ({
-        start: timeToMinutes(slot.startTime),
-        end: timeToMinutes(slot.endTime),
-      })),
-    [occupiedSlots],
-  );
+  const occupied = useMemo(() => {
+    const startMin = timeToMinutes(startTime);
+    return occupiedSlots.map((slot) => {
+      let s = timeToMinutes(slot.startTime);
+      let e = timeToMinutes(slot.endTime);
+      // Normalize after-midnight times for overnight fields
+      if (s < startMin) s += 24 * 60;
+      if (e < startMin) e += 24 * 60;
+      return { start: s, end: e };
+    });
+  }, [occupiedSlots, startTime]);
 
   const slots = useMemo(() => {
     const start = timeToMinutes(startTime);
-    const end = timeToMinutes(endTime);
+    let end = timeToMinutes(endTime);
+    // Handle overnight fields where closing time wraps past midnight
+    if (end <= start) end += 24 * 60;
     const next: Slot[] = [];
     for (let value = start; value < end; value += 60) {
       next.push({ start: value, end: Math.min(value + 60, end) });
