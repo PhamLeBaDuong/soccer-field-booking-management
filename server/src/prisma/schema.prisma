@@ -27,6 +27,7 @@ model User {
   ledTeams         Team[]       @relation("team_leader")
   teamMemberships  TeamMember[]
   lobbySlots       LobbySlot[]
+  createdLobbies   Lobby[]      @relation("lobby_creator")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -168,6 +169,8 @@ model Lobby {
   // Set by the system when this lobby is paired into a Match
   matchId     String?
   match       Match?      @relation("lobby_matches", fields: [matchId], references: [id])
+
+  creator     User        @relation("lobby_creator", fields: [creatorId], references: [id])
 
   createdAt   DateTime    @default(now())
 

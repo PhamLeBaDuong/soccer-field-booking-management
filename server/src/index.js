@@ -9,11 +9,13 @@ import matchRoutes     from "./routes/matchRoute.js";
 import teamRoutes      from "./routes/teamRoute.js";
 import matchPostRoutes from "./routes/matchPostRoute.js";
 import lobbyRoutes     from "./routes/lobbyRoute.js";
+import { runCleanup }  from "./services/cleanupService.js";
 
 dotenv.config();
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
 
 app.use(cors());
 app.use(express.json());
@@ -33,4 +35,8 @@ app.use("/api/lobbies",      lobbyRoutes);
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
+
+    // Run cleanup immediately on startup, then every 5 minutes
+    runCleanup();
+    setInterval(runCleanup, CLEANUP_INTERVAL_MS);
 });

@@ -1,6 +1,7 @@
 import express from "express";
 import {
     createMatchPost,
+    getMyMatchPosts,
     listMatchPosts,
     getMatchPost,
     acceptMatchPost,
@@ -16,6 +17,7 @@ router.get("/",           listMatchPosts);
 // All mutation routes require auth
 router.use(authenticate);
 
+router.get("/mine",                       getMyMatchPosts);
 router.post("/",                          createMatchPost);
 router.get("/:postId",                    getMatchPost);        // ?code= for private
 router.post("/:postId/accept",            acceptMatchPost);

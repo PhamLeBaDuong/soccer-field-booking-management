@@ -30,6 +30,13 @@ export async function createLobby(req, res) {
     } catch (error) { handleError(res, error); }
 }
 
+// GET /api/lobbies/mine
+export async function getMyLobbies(req, res) {
+    try {
+        res.json(await lobbyService.getMyLobbies(req.user.id));
+    } catch (error) { handleError(res, error); }
+}
+
 // GET /api/lobbies
 export async function listLobbies(req, res) {
     try {

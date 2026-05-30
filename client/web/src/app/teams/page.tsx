@@ -1,0 +1,253 @@
+"use client";
+
+import { useState } from "react";
+import { Crown, Plus, Trash2, UserMinus, Users } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Input } from "@/components/ui/Input";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useToast } from "@/components/ui/Toast";
+import { useRequireAuth } from "@/lib/auth/hooks";
+import { createTeam as apiCreateTeam, disbandTeam as apiDisbandTeam, removeTeamMember } from "@/lib/api/teams";
+import { useTeams } from "@/hooks/useTeams";
+import type { Team } from "@/lib/types";
+import { cn } from "@/lib/utils/cn";
+
+type CreateForm = { name: string; size: string };
+
+export default function TeamsPage() {
+  const { user, loading: authLoading } = useRequireAuth();
+  const { showToast } = useToast();
+  const { teams, loading, error, refresh } = useTeams();
+
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
+  const [form, setForm] = useState<CreateForm>({ name: "", size: "5" });
+
+  const activeTeam = teams.find((t) => t.id === (activeTeamId ?? teams[0]?.id));
+
+  if (authLoading || !user) return <TeamsSkeleton />;
+
+  async function handleCreate(event: React.FormEvent) {
+    event.preventDefault();
+    const size = Number(form.size);
+    if (!form.name.trim() || size < 2) {
+      showToast("Team name and valid size (≥ 2) are required.", "error"); return;
+    }
+    try {
+      const team = await apiCreateTeam({ name: form.name.trim(), size });
+      await refresh();
+      setActiveTeamId(team.id);
+      setForm({ name: "", size: "5" });
+      showToast(`Team "${team.name}" created.`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to create team.", "error");
+    }
+  }
+
+  async function handleDisband(teamId: string) {
+    try {
+      await apiDisbandTeam(teamId);
+      await refresh();
+      setActiveTeamId(null);
+      showToast("Team disbanded.");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to disband.", "error");
+    }
+  }
+
+  async function handleRemoveMember(teamId: string, userId: string) {
+    try {
+      await removeTeamMember(teamId, userId);
+      await refresh();
+      showToast("Member removed.");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to remove member.", "error");
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
+        <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
+          <Users className="h-3.5 w-3.5" aria-hidden="true" />
+          Team management
+        </p>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">My teams</h1>
+        <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
+          Create and manage your teams. Select a team to view its members and post match requests.
+        </p>
+      </section>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        {/* Team list + create */}
+        <Card>
+          <CardContent>
+            <p className="text-xs font-semibold uppercase text-stone-500">My teams</p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">Select a team</h2>
+
+            {error && <ErrorState message={error} onRetry={refresh} />}
+
+            <div className="mt-5 grid gap-3">
+              {loading ? (
+                <><Skeleton className="h-16" /><Skeleton className="h-16" /></>
+              ) : teams.length === 0 ? (
+                <EmptyState icon={<Users className="h-5 w-5" />}
+                  title="No teams yet"
+                  description="Create your first team below." />
+              ) : (
+                teams.map((team) => {
+                  const isActive = team.id === (activeTeamId ?? teams[0]?.id);
+                  return (
+                    <button key={team.id} type="button"
+                      onClick={() => setActiveTeamId(team.id)}
+                      className={cn(
+                        "flex items-center justify-between rounded-[8px] border p-3 text-left transition-colors",
+                        isActive
+                          ? "border-neutral-950 bg-neutral-950 text-white"
+                          : "border-stone-200 bg-white/80 text-neutral-950 hover:bg-stone-50",
+                      )}>
+                      <span>
+                        <span className="block text-sm font-semibold">{team.name}</span>
+                        <span className={cn("text-xs", isActive ? "text-white/70" : "text-stone-500")}>
+                          {team.membersCount}/{team.size} players · rating {team.rating.toFixed(1)}
+                        </span>
+                      </span>
+                      <span className="font-mono text-sm">{team.size}v{team.size}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            <form className="mt-5 grid gap-3 sm:grid-cols-[1fr_110px_auto]" onSubmit={handleCreate}>
+              <Input label="Team name" placeholder="e.g. Thunder FC"
+                value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input label="Size" type="number" min={2} max={22}
+                value={form.size} onChange={(e) => setForm((p) => ({ ...p, size: e.target.value }))} />
+              <div className="flex items-end">
+                <Button className="w-full" type="submit">
+                  <Plus className="h-4 w-4" aria-hidden="true" />Create
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Team detail */}
+        <Card>
+          <CardContent>
+            {!activeTeam ? (
+              <EmptyState icon={<Users className="h-5 w-5" />}
+                title="No team selected"
+                description="Create or select a team on the left." />
+            ) : (
+              <>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-stone-500">Team detail</p>
+                    <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{activeTeam.name}</h2>
+                  </div>
+                  {activeTeam.leaderId === user.id && (
+                    <Button variant="secondary"
+                      onClick={() => handleDisband(activeTeam.id)}
+                      className="text-red-600 hover:bg-red-50"
+                      title="Disband team">
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Disband
+                    </Button>
+                  )}
+                </div>
+
+                {/* Stats */}
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Format",  value: `${activeTeam.size}v${activeTeam.size}` },
+                    { label: "Members", value: `${activeTeam.membersCount}/${activeTeam.size}` },
+                    { label: "Rating",  value: activeTeam.rating.toFixed(1) },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-[8px] bg-stone-50 p-3 ring-1 ring-stone-200">
+                      <p className="text-xs font-semibold text-stone-500">{s.label}</p>
+                      <p className="mt-1 text-lg font-semibold text-neutral-950">{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Team ID */}
+                <div className="mt-4 rounded-[8px] bg-stone-50 px-3 py-2 ring-1 ring-stone-200">
+                  <p className="text-xs font-semibold text-stone-500">Team ID</p>
+                  <p className="mt-0.5 break-all font-mono text-xs text-neutral-700">{activeTeam.id}</p>
+                </div>
+
+                {/* Members */}
+                <div className="mt-5">
+                  <p className="text-xs font-semibold uppercase text-stone-500">Members</p>
+                  <MemberList
+                    team={activeTeam}
+                    currentUserId={user.id}
+                    onRemove={(userId) => handleRemoveMember(activeTeam.id, userId)}
+                  />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─── Member list ──────────────────────────────────────────────────────────────
+
+function MemberList({ team, currentUserId, onRemove }: {
+  team: Team;
+  currentUserId: string;
+  onRemove: (userId: string) => void;
+}) {
+  const isLeader = team.leaderId === currentUserId;
+  const memberCount = team.membersCount;
+
+  // The API returns membersCount; actual member names require a deeper endpoint.
+  // Display placeholder rows for now with the count we know.
+  return (
+    <div className="mt-3 grid gap-2">
+      <div className="flex items-center justify-between rounded-[8px] border border-stone-200 bg-white/80 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-full bg-stone-950 text-xs font-semibold text-white">
+            {currentUserId === team.leaderId ? "Y" : "?"}
+          </span>
+          <span className="text-sm font-medium text-neutral-950">
+            {currentUserId === team.leaderId ? "You (leader)" : "Team leader"}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+            <Crown className="h-3 w-3" aria-hidden="true" />Leader
+          </span>
+        </div>
+      </div>
+
+      {memberCount > 1 && (
+        <p className="rounded-[8px] bg-stone-50 px-3 py-2 text-xs text-stone-500 ring-1 ring-stone-100">
+          +{memberCount - 1} other member{memberCount > 2 ? "s" : ""} · share the team ID for others to join
+        </p>
+      )}
+
+      {memberCount < team.size && (
+        <p className="rounded-[8px] bg-blue-50 px-3 py-2 text-xs text-blue-700 ring-1 ring-blue-100">
+          {team.size - memberCount} open slot{team.size - memberCount > 1 ? "s" : ""} — share the team ID ({team.id}) with players to add them
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TeamsSkeleton() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <Skeleton className="h-48" />
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <Skeleton className="h-96" /><Skeleton className="h-96" />
+      </div>
+    </div>
+  );
+}

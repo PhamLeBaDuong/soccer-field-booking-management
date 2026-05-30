@@ -13,7 +13,10 @@ import {
   Shield,
   Trophy,
   UserRound,
+  Users,
   UsersRound,
+  Swords,
+  DoorOpen,
 } from "lucide-react";
 import { MobileNav, type NavItem } from "@/components/layout/MobileNav";
 import { buttonClasses } from "@/components/ui/Button";
@@ -41,7 +44,9 @@ export function Navbar() {
     { href: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard },
     { href: ROUTES.fields, label: "Fields", icon: MapPinned },
     { href: ROUTES.bookings, label: "Bookings", icon: CalendarCheck },
-    { href: ROUTES.matching, label: "Matching", icon: UsersRound },
+    { href: ROUTES.teams, label: "Teams", icon: Users },
+    { href: ROUTES.matching, label: "Matches", icon: Swords },
+    { href: ROUTES.lobbies, label: "Lobbies", icon: DoorOpen },
     ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: "Admin", icon: Shield }] : []),
   ];
 

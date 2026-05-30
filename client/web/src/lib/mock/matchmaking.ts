@@ -74,6 +74,7 @@ export const mockLobbies: Lobby[] = [
     joinedCount: 7,
     creatorName: "Minh Nguyen",
     status: "open",
+    visibility: "public",
   },
   {
     id: "lobby-city-7",
@@ -86,6 +87,8 @@ export const mockLobbies: Lobby[] = [
     joinedCount: 11,
     creatorName: "An Tran",
     status: "open",
+    visibility: "private",
+    code: "A3F9C2",
   },
   {
     id: "lobby-saigon-5",
@@ -98,5 +101,6 @@ export const mockLobbies: Lobby[] = [
     joinedCount: 10,
     creatorName: "Bao Le",
     status: "confirmed",
+    visibility: "public",
   },
 ];

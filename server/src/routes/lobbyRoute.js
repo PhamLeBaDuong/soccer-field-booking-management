@@ -1,6 +1,7 @@
 import express from "express";
 import {
     createLobby,
+    getMyLobbies,
     listLobbies,
     getLobbyById,
     joinLobby,
@@ -15,9 +16,10 @@ const router = express.Router();
 router.get("/",           listLobbies);
 router.get("/:lobbyId",   getLobbyById);
 
-// Mutations require auth
+// Mutations + personal routes require auth
 router.use(authenticate);
 
+router.get("/mine",                   getMyLobbies);
 router.post("/",                      createLobby);
 router.post("/:lobbyId/join",         joinLobby);
 router.delete("/:lobbyId/leave",      leaveLobby);

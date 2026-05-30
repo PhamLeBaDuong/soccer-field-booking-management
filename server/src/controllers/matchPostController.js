@@ -32,6 +32,13 @@ export async function createMatchPost(req, res) {
     } catch (error) { handleError(res, error); }
 }
 
+// GET /api/match-posts/mine
+export async function getMyMatchPosts(req, res) {
+    try {
+        res.json(await matchPostService.getMyMatchPosts(req.user.id));
+    } catch (error) { handleError(res, error); }
+}
+
 // GET /api/match-posts           (public listing)
 export async function listMatchPosts(req, res) {
     try {

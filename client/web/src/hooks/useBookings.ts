@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   cancelBooking,
   getBookingById,
   getUserBookings,
 } from "@/lib/api/bookings";
+import { useBookingsContext } from "@/lib/bookings/context";
 import type { Booking } from "@/lib/types";
 
 export function useBookings(userId?: string): {
@@ -15,7 +16,8 @@ export function useBookings(userId?: string): {
   refresh: () => Promise<void>;
   cancel: (bookingId: string) => Promise<void>;
 } {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const { extraBookings } = useBookingsContext();
+  const [apiBookings, setApiBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ export function useBookings(userId?: string): {
     setLoading(true);
     setError(null);
     try {
-      setBookings(await getUserBookings(userId));
+      setApiBookings(await getUserBookings(userId));
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Unable to load bookings.",
@@ -38,21 +40,28 @@ export function useBookings(userId?: string): {
     }
   }, [userId]);
 
-  const cancel = useCallback(
-    async (bookingId: string) => {
-      const updated = await cancelBooking(bookingId);
-      setBookings((current) =>
-        current.map((booking) =>
-          booking.id === bookingId ? { ...booking, ...updated } : booking,
-        ),
-      );
-    },
-    [],
-  );
+  const cancel = useCallback(async (bookingId: string) => {
+    const updated = await cancelBooking(bookingId);
+    setApiBookings((current) =>
+      current.map((booking) =>
+        booking.id === bookingId ? { ...booking, ...updated } : booking,
+      ),
+    );
+  }, []);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Merge: extra (in-session confirmed) bookings appear first, de-duplicated by id
+  const bookings = useMemo(() => {
+    const userExtra = userId
+      ? extraBookings.filter((b) => b.userId === userId)
+      : [];
+    const apiIds = new Set(apiBookings.map((b) => b.id));
+    const freshExtra = userExtra.filter((b) => !apiIds.has(b.id));
+    return [...freshExtra, ...apiBookings];
+  }, [extraBookings, apiBookings, userId]);
 
   return { bookings, loading, error, refresh, cancel };
 }
@@ -91,4 +100,3 @@ export function useBooking(bookingId: string | null): {
 
   return { booking, loading, error, refresh };
 }
-

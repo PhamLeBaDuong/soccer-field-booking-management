@@ -144,6 +144,29 @@ export async function listMatchPosts({ teamSize, fieldId, status = "open" } = {}
     });
 }
 
+/**
+ * Returns all match posts for teams led by userId, plus posts the user accepted.
+ */
+export async function getMyMatchPosts(userId) {
+    if (!userId) throw new Error("userId is required");
+    return prisma.matchPost.findMany({
+        where: {
+            OR: [
+                // Posts created by teams the user leads
+                { team: { leaderId: userId } },
+                // Posts accepted by a team the user leads (match was created → booking exists)
+                {
+                    match: {
+                        bookings: { some: { userId } },
+                    },
+                },
+            ],
+        },
+        include: POST_INCLUDE,
+        orderBy: { createdAt: "desc" },
+    });
+}
+
 // ─── Accept ───────────────────────────────────────────────────────────────────
 
 /**

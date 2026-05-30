@@ -157,6 +157,9 @@ export interface Lobby {
   teamSize: number;
   initialSize: number;
   joinedCount: number;
+  creatorId?: string;
   creatorName: string;
   status: LobbyStatus;
+  visibility: MatchRequestVisibility;
+  code?: string;
 }

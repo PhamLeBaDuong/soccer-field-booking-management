@@ -36,16 +36,21 @@ function readOwner(value: unknown, fallback = "PitchBook Admin"): string {
 }
 
 function readPrice(record: DataRecord): { price: number; currency?: string } {
-  const metadata = record.metadata;
+  // New backend schema stores price directly as pricePerHour on Field
+  if (record.pricePerHour !== undefined) {
+    return { price: readNumber(record, "pricePerHour", 0), currency: DEFAULT_CURRENCY };
+  }
 
+  // Legacy: price inside a metadata object
+  const metadata = record.metadata;
   if (isRecord(metadata)) {
     return {
-      price: readNumber(metadata, "price", 250000),
+      price: readNumber(metadata, "price", 0),
       currency: readString(metadata, "currency", DEFAULT_CURRENCY),
     };
   }
 
-  return { price: 250000, currency: DEFAULT_CURRENCY };
+  return { price: 0, currency: DEFAULT_CURRENCY };
 }
 
 function readOccupiedTimes(record: DataRecord): { startTime: string; endTime: string }[] {

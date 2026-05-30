@@ -15,6 +15,7 @@ const LOBBY_INCLUDE = {
         },
         orderBy: { joinedAt: "asc" },
     },
+    creator: { select: { id: true, name: true, username: true } },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -227,6 +228,30 @@ export async function createLobby({
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns all lobbies where the user is the creator OR has a LobbySlot.
+ * Excludes canceled lobbies older than 24 h to keep the list clean.
+ */
+export async function getMyLobbies(userId) {
+    if (!userId) throw new Error("userId is required");
+    return prisma.lobby.findMany({
+        where: {
+            OR: [
+                { creatorId: userId },
+                { slots: { some: { userId } } },
+            ],
+            NOT: {
+                AND: [
+                    { status: "canceled" },
+                    { endTime: { lt: new Date(Date.now() - 24 * 3600 * 1000) } },
+                ],
+            },
+        },
+        include: LOBBY_INCLUDE,
+        orderBy: { createdAt: "desc" },
+    });
+}
 
 export async function getLobbyById(lobbyId) {
     if (!lobbyId) throw new Error("lobbyId is required");
