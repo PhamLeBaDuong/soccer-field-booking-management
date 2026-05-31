@@ -146,6 +146,26 @@ export interface MatchRequest {
   note?: string;
 }
 
+export type MatchSource = "post" | "lobby";
+export type MatchStatus = "confirmed" | "canceled";
+
+export interface Match {
+  id: string;
+  source: MatchSource;
+  status: MatchStatus;
+  fieldId: string;
+  startTime: string;
+  endTime: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  resultNote: string | null;
+  matchPostId?: string | null;
+  createdAt: string;
+  bookings?: Booking[];
+  matchPost?: MatchRequest | null;
+  field?: Field;
+}
+
 export type LobbyStatus = "open" | "full" | "confirmed" | "canceled";
 
 export interface Lobby {

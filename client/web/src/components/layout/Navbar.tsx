@@ -4,12 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  Building2,
   CalendarCheck,
   ChevronDown,
+  History,
   LayoutDashboard,
   LogIn,
   LogOut,
   MapPinned,
+  MessageCircle,
   Shield,
   Trophy,
   UserRound,
@@ -45,8 +48,10 @@ export function Navbar() {
     { href: ROUTES.fields, label: "Fields", icon: MapPinned },
     { href: ROUTES.bookings, label: "Bookings", icon: CalendarCheck },
     { href: ROUTES.teams, label: "Teams", icon: Users },
-    { href: ROUTES.matching, label: "Matches", icon: Swords },
-    { href: ROUTES.lobbies, label: "Lobbies", icon: DoorOpen },
+    { href: ROUTES.matching,  label: "Matches",    icon: Swords },
+    { href: ROUTES.lobbies,   label: "Lobbies",    icon: DoorOpen },
+    { href: ROUTES.history,   label: "History",    icon: History },
+    { href: ROUTES.myVenues,  label: "My Venues",  icon: Building2 },
     ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: "Admin", icon: Shield }] : []),
   ];
 
@@ -96,6 +101,14 @@ export function Navbar() {
                   >
                     <UserRound className="h-4 w-4 text-stone-500" aria-hidden="true" />
                     Profile
+                  </Link>
+                  <Link
+                    className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-stone-100"
+                    href={ROUTES.friends}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <MessageCircle className="h-4 w-4 text-stone-500" aria-hidden="true" />
+                    Friends &amp; Chat
                   </Link>
                   {user.role === "admin" ? (
                     <Link

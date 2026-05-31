@@ -10,6 +10,8 @@ import {
     updateField,
     deleteComplex,
     deleteField,
+    getFieldSchedule,
+    setMatchResult,
 } from "../controllers/adminController.js";
 import { authenticate, requireAdmin } from "../middleware/authMiddleware.js";
 
@@ -26,10 +28,14 @@ router.put("/complexes/:id", updateComplex);
 router.delete("/complexes/:id", deleteComplex);
 
 // Fields
-router.get("/fields", getAllFields);
-router.get("/complexes/:complexId/fields", getFieldsByComplexId);
-router.post("/fields", addField);
-router.put("/fields/:id", updateField);
-router.delete("/fields/:id", deleteField);
+router.get("/fields",                           getAllFields);
+router.get("/complexes/:complexId/fields",      getFieldsByComplexId);
+router.post("/fields",                          addField);
+router.put("/fields/:id",                       updateField);
+router.delete("/fields/:id",                    deleteField);
+router.get("/fields/:fieldId/schedule",         getFieldSchedule);
+
+// Match results
+router.put("/matches/:matchId/result",          setMatchResult);
 
 export default router;

@@ -193,3 +193,79 @@ export async function deleteField(req, res) {
         res.status(500).json({ error: "Internal server error" });
     }
 }
+
+// ─── Schedule ─────────────────────────────────────────────────────────────────
+
+// GET /api/admin/fields/:fieldId/schedule?date=YYYY-MM-DD
+// Returns all confirmed bookings on a given UTC calendar day, with match details.
+export async function getFieldSchedule(req, res) {
+    const { fieldId } = req.params;
+    const { date } = req.query;
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "date query param (YYYY-MM-DD) is required" });
+    }
+
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd   = new Date(`${date}T23:59:59.999Z`);
+
+    try {
+        // De-duplicate by matchId — one slot per match is enough for the timetable
+        const bookings = await prisma.booking.findMany({
+            where: {
+                fieldId,
+                status: "confirmed",
+                startTime: { gte: dayStart, lte: dayEnd },
+            },
+            include: {
+                user:  { select: { id: true, name: true, username: true } },
+                match: {
+                    include: {
+                        matchPost: {
+                            include: {
+                                team: { select: { id: true, name: true, size: true } },
+                            },
+                        },
+                        lobbies: {
+                            select: { id: true, teamSize: true, initialSize: true, creatorId: true },
+                        },
+                    },
+                },
+            },
+            orderBy: { startTime: "asc" },
+            distinct: ["matchId"],
+        });
+
+        res.json(bookings);
+    } catch (error) {
+        console.error("Error fetching field schedule:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+}
+
+// ─── Match result ─────────────────────────────────────────────────────────────
+
+// PUT /api/admin/matches/:matchId/result
+export async function setMatchResult(req, res) {
+    const { matchId } = req.params;
+    const { homeScore, awayScore, resultNote } = req.body;
+
+    if (homeScore === undefined || awayScore === undefined) {
+        return res.status(400).json({ error: "homeScore and awayScore are required" });
+    }
+
+    try {
+        const match = await prisma.match.update({
+            where: { id: matchId },
+            data: {
+                homeScore:  Number(homeScore),
+                awayScore:  Number(awayScore),
+                resultNote: resultNote ?? null,
+            },
+        });
+        res.json({ message: "Match result recorded", match });
+    } catch (error) {
+        console.error("Error setting match result:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+}

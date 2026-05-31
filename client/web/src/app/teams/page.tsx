@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Crown, Plus, Trash2, UserMinus, Users } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Check, Crown, Mail, Plus, Search, Trash2, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -11,6 +11,11 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
 import { createTeam as apiCreateTeam, disbandTeam as apiDisbandTeam, removeTeamMember } from "@/lib/api/teams";
+import {
+  searchUsers, sendTeamInvite,
+  getMyInvites, acceptTeamInvite, declineTeamInvite,
+  type FriendUser, type TeamInvite,
+} from "@/lib/api/friends";
 import { useTeams } from "@/hooks/useTeams";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
@@ -24,6 +29,25 @@ export default function TeamsPage() {
 
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [form, setForm] = useState<CreateForm>({ name: "", size: "5" });
+
+  // Received invites (pending team join requests)
+  const [pendingInvites,  setPendingInvites]  = useState<TeamInvite[]>([]);
+  const [loadingInvites,  setLoadingInvites]  = useState(false);
+
+  const loadInvites = useCallback(async () => {
+    setLoadingInvites(true);
+    try { setPendingInvites(await getMyInvites()); }
+    catch {/* ignore */}
+    finally { setLoadingInvites(false); }
+  }, []);
+
+  useEffect(() => { loadInvites(); }, [loadInvites]);
+
+  // Outgoing invite
+  const [inviteQuery,   setInviteQuery]   = useState("");
+  const [inviteResults, setInviteResults] = useState<FriendUser[]>([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [showInvite,    setShowInvite]    = useState(false);
 
   const activeTeam = teams.find((t) => t.id === (activeTeamId ?? teams[0]?.id));
 
@@ -67,6 +91,46 @@ export default function TeamsPage() {
     }
   }
 
+  async function handleInviteSearch(q: string) {
+    setInviteQuery(q);
+    if (!q.trim()) { setInviteResults([]); return; }
+    setInviteLoading(true);
+    try { setInviteResults(await searchUsers(q)); }
+    catch {/* ignore */}
+    finally { setInviteLoading(false); }
+  }
+
+  async function handleSendInvite(teamId: string, userId: string, userName: string) {
+    try {
+      await sendTeamInvite(teamId, userId);
+      showToast(`Invite sent to ${userName}.`);
+      setInviteQuery(""); setInviteResults([]);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to send invite.", "error");
+    }
+  }
+
+  async function handleAcceptInvite(inviteId: string, teamName: string) {
+    try {
+      await acceptTeamInvite(inviteId);
+      showToast(`Joined ${teamName}!`);
+      setPendingInvites((p) => p.filter((i) => i.id !== inviteId));
+      await refresh(); // refresh team list
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed.", "error");
+    }
+  }
+
+  async function handleDeclineInvite(inviteId: string) {
+    try {
+      await declineTeamInvite(inviteId);
+      showToast("Invite declined.");
+      setPendingInvites((p) => p.filter((i) => i.id !== inviteId));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed.", "error");
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
@@ -79,6 +143,51 @@ export default function TeamsPage() {
           Create and manage your teams. Select a team to view its members and post match requests.
         </p>
       </section>
+
+      {/* ── Pending team invitations ── */}
+      {(loadingInvites || pendingInvites.length > 0) && (
+        <Card className="mt-6">
+          <CardContent>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+              <Mail className="h-4 w-4" aria-hidden="true" />
+              Team invitations
+              {pendingInvites.length > 0 && (
+                <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                  {pendingInvites.length}
+                </span>
+              )}
+            </p>
+            {loadingInvites ? (
+              <Skeleton className="mt-3 h-12" />
+            ) : pendingInvites.length === 0 ? (
+              <p className="mt-3 text-sm text-stone-500">No pending invitations.</p>
+            ) : (
+              <div className="mt-3 grid gap-2">
+                {pendingInvites.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between gap-3 rounded-[8px] border border-stone-200 bg-white/80 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-950">{inv.team.name}</p>
+                      <p className="text-xs text-stone-500">
+                        {inv.team.size}v{inv.team.size} · Invited by <span className="font-medium">{inv.invitedBy.name}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button size="sm" onClick={() => handleAcceptInvite(inv.id, inv.team.name)}>
+                        <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                        Join
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => handleDeclineInvite(inv.id)}>
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        Decline
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         {/* Team list + create */}
@@ -188,6 +297,50 @@ export default function TeamsPage() {
                     currentUserId={user.id}
                     onRemove={(userId) => handleRemoveMember(activeTeam.id, userId)}
                   />
+                </div>
+
+                {/* Invite Player */}
+                <div className="mt-5 border-t border-stone-100 pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase text-stone-500">Invite a player</p>
+                    <button type="button" onClick={() => setShowInvite((v) => !v)}
+                      className="text-xs font-semibold text-neutral-700 hover:underline">
+                      {showInvite ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  {showInvite && (
+                    <div className="mt-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" />
+                        <input
+                          className="w-full rounded-[8px] border border-stone-200 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
+                          placeholder="Search by name or username…"
+                          value={inviteQuery}
+                          onChange={(e) => handleInviteSearch(e.target.value)}
+                        />
+                      </div>
+                      {inviteLoading && <p className="mt-2 text-xs text-stone-400">Searching…</p>}
+                      {!inviteLoading && inviteQuery && inviteResults.length === 0 && (
+                        <p className="mt-2 text-xs text-stone-400">No players found.</p>
+                      )}
+                      <div className="mt-2 grid gap-1.5">
+                        {inviteResults.map((u) => (
+                          <div key={u.id} className="flex items-center justify-between rounded-[8px] border border-stone-200 px-3 py-2">
+                            <div>
+                              <p className="text-sm font-semibold text-neutral-950">{u.name}</p>
+                              <p className="text-xs text-stone-500">@{u.username}</p>
+                            </div>
+                            <button type="button"
+                              onClick={() => handleSendInvite(activeTeam.id, u.id, u.name)}
+                              className="flex items-center gap-1.5 rounded-[6px] border border-stone-200 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-stone-50">
+                              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                              Invite
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </>
             )}

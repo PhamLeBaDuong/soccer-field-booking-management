@@ -1,38 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  User
-// ─────────────────────────────────────────────────────────────────────────────
 model User {
-  id               String       @id @default(uuid())
-  name             String
-  username         String       @unique
-  email            String       @unique
-  phone            String?
-  password         String?
-  role             String       @default("player")
-  metadata         Json?
-  createdAt        DateTime     @default(now())
+  id              String       @id @default(uuid())
+  name            String
+  username        String       @unique
+  email           String       @unique
+  phone           String?
+  password        String?
+  role            String       @default("player")
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  bookings        Booking[]
+  complexes       Complex[]    @relation("owner_complexes")
+  fields          Field[]      @relation("owner_fields")
+  createdLobbies  Lobby[]      @relation("lobby_creator")
+  lobbySlots      LobbySlot[]
+  ledTeams        Team[]       @relation("team_leader")
+  teamMemberships TeamMember[]
 
-  fields           Field[]      @relation("owner_fields")
-  complexes        Complex[]    @relation("owner_complexes")
-  bookings         Booking[]
-  ledTeams         Team[]       @relation("team_leader")
-  teamMemberships  TeamMember[]
-  lobbySlots       LobbySlot[]
-  createdLobbies   Lobby[]      @relation("lobby_creator")
+  sentFriendRequests     Friendship[] @relation("friendship_sender")
+  receivedFriendRequests Friendship[] @relation("friendship_receiver")
+  sentMessages           ChatMessage[] @relation("message_sender")
+  receivedMessages       ChatMessage[] @relation("message_receiver")
+  sentInvites            TeamInvite[] @relation("invite_sender")
+  receivedInvites        TeamInvite[] @relation("invite_receiver")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Complex / Field
-// ─────────────────────────────────────────────────────────────────────────────
 model Complex {
   id        String   @id @default(uuid())
   name      String
@@ -40,11 +40,11 @@ model Complex {
   address   String?
   lat       Float?
   lng       Float?
-  fields    Field[]
   metadata  Json?
   createdAt DateTime @default(now())
   ownerId   String?
   owner     User?    @relation("owner_complexes", fields: [ownerId], references: [id])
+  fields    Field[]
 
   @@index([ownerId])
 }
@@ -52,43 +52,36 @@ model Complex {
 model Field {
   id           String      @id @default(uuid())
   ownerId      String?
-  owner        User?       @relation("owner_fields", fields: [ownerId], references: [id])
   complexId    String
-  complex      Complex     @relation(fields: [complexId], references: [id])
   name         String
   desc         String?
   address      String?
   type         String?
-  startTime    DateTime    // operating hours start
-  endTime      DateTime    // operating hours end
+  startTime    DateTime
+  endTime      DateTime
   indoor       Boolean     @default(false)
   lights       Boolean     @default(false)
   pricePerHour Float       @default(0)
   metadata     Json?
   createdAt    DateTime    @default(now())
-
   bookings     Booking[]
-  matchPosts   MatchPost[]
+  complex      Complex     @relation(fields: [complexId], references: [id])
+  owner        User?       @relation("owner_fields", fields: [ownerId], references: [id])
   lobbies      Lobby[]
+  matchPosts   MatchPost[]
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Team
-//
-//  A named group of players led by one user.
-//  size — how many players this team fields per match side.
-//  rating — calculated externally; stored here for display.
-// ─────────────────────────────────────────────────────────────────────────────
 model Team {
   id         String       @id @default(uuid())
   name       String
-  size       Int          // players per side (must equal opponent team's size for a match)
+  size       Int
   rating     Float        @default(0)
   leaderId   String
+  createdAt  DateTime     @default(now())
+  matchPosts MatchPost[]
   leader     User         @relation("team_leader", fields: [leaderId], references: [id])
   members    TeamMember[]
-  matchPosts MatchPost[]
-  createdAt  DateTime     @default(now())
+  invites    TeamInvite[]
 
   @@index([leaderId])
 }
@@ -96,83 +89,54 @@ model Team {
 model TeamMember {
   id       String   @id @default(uuid())
   teamId   String
-  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userId   String
-  user     User     @relation(fields: [userId], references: [id])
   joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
 
   @@unique([teamId, userId])
   @@index([teamId])
   @@index([userId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  MatchPost  –  a team's public advertisement seeking an opponent
-//
-//  visibility: "public"  – listed publicly, no code needed to accept
-//              "private" – hidden; only reachable via the generated code
-//  status:     "open"    – waiting for an opponent
-//              "matched" – accepted; a Match record has been created
-//              "canceled"
-//
-//  code is auto-generated (short UUID) when visibility="private".
-//  preferredStartTime / preferredEndTime are the team's desired slot;
-//  fieldId optionally pins the venue.  lat/lng are used for proximity matching
-//  when no fieldId is set.
-// ─────────────────────────────────────────────────────────────────────────────
 model MatchPost {
   id                 String    @id @default(uuid())
   teamId             String
-  team               Team      @relation(fields: [teamId], references: [id])
   fieldId            String?
-  field              Field?    @relation(fields: [fieldId], references: [id])
   lat                Float?
   lng                Float?
   preferredStartTime DateTime?
   preferredEndTime   DateTime?
-  visibility         String    @default("public")   // "public" | "private"
-  code               String?   @unique              // access code for private posts
-  status             String    @default("open")     // "open" | "matched" | "canceled"
-
-  match              Match?    @relation("post_match")
-
+  visibility         String    @default("public")
+  code               String?   @unique
+  status             String    @default("open")
+  note               String?
   createdAt          DateTime  @default(now())
+  match              Match?    @relation("post_match")
+  field              Field?    @relation(fields: [fieldId], references: [id])
+  team               Team      @relation(fields: [teamId], references: [id])
 
   @@index([teamId])
   @@index([status, visibility])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Lobby  –  slot-based open lobby for individual players at a specific field/time
-//
-//  initialSize: how many players the host already brings (accounts for friends
-//               who show up without booking individually).
-//  A lobby is "full" when:  initialSize + slots.count  >=  teamSize
-//
-//  status: "open"    – accepting new slots
-//          "full"    – capacity reached; awaiting auto-match
-//          "matched" – paired with another lobby; a Match has been created
-//          "canceled"
-// ─────────────────────────────────────────────────────────────────────────────
 model Lobby {
   id          String      @id @default(uuid())
   fieldId     String
-  field       Field       @relation(fields: [fieldId], references: [id])
   startTime   DateTime
   endTime     DateTime
   teamSize    Int
   initialSize Int         @default(1)
   creatorId   String
-  status      String      @default("open")   // "open" | "full" | "matched" | "canceled"
-  slots       LobbySlot[]
-
-  // Set by the system when this lobby is paired into a Match
+  status      String      @default("open")
+  visibility  String      @default("public")
+  code        String?
   matchId     String?
-  match       Match?      @relation("lobby_matches", fields: [matchId], references: [id])
-
-  creator     User        @relation("lobby_creator", fields: [creatorId], references: [id])
-
   createdAt   DateTime    @default(now())
+  creator     User        @relation("lobby_creator", fields: [creatorId], references: [id])
+  field       Field       @relation(fields: [fieldId], references: [id])
+  match       Match?      @relation("lobby_matches", fields: [matchId], references: [id])
+  slots       LobbySlot[]
 
   @@index([fieldId, startTime])
   @@index([status])
@@ -182,70 +146,110 @@ model Lobby {
 model LobbySlot {
   id       String   @id @default(uuid())
   lobbyId  String
-  lobby    Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
   userId   String
-  user     User     @relation(fields: [userId], references: [id])
   joinedAt DateTime @default(now())
+  lobby    Lobby    @relation(fields: [lobbyId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
 
   @@unique([lobbyId, userId])
   @@index([lobbyId])
   @@index([userId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Match  –  a confirmed pairing: two teams (via MatchPost) or two full lobbies
-//
-//  source:  "post"  – formed when a team accepted a MatchPost
-//           "lobby" – formed when two full lobbies at the same field/time were paired
-//  status:  "confirmed" | "canceled"
-//
-//  fieldId, startTime, endTime are always concrete — set at creation.
-// ─────────────────────────────────────────────────────────────────────────────
+// Match result scores are set post-match by the venue admin.
+// "home" = the team/lobby that posted first; "away" = the accepter.
 model Match {
   id          String     @id @default(uuid())
-  source      String     // "post" | "lobby"
+  source      String
   status      String     @default("confirmed")
   fieldId     String
   startTime   DateTime
   endTime     DateTime
-
-  // Populated when source="post"
+  homeScore   Int?
+  awayScore   Int?
+  resultNote  String?
   matchPostId String?    @unique
-  matchPost   MatchPost? @relation("post_match", fields: [matchPostId], references: [id])
-
-  // Populated when source="lobby" (exactly 2 lobbies)
-  lobbies     Lobby[]    @relation("lobby_matches")
-
-  bookings    Booking[]
-
   createdAt   DateTime   @default(now())
+  bookings    Booking[]
+  lobbies     Lobby[]    @relation("lobby_matches")
+  matchPost   MatchPost? @relation("post_match", fields: [matchPostId], references: [id])
 
   @@index([fieldId, startTime])
   @@index([status])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Booking  –  system-created only; records a user's confirmed slot in a match.
-//
-//  Created for every participant (team member / lobby slot holder) when a Match
-//  is formed.  Only created when Match.startTime >= now at formation time.
-// ─────────────────────────────────────────────────────────────────────────────
 model Booking {
   id         String   @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id])
   fieldId    String
-  field      Field    @relation(fields: [fieldId], references: [id])
   matchId    String
-  match      Match    @relation(fields: [matchId], references: [id])
   startTime  DateTime
   endTime    DateTime
   totalPrice Float    @default(0)
   currency   String   @default("VND")
   status     String   @default("confirmed")
   createdAt  DateTime @default(now())
+  field      Field    @relation(fields: [fieldId], references: [id])
+  match      Match    @relation(fields: [matchId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([fieldId, startTime, endTime])
   @@index([matchId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Friendship
+//  status: "pending" | "accepted" | "declined"
+// ─────────────────────────────────────────────────────────────────────────────
+model Friendship {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("friendship_sender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User     @relation("friendship_receiver", fields: [receiverId], references: [id])
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ChatMessage  –  direct messages between two users
+// ─────────────────────────────────────────────────────────────────────────────
+model ChatMessage {
+  id         String    @id @default(uuid())
+  senderId   String
+  sender     User      @relation("message_sender", fields: [senderId], references: [id])
+  receiverId String
+  receiver   User      @relation("message_receiver", fields: [receiverId], references: [id])
+  content    String
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([senderId, receiverId])
+  @@index([receiverId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TeamInvite  –  a member invites another user to join a team
+//  status: "pending" | "accepted" | "declined"
+// ─────────────────────────────────────────────────────────────────────────────
+model TeamInvite {
+  id          String   @id @default(uuid())
+  teamId      String
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User     @relation("invite_sender", fields: [invitedById], references: [id])
+  inviteeId   String
+  invitee     User     @relation("invite_receiver", fields: [inviteeId], references: [id])
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+
+  @@unique([teamId, inviteeId])
+  @@index([teamId])
+  @@index([inviteeId])
+  @@index([invitedById])
 }
