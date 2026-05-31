@@ -24,6 +24,7 @@ import {
 import { MobileNav, type NavItem } from "@/components/layout/MobileNav";
 import { buttonClasses } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/hooks";
+import { useI18n } from "@/lib/i18n/context";
 import { APP_NAME, ROUTES } from "@/lib/constants";
 import { getInitials } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -42,17 +43,18 @@ function Logo() {
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { t, lang, toggle } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const navItems: NavItem[] = [
-    { href: ROUTES.dashboard, label: "Dashboard", icon: LayoutDashboard },
-    { href: ROUTES.fields, label: "Fields", icon: MapPinned },
-    { href: ROUTES.bookings, label: "Bookings", icon: CalendarCheck },
-    { href: ROUTES.teams, label: "Teams", icon: Users },
-    { href: ROUTES.matching,  label: "Matches",    icon: Swords },
-    { href: ROUTES.lobbies,   label: "Lobbies",    icon: DoorOpen },
-    { href: ROUTES.history,   label: "History",    icon: History },
-    { href: ROUTES.myVenues,  label: "My Venues",  icon: Building2 },
-    ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: "Admin", icon: Shield }] : []),
+    { href: ROUTES.dashboard, label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: ROUTES.fields,    label: t("nav.fields"),    icon: MapPinned },
+    { href: ROUTES.bookings,  label: t("nav.bookings"),  icon: CalendarCheck },
+    { href: ROUTES.teams,     label: t("nav.teams"),     icon: Users },
+    { href: ROUTES.matching,  label: t("nav.matches"),   icon: Swords },
+    { href: ROUTES.lobbies,   label: t("nav.lobbies"),   icon: DoorOpen },
+    { href: ROUTES.history,   label: t("nav.history"),   icon: History },
+    { href: ROUTES.myVenues,  label: t("nav.myVenues"),  icon: Building2 },
+    ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: t("nav.admin"), icon: Shield }] : []),
   ];
 
   return (
@@ -77,6 +79,17 @@ export function Navbar() {
           ))}
         </nav>
         <div className="hidden items-center gap-3 md:flex">
+          {/* Language toggle */}
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex items-center gap-1 rounded-[8px] border border-stone-200 bg-white/80 px-2.5 py-1.5 text-xs font-bold text-neutral-700 hover:bg-white"
+            title={lang === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"}
+          >
+            <span className={cn(lang === "en" && "text-neutral-950", lang !== "en" && "text-stone-400")}>EN</span>
+            <span className="text-stone-300">|</span>
+            <span className={cn(lang === "vi" && "text-neutral-950", lang !== "vi" && "text-stone-400")}>VI</span>
+          </button>
           {user ? (
             <div className="relative">
               <button
@@ -100,7 +113,7 @@ export function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     <UserRound className="h-4 w-4 text-stone-500" aria-hidden="true" />
-                    Profile
+                    {t("nav.profile")}
                   </Link>
                   <Link
                     className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-stone-100"
@@ -108,7 +121,7 @@ export function Navbar() {
                     onClick={() => setMenuOpen(false)}
                   >
                     <MessageCircle className="h-4 w-4 text-stone-500" aria-hidden="true" />
-                    Friends &amp; Chat
+                    {t("nav.friends")}
                   </Link>
                   {user.role === "admin" ? (
                     <Link
@@ -117,7 +130,7 @@ export function Navbar() {
                       onClick={() => setMenuOpen(false)}
                     >
                       <Shield className="h-4 w-4 text-stone-500" aria-hidden="true" />
-                      Admin
+                      {t("nav.admin")}
                     </Link>
                   ) : null}
                   <button
@@ -126,7 +139,7 @@ export function Navbar() {
                     type="button"
                   >
                     <LogOut className="h-4 w-4" aria-hidden="true" />
-                    Logout
+                    {t("nav.logout")}
                   </button>
                 </div>
               ) : null}
@@ -134,7 +147,7 @@ export function Navbar() {
           ) : (
             <Link className={buttonClasses("primary", "sm")} href={ROUTES.login}>
               <LogIn className="h-4 w-4" aria-hidden="true" />
-              Login
+              {t("nav.login")}
             </Link>
           )}
         </div>

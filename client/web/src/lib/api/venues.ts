@@ -92,6 +92,21 @@ export async function getVenueFieldSchedule(fieldId: string, date: string) {
   );
 }
 
+export interface ComplexScheduleField {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  pricePerHour: number;
+  bookings: import("@/lib/api/adminSchedule").ScheduleBooking[];
+}
+
+export async function getComplexSchedule(complexId: string, date: string) {
+  return apiFetch<{ complex: { id: string; name: string }; fields: ComplexScheduleField[] }>(
+    `/api/venues/complexes/${complexId}/schedule?date=${date}`,
+  );
+}
+
 export async function createManualBooking(fieldId: string, payload: {
   date: string;
   startTime: string;

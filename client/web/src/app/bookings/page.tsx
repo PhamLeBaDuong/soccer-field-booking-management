@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
+import { useI18n } from "@/lib/i18n/context";
 import { ROUTES } from "@/lib/constants";
 import type { Booking, BookingStatus } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
@@ -16,12 +17,12 @@ import { useBookings } from "@/hooks/useBookings";
 
 type BookingTab = "all" | "upcoming" | BookingStatus;
 
-const tabs: { label: string; value: BookingTab }[] = [
-  { label: "All", value: "all" },
-  { label: "Upcoming", value: "upcoming" },
-  { label: "Pending", value: "pending" },
-  { label: "Confirmed", value: "confirmed" },
-  { label: "Canceled", value: "canceled" },
+const tabs: { tkey: string; value: BookingTab }[] = [
+  { tkey: "common.all",        value: "all" },
+  { tkey: "status.upcoming",   value: "upcoming" },
+  { tkey: "status.pending",    value: "pending" },
+  { tkey: "status.confirmed",  value: "confirmed" },
+  { tkey: "status.canceled",   value: "canceled" },
 ];
 
 const tabIcons = {
@@ -36,6 +37,7 @@ const tabIcons = {
 export default function BookingsPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { bookings, loading, error, refresh, cancel } = useBookings(user?.id);
   const [tab, setTab] = useState<BookingTab>("all");
@@ -56,13 +58,13 @@ export default function BookingsPage() {
       <section className="hairline-panel rounded-[8px] p-6">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
           <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-          Schedule
+          {t("bookings.schedule")}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">
-          My bookings
+          {t("bookings.title")}
         </h1>
         <p className="mt-2 text-sm text-stone-500">
-          Track reservations, matches, and cancellations.
+          {t("bookings.subtitle")}
         </p>
       </section>
 
@@ -72,7 +74,7 @@ export default function BookingsPage() {
             key={item.value}
             active={tab === item.value}
             icon={tabIcons[item.value]}
-            label={item.label}
+            label={t(item.tkey)}
             onClick={() => setTab(item.value)}
           />
         ))}
@@ -100,10 +102,10 @@ export default function BookingsPage() {
         ) : (
           <EmptyState
             icon={<span className="text-lg">0</span>}
-            title="No bookings here"
-            description="This tab is empty right now."
+            title={t("bookings.empty")}
+            description={t("bookings.emptyDesc")}
             action={{
-              label: "Book a Field",
+              label: t("bookings.bookField"),
               onClick: () => router.push(ROUTES.fields),
             }}
           />

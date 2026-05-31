@@ -7,6 +7,7 @@ import { BookingStatusBadge } from "@/components/bookings/BookingStatusBadge";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { Booking } from "@/lib/types";
+import { useI18n } from "@/lib/i18n/context";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
@@ -26,6 +27,7 @@ export function BookingCard({
   onCancel?: (bookingId: string) => Promise<void>;
   onFindMatch?: () => void;
 }) {
+  const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
@@ -65,7 +67,7 @@ export function BookingCard({
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-sm text-stone-500">
               <UsersRound className="h-4 w-4" aria-hidden="true" />
-              Team size: {booking.teamSize}
+              {t("bookings.teamSize")}: {booking.teamSize}
             </p>
           </div>
           <div className="flex flex-col items-start gap-3 md:items-end">
@@ -77,7 +79,7 @@ export function BookingCard({
                 className={buttonClasses("secondary", "sm")}
                 href={`/bookings/${booking.id}`}
               >
-                View Details
+                {t("bookings.viewDetails")}
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               {booking.needMatching ? (
@@ -93,7 +95,7 @@ export function BookingCard({
                   onClick={() => setConfirming(true)}
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               ) : null}
             </div>

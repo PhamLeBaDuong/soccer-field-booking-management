@@ -4,7 +4,7 @@ import {
     getMyComplexes, getMyComplex,
     createComplex, updateComplex, deleteComplex,
     getFieldsForComplex, createField, updateField, deleteField,
-    getVenueFieldSchedule, createManualBooking,
+    getVenueFieldSchedule, getComplexSchedule, createManualBooking,
 } from "../controllers/venueController.js";
 
 const router = Router();
@@ -22,6 +22,7 @@ router.delete("/complexes/:id",   deleteComplex);
 // Fields scoped under a complex
 router.get("/complexes/:complexId/fields",    getFieldsForComplex);
 router.post("/complexes/:complexId/fields",   createField);
+router.get("/complexes/:complexId/schedule",  getComplexSchedule);
 
 // Field update/delete/schedule/manual-booking by field id
 router.put("/fields/:id",                    updateField);

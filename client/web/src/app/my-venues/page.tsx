@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { FieldSchedulePanel } from "@/components/schedule/FieldSchedulePanel";
+import { ComplexScheduleGrid } from "@/components/schedule/ComplexScheduleGrid";
 import { getVenueFieldSchedule, createManualBooking } from "@/lib/api/venues";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
@@ -46,6 +47,7 @@ export default function MyVenuesPage() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [expandedId,  setExpandedId]  = useState<string | null>(null);
+  const [scheduleId,  setScheduleId]  = useState<string | null>(null);
   const [fieldsMap,   setFieldsMap]   = useState<Record<string, Field[]>>({});
 
   // Create/edit complex
@@ -284,6 +286,16 @@ export default function MyVenuesPage() {
                       </div>
                     </button>
                     <div className="flex shrink-0 gap-2">
+                      <button type="button" title="Schedule"
+                        onClick={() => setScheduleId(scheduleId === complex.id ? null : complex.id)}
+                        className={cn(
+                          "rounded-[6px] p-1.5 transition-colors",
+                          scheduleId === complex.id
+                            ? "bg-neutral-950 text-white"
+                            : "text-stone-400 hover:bg-stone-100 hover:text-neutral-950",
+                        )}>
+                        <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                      </button>
                       <button type="button" onClick={() => startEditComplex(complex)}
                         className="rounded-[6px] p-1.5 text-stone-400 hover:bg-stone-100 hover:text-neutral-950">
                         <Pencil className="h-4 w-4" aria-hidden="true" />
@@ -378,6 +390,13 @@ export default function MyVenuesPage() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Combined schedule grid */}
+                  {scheduleId === complex.id && (
+                    <div className="mt-4 border-t border-stone-100 pt-4">
+                      <ComplexScheduleGrid complexId={complex.id} />
                     </div>
                   )}
                 </CardContent>

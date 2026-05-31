@@ -191,7 +191,7 @@ export async function getVenueFieldSchedule(req, res) {
         const bookings = await prisma.booking.findMany({
             where: {
                 fieldId,
-                status: "confirmed",
+                status: { in: ["confirmed", "completed"] },
                 startTime: { gte: dayStart, lte: dayEnd },
             },
             include: {
@@ -210,6 +210,52 @@ export async function getVenueFieldSchedule(req, res) {
         });
 
         res.json(bookings);
+    } catch (error) { handleError(res, error); }
+}
+
+// GET /api/venues/complexes/:complexId/schedule?date=YYYY-MM-DD
+// Returns every field in the complex with that day's bookings — for the grid view.
+export async function getComplexSchedule(req, res) {
+    const { complexId } = req.params;
+    const { date } = req.query;
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return res.status(400).json({ error: "date query param (YYYY-MM-DD) is required" });
+    }
+
+    try {
+        const complex = await prisma.complex.findUnique({ where: { id: complexId } });
+        if (!complex) return res.status(404).json({ error: "Complex not found" });
+        if (complex.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+
+        const dayStart = new Date(`${date}T00:00:00.000Z`);
+        const dayEnd   = new Date(`${date}T23:59:59.999Z`);
+
+        const fields = await prisma.field.findMany({
+            where:   { complexId },
+            orderBy: { createdAt: "asc" },
+            include: {
+                bookings: {
+                    where: {
+                        status:    { in: ["confirmed", "completed"] },
+                        startTime: { gte: dayStart, lte: dayEnd },
+                    },
+                    include: {
+                        user:  { select: { id: true, name: true, username: true } },
+                        match: {
+                            include: {
+                                matchPost: { include: { team: { select: { id: true, name: true, size: true } } } },
+                                lobbies:   { select: { id: true, teamSize: true } },
+                            },
+                        },
+                    },
+                    orderBy:  { startTime: "asc" },
+                    distinct: ["matchId"],
+                },
+            },
+        });
+
+        res.json({ complex: { id: complex.id, name: complex.name }, fields });
     } catch (error) { handleError(res, error); }
 }
 

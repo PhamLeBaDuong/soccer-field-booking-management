@@ -214,7 +214,7 @@ export async function getFieldSchedule(req, res) {
         const bookings = await prisma.booking.findMany({
             where: {
                 fieldId,
-                status: "confirmed",
+                status: { in: ["confirmed", "completed"] },
                 startTime: { gte: dayStart, lte: dayEnd },
             },
             include: {

@@ -2,16 +2,19 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Building2, MapPin } from "lucide-react";
+import { ArrowLeft, Building2, CalendarDays, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { ComplexScheduleGrid } from "@/components/schedule/ComplexScheduleGrid";
 import { ROUTES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils/format";
+import { useI18n } from "@/lib/i18n/context";
 import { useAdminData } from "@/hooks/useAdmin";
 
 export default function AdminComplexDetailPage() {
   const params = useParams<{ complexId: string }>();
+  const { t } = useI18n();
   const { complexes, fields, loading, error, refresh } = useAdminData();
   const complex = complexes.find((item) => item.id === params.complexId);
   const complexFields = fields.filter((field) => field.complexId === params.complexId);
@@ -79,6 +82,19 @@ export default function AdminComplexDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Combined booking schedule grid */}
+      <Card className="mt-6">
+        <CardContent>
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-neutral-950">
+            <CalendarDays className="h-5 w-5 text-stone-500" aria-hidden="true" />
+            {t("schedule.title")}
+          </h2>
+          <div className="mt-4">
+            <ComplexScheduleGrid complexId={complex.id} />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
