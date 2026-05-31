@@ -53,13 +53,24 @@ export function useBookings(userId?: string): {
     refresh();
   }, [refresh]);
 
-  // Merge: extra (in-session confirmed) bookings appear first, de-duplicated by id
+  // Merge: extra (in-session optimistic) bookings appear first.
+  // Drop an optimistic booking once the real one arrives from the API — matching
+  // either by id OR by natural key (field + time slot), since the optimistic
+  // booking carries a synthetic id that never equals the server UUID.
   const bookings = useMemo(() => {
     const userExtra = userId
       ? extraBookings.filter((b) => b.userId === userId)
       : [];
-    const apiIds = new Set(apiBookings.map((b) => b.id));
-    const freshExtra = userExtra.filter((b) => !apiIds.has(b.id));
+
+    const slotKey = (b: Booking) =>
+      `${b.fieldId}|${new Date(b.startTime).getTime()}|${new Date(b.endTime).getTime()}`;
+
+    const apiIds   = new Set(apiBookings.map((b) => b.id));
+    const apiSlots = new Set(apiBookings.map(slotKey));
+
+    const freshExtra = userExtra.filter(
+      (b) => !apiIds.has(b.id) && !apiSlots.has(slotKey(b)),
+    );
     return [...freshExtra, ...apiBookings];
   }, [extraBookings, apiBookings, userId]);
 

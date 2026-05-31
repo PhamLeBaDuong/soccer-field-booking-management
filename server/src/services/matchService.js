@@ -22,7 +22,7 @@ const MATCH_INCLUDE = {
     bookings: {
         include: {
             user:  { select: { id: true, name: true, username: true } },
-            field: { include: { complex: { select: { lat: true, lng: true } } } },
+            field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
         },
     },
 };

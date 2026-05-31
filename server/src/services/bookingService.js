@@ -36,7 +36,7 @@ export async function isSlotFree(fieldId, startTime, endTime, excludeBookingIds 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 const BOOKING_INCLUDE = {
-    field: { include: { complex: { select: { lat: true, lng: true } } } },
+    field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
     match: {
         include: {
             matchPost: { include: { team: { select: { id: true, name: true, size: true } } } },
