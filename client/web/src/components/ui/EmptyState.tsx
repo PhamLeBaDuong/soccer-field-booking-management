@@ -16,14 +16,16 @@ export function EmptyState({
   action?: { label: string; onClick: () => void };
 }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-[8px] border border-dashed border-stone-300 bg-white/72 p-8 text-center shadow-[0_18px_48px_rgba(23,23,23,0.04)]">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-950 text-white shadow-[0_16px_32px_rgba(23,23,23,0.16)]">
+    <div className="flex min-h-72 flex-col items-center justify-center rounded-[10px] border border-dashed border-stone-300/80 bg-white/60 p-10 text-center shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className="flex h-14 w-14 items-center justify-center rounded-[10px] bg-neutral-950 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_24px_rgba(0,0,0,0.12)]">
         {icon}
       </div>
-      <h2 className="mt-4 text-lg font-semibold text-neutral-950">{title}</h2>
-      <p className="mt-2 max-w-sm text-sm text-stone-500">{description}</p>
+      <h2 className="mt-5 text-lg font-semibold tracking-[-0.01em] text-neutral-950">
+        {title}
+      </h2>
+      <p className="mt-2 max-w-xs text-sm leading-6 text-stone-500">{description}</p>
       {action ? (
-        <Button className="mt-5" onClick={action.onClick}>
+        <Button className="mt-6" onClick={action.onClick}>
           {action.label}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>

@@ -9,13 +9,13 @@ type ButtonSize = "sm" | "md" | "lg";
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-neutral-950 text-white shadow-[0_10px_24px_rgba(23,23,23,0.16)] hover:bg-neutral-800 focus-visible:ring-green-700",
+    "bg-neutral-950 text-white shadow-[0_1px_2px_rgba(0,0,0,0.22),0_8px_20px_rgba(0,0,0,0.10)] hover:bg-neutral-800 hover:shadow-[0_1px_2px_rgba(0,0,0,0.26),0_12px_28px_rgba(0,0,0,0.14)] active:scale-[0.975] active:shadow-[0_1px_2px_rgba(0,0,0,0.18)] focus-visible:ring-neutral-950",
   secondary:
-    "border border-stone-200 bg-white/80 text-neutral-900 shadow-[0_8px_24px_rgba(23,23,23,0.05)] hover:border-stone-300 hover:bg-white focus-visible:ring-green-700",
+    "border border-stone-200 bg-white text-neutral-900 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:border-stone-300 hover:bg-stone-50 hover:shadow-[0_1px_4px_rgba(0,0,0,0.08)] active:scale-[0.975] active:bg-stone-100 focus-visible:ring-neutral-900",
   ghost:
-    "text-neutral-700 hover:bg-stone-100 focus-visible:ring-green-700",
+    "text-neutral-700 hover:bg-stone-100 hover:text-neutral-950 active:scale-[0.975] active:bg-stone-200 focus-visible:ring-neutral-900",
   danger:
-    "bg-red-600 text-white shadow-[0_10px_24px_rgba(220,38,38,0.18)] hover:bg-red-700 focus-visible:ring-red-500",
+    "bg-red-600 text-white shadow-[0_1px_2px_rgba(220,38,38,0.2),0_8px_20px_rgba(220,38,38,0.14)] hover:bg-red-700 hover:shadow-[0_1px_2px_rgba(220,38,38,0.24),0_12px_28px_rgba(220,38,38,0.18)] active:scale-[0.975] focus-visible:ring-red-600",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -32,7 +32,7 @@ export function buttonClasses(
   return cn(
     "inline-flex items-center justify-center gap-2 rounded-[8px] font-semibold transition-all duration-200",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-    "disabled:pointer-events-none disabled:opacity-60",
+    "disabled:pointer-events-none disabled:opacity-50",
     variantClasses[variant],
     sizeClasses[size],
     className,

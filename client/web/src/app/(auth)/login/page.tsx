@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, LogIn, Trophy, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/lib/auth/hooks";
 import { APP_NAME, ROUTES } from "@/lib/constants";
@@ -32,21 +31,15 @@ export default function LoginPage() {
 
   function validate(): boolean {
     const nextErrors: LoginErrors = {};
-    if (!identifier.trim()) {
-      nextErrors.identifier = "Enter your username or email.";
-    }
-    if (!password) {
-      nextErrors.password = "Enter your password.";
-    }
+    if (!identifier.trim()) nextErrors.identifier = "Enter your username or email.";
+    if (!password) nextErrors.password = "Enter your password.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setSubmitting(true);
     setApiError("");
@@ -62,39 +55,52 @@ export default function LoginPage() {
 
   return (
     <div className="auth-grid grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)]">
-      <section className="pitch-hero-bg hidden min-h-screen items-end p-10 text-white lg:flex">
-        <div className="max-w-xl">
-          <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
-            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-            {APP_NAME}
-          </p>
-          <h1 className="mt-5 text-5xl font-semibold tracking-[0]">
+      {/* Left hero panel */}
+      <section className="pitch-hero-bg hidden min-h-screen flex-col justify-end p-12 text-white lg:flex">
+        <div className="max-w-lg">
+          <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-white/12 ring-1 ring-white/20 backdrop-blur-sm">
+            <Trophy className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h1 className="text-5xl font-semibold leading-tight tracking-[-0.03em]">
             Reserve the beautiful game.
           </h1>
-          <p className="mt-4 text-base leading-7 text-white/74">
-            Premium fields, quiet workflows, and match-ready schedules.
+          <p className="mt-4 text-base leading-7 text-white/66">
+            Premium fields, quiet workflows, and match-ready schedules — all in one place.
+          </p>
+          <p className="mt-10 text-xs font-semibold uppercase tracking-widest text-white/40">
+            {APP_NAME}
           </p>
         </div>
       </section>
-      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+
+      {/* Right form panel */}
+      <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
-          <div className="mb-6 text-center lg:hidden">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-[8px] bg-neutral-950 text-white">
+          {/* Mobile logo */}
+          <div className="mb-8 text-center lg:hidden">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-[10px] bg-neutral-950 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_20px_rgba(0,0,0,0.12)]">
               <Trophy className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h1 className="mt-3 text-2xl font-semibold text-neutral-950">
+            </span>
+            <p className="mt-3 text-xl font-semibold tracking-[-0.01em] text-neutral-950">
               {APP_NAME}
-            </h1>
+            </p>
           </div>
-        <Card>
-          <CardContent>
-            <h2 className="text-2xl font-semibold text-neutral-950">Login</h2>
+
+          <div className="rounded-[12px] border border-stone-200/80 bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_48px_rgba(12,12,12,0.08)]">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-950">
+              Sign in
+            </h2>
+            <p className="mt-1.5 text-sm text-stone-500">
+              Welcome back — enter your credentials below.
+            </p>
+
             {apiError ? (
-              <p className="mt-4 rounded-[8px] bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">
+              <div className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {apiError}
-              </p>
+              </div>
             ) : null}
-            <form className="mt-5 space-y-4" onSubmit={submit}>
+
+            <form className="mt-6 space-y-4" onSubmit={submit}>
               <Input
                 label="Username or email"
                 name="identifier"
@@ -102,7 +108,7 @@ export default function LoginPage() {
                 leadingIcon={<UserRound className="h-4 w-4" aria-hidden="true" />}
                 value={identifier}
                 error={errors.identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
               <Input
                 label="Password"
@@ -112,21 +118,24 @@ export default function LoginPage() {
                 leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 value={password}
                 error={errors.password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
               />
-              <Button className="w-full" loading={submitting} type="submit">
+              <Button className="mt-2 w-full" loading={submitting} type="submit" size="lg">
                 <LogIn className="h-4 w-4" aria-hidden="true" />
-                Login
+                Sign in
               </Button>
             </form>
-            <p className="mt-5 text-center text-sm text-stone-500">
-              Need an account?{" "}
-              <Link className="font-semibold text-neutral-950 hover:underline" href={ROUTES.register}>
-                Register
+
+            <p className="mt-6 text-center text-sm text-stone-500">
+              Don&apos;t have an account?{" "}
+              <Link
+                className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
+                href={ROUTES.register}
+              >
+                Create one
               </Link>
             </p>
-          </CardContent>
-        </Card>
+          </div>
         </div>
       </div>
     </div>

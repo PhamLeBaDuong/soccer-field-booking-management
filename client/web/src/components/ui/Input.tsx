@@ -33,16 +33,20 @@ export function Input({
         <input
           id={inputId}
           className={cn(
-            "w-full rounded-[8px] border border-stone-300/90 bg-white/86 px-3 py-2.5 text-sm text-neutral-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]",
-            "placeholder:text-stone-400 focus:border-green-700/70 focus:outline-none focus:ring-4 focus:ring-green-700/10",
+            "w-full rounded-[8px] border border-stone-300/80 bg-white px-3 py-2.5 text-sm text-neutral-950",
+            "shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-150",
+            "placeholder:text-stone-400",
+            "focus:border-green-700/60 focus:outline-none focus:ring-4 focus:ring-green-700/15",
             leadingIcon ? "pl-10" : undefined,
-            error && "border-red-300 focus:border-red-500 focus:ring-red-500/10",
+            error && "border-red-300 focus:border-red-500 focus:ring-red-500/15",
             className,
           )}
           {...props}
         />
       </span>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? (
+        <p className="text-xs font-medium text-red-600">{error}</p>
+      ) : null}
       {!error && helper ? (
         <p className="text-xs text-stone-500">{helper}</p>
       ) : null}

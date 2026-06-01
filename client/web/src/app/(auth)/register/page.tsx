@@ -5,16 +5,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AtSign, LockKeyhole, Phone, Trophy, UserRound, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/lib/auth/hooks";
 import { APP_NAME, ROUTES } from "@/lib/constants";
 import type { RegisterPayload } from "@/lib/types";
 
-type RegisterForm = RegisterPayload & {
-  confirmPassword: string;
-};
-
+type RegisterForm = RegisterPayload & { confirmPassword: string };
 type RegisterErrors = Partial<Record<keyof RegisterForm, string>>;
 
 const initialForm: RegisterForm = {
@@ -46,30 +42,18 @@ export default function RegisterPage() {
 
   function validate(): boolean {
     const nextErrors: RegisterErrors = {};
-    if (!form.name.trim()) {
-      nextErrors.name = "Enter your name.";
-    }
-    if (!form.username.trim()) {
-      nextErrors.username = "Choose a username.";
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      nextErrors.email = "Enter a valid email.";
-    }
-    if (form.password.length < 6) {
-      nextErrors.password = "Use at least 6 characters.";
-    }
-    if (form.password !== form.confirmPassword) {
-      nextErrors.confirmPassword = "Passwords do not match.";
-    }
+    if (!form.name.trim()) nextErrors.name = "Enter your name.";
+    if (!form.username.trim()) nextErrors.username = "Choose a username.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) nextErrors.email = "Enter a valid email.";
+    if (form.password.length < 6) nextErrors.password = "Use at least 6 characters.";
+    if (form.password !== form.confirmPassword) nextErrors.confirmPassword = "Passwords do not match.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setSubmitting(true);
     setApiError("");
@@ -83,9 +67,7 @@ export default function RegisterPage() {
       });
       router.push(ROUTES.dashboard);
     } catch (caught) {
-      setApiError(
-        caught instanceof Error ? caught.message : "Registration failed.",
-      );
+      setApiError(caught instanceof Error ? caught.message : "Registration failed.");
     } finally {
       setSubmitting(false);
     }
@@ -93,69 +75,82 @@ export default function RegisterPage() {
 
   return (
     <div className="auth-grid grid min-h-screen lg:grid-cols-[minmax(0,1.08fr)_minmax(500px,0.92fr)]">
-      <section className="pitch-hero-bg hidden min-h-screen items-end p-10 text-white lg:flex">
-        <div className="max-w-xl">
-          <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
-            <Trophy className="h-3.5 w-3.5" aria-hidden="true" />
-            {APP_NAME}
-          </p>
-          <h1 className="mt-5 text-5xl font-semibold tracking-[0]">
+      {/* Left hero panel */}
+      <section className="pitch-hero-bg hidden min-h-screen flex-col justify-end p-12 text-white lg:flex">
+        <div className="max-w-lg">
+          <div className="mb-6 inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-white/12 ring-1 ring-white/20 backdrop-blur-sm">
+            <Trophy className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h1 className="text-5xl font-semibold leading-tight tracking-[-0.03em]">
             Build your match rhythm.
           </h1>
-          <p className="mt-4 text-base leading-7 text-white/74">
+          <p className="mt-4 text-base leading-7 text-white/66">
             Save your fields, teams, and booking flow in one elegant place.
+          </p>
+          <p className="mt-10 text-xs font-semibold uppercase tracking-widest text-white/40">
+            {APP_NAME}
           </p>
         </div>
       </section>
-      <div className="flex min-h-screen items-center justify-center px-4 py-12">
+
+      {/* Right form panel */}
+      <div className="flex min-h-screen items-center justify-center px-6 py-12">
         <div className="w-full max-w-lg">
-          <div className="mb-6 text-center lg:hidden">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-[8px] bg-neutral-950 text-white">
+          {/* Mobile logo */}
+          <div className="mb-8 text-center lg:hidden">
+            <span className="mx-auto grid h-11 w-11 place-items-center rounded-[10px] bg-neutral-950 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_20px_rgba(0,0,0,0.12)]">
               <Trophy className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h1 className="mt-3 text-2xl font-semibold text-neutral-950">
+            </span>
+            <p className="mt-3 text-xl font-semibold tracking-[-0.01em] text-neutral-950">
               {APP_NAME}
-            </h1>
+            </p>
           </div>
-        <Card>
-          <CardContent>
-            <h2 className="text-2xl font-semibold text-neutral-950">Register</h2>
+
+          <div className="rounded-[12px] border border-stone-200/80 bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_16px_48px_rgba(12,12,12,0.08)]">
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-neutral-950">
+              Create account
+            </h2>
+            <p className="mt-1.5 text-sm text-stone-500">
+              Join PitchBook and start booking in seconds.
+            </p>
+
             {apiError ? (
-              <p className="mt-4 rounded-[8px] bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">
+              <div className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {apiError}
-              </p>
+              </div>
             ) : null}
-            <form className="mt-5 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
+
+            <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
               <Input
-                label="Name"
+                label="Full name"
                 leadingIcon={<UserRound className="h-4 w-4" aria-hidden="true" />}
                 value={form.name}
                 error={errors.name}
-                onChange={(event) => updateField("name", event.target.value)}
+                onChange={(e) => updateField("name", e.target.value)}
               />
               <Input
                 label="Username"
                 leadingIcon={<UserRound className="h-4 w-4" aria-hidden="true" />}
                 value={form.username}
                 error={errors.username}
-                onChange={(event) => updateField("username", event.target.value)}
+                onChange={(e) => updateField("username", e.target.value)}
               />
               <Input
                 className="sm:col-span-2"
-                label="Email"
+                label="Email address"
                 type="email"
                 leadingIcon={<AtSign className="h-4 w-4" aria-hidden="true" />}
                 value={form.email}
                 error={errors.email}
-                onChange={(event) => updateField("email", event.target.value)}
+                onChange={(e) => updateField("email", e.target.value)}
               />
               <Input
                 className="sm:col-span-2"
-                label="Phone"
+                label="Phone number"
                 leadingIcon={<Phone className="h-4 w-4" aria-hidden="true" />}
                 value={form.phone}
                 error={errors.phone}
-                onChange={(event) => updateField("phone", event.target.value)}
+                onChange={(e) => updateField("phone", e.target.value)}
               />
               <Input
                 label="Password"
@@ -163,7 +158,7 @@ export default function RegisterPage() {
                 leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 value={form.password}
                 error={errors.password}
-                onChange={(event) => updateField("password", event.target.value)}
+                onChange={(e) => updateField("password", e.target.value)}
               />
               <Input
                 label="Confirm password"
@@ -171,27 +166,29 @@ export default function RegisterPage() {
                 leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 value={form.confirmPassword}
                 error={errors.confirmPassword}
-                onChange={(event) =>
-                  updateField("confirmPassword", event.target.value)
-                }
+                onChange={(e) => updateField("confirmPassword", e.target.value)}
               />
               <Button
                 className="sm:col-span-2"
                 loading={submitting}
                 type="submit"
+                size="lg"
               >
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
                 Create Account
               </Button>
             </form>
-            <p className="mt-5 text-center text-sm text-stone-500">
-              Already registered?{" "}
-              <Link className="font-semibold text-neutral-950 hover:underline" href={ROUTES.login}>
-                Login
+
+            <p className="mt-6 text-center text-sm text-stone-500">
+              Already have an account?{" "}
+              <Link
+                className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
+                href={ROUTES.login}
+              >
+                Sign in
               </Link>
             </p>
-          </CardContent>
-        </Card>
+          </div>
         </div>
       </div>
     </div>

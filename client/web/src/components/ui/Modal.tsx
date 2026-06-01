@@ -76,7 +76,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-sm"
+      className="reveal-fade fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-sm"
       onMouseDown={onClose}
       onKeyDown={handleKeyDown}
       role="presentation"
@@ -84,20 +84,20 @@ export function Modal({
       <div
         ref={panelRef}
         className={cn(
-          "max-h-[90vh] w-full max-w-xl overflow-hidden bg-white shadow-xl",
-          "rounded-[8px] border border-stone-200/90",
+          "modal-enter max-h-[90vh] w-full max-w-xl overflow-hidden bg-white",
+          "rounded-[10px] border border-stone-200/80 shadow-[0_8px_16px_rgba(0,0,0,0.08),0_32px_80px_rgba(0,0,0,0.18)]",
         )}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="flex items-center justify-between border-b border-stone-200/80 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
           <h2 id="modal-title" className="text-base font-semibold text-neutral-950">
             {title}
           </h2>
           <button
-            className="rounded-[8px] p-2 text-stone-500 hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-green-700"
+            className="rounded-[6px] p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-green-700"
             onClick={onClose}
             type="button"
             aria-label="Close modal"
@@ -107,7 +107,7 @@ export function Modal({
         </div>
         <div className="max-h-[65vh] overflow-y-auto p-5">{children}</div>
         {footer ? (
-          <div className="border-t border-stone-200/80 bg-stone-50 px-5 py-4">
+          <div className="border-t border-stone-100 bg-stone-50/80 px-5 py-4">
             {footer}
           </div>
         ) : null}
