@@ -1,0 +1,1275 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Soccer Field Booking & Management API",
+    "version": "1.0.0",
+    "description": "REST API for the soccer field booking platform.\n\n- **Bookings are system-created only** — they are generated automatically when a Match is formed (via MatchPost accept or Lobby auto-match). Users cannot create bookings directly.\n- Most routes require a JWT in the `Authorization: Bearer <token>` header. Obtain one via `POST /api/auth/login`.\n- Tokens expire after **1 hour**.\n- A few read routes are public (browsing lobbies / match-posts, the calendar occupied-slots feed)."
+  },
+  "servers": [
+    { "url": "http://localhost:5000", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Registration, login, token introspection" },
+    { "name": "Fields", "description": "Public field discovery (read-only)" },
+    { "name": "Bookings", "description": "Booking history & calendar availability" },
+    { "name": "Matches", "description": "Formed matches" },
+    { "name": "Teams", "description": "Team creation & membership" },
+    { "name": "MatchPosts", "description": "Team-vs-team match challenge posts" },
+    { "name": "Lobbies", "description": "Pickup-game lobbies with auto-match" },
+    { "name": "Venues", "description": "Venue-owner self-service: complexes, fields, schedules, manual bookings" },
+    { "name": "Users", "description": "User search & public profiles" },
+    { "name": "Friends", "description": "Friend requests & friendships" },
+    { "name": "Messages", "description": "Direct messaging" },
+    { "name": "Invites", "description": "Team invitations" },
+    { "name": "Admin", "description": "Admin-only complex/field/match management (requires admin role)" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid, or expired token",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Forbidden": {
+        "description": "Authenticated but not permitted (not owner / not admin)",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "BadRequest": {
+        "description": "Validation error",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": { "error": { "type": "string", "example": "Something went wrong" } }
+      },
+      "Message": {
+        "type": "object",
+        "properties": { "message": { "type": "string" } }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string", "nullable": true },
+          "role": { "type": "string", "example": "player" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UserPublic": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "username": { "type": "string" },
+          "role": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Complex": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "desc": { "type": "string", "nullable": true },
+          "address": { "type": "string", "nullable": true },
+          "lat": { "type": "number", "format": "float", "nullable": true },
+          "lng": { "type": "number", "format": "float", "nullable": true },
+          "ownerId": { "type": "string", "format": "uuid", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Field": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "ownerId": { "type": "string", "format": "uuid", "nullable": true },
+          "complexId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "desc": { "type": "string", "nullable": true },
+          "address": { "type": "string", "nullable": true },
+          "type": { "type": "string", "nullable": true, "example": "5-a-side" },
+          "startTime": { "type": "string", "format": "date-time", "description": "Daily opening time" },
+          "endTime": { "type": "string", "format": "date-time", "description": "Daily closing time" },
+          "indoor": { "type": "boolean" },
+          "lights": { "type": "boolean" },
+          "pricePerHour": { "type": "number", "format": "float" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "size": { "type": "integer" },
+          "rating": { "type": "number", "format": "float" },
+          "leaderId": { "type": "string", "format": "uuid" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "fieldId": { "type": "string", "format": "uuid" },
+          "matchId": { "type": "string", "format": "uuid" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "totalPrice": { "type": "number", "format": "float" },
+          "currency": { "type": "string", "example": "VND" },
+          "status": { "type": "string", "example": "confirmed", "enum": ["confirmed", "completed", "canceled"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Match": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "source": { "type": "string", "example": "matchPost", "description": "matchPost | lobby | manual" },
+          "status": { "type": "string", "example": "confirmed" },
+          "fieldId": { "type": "string", "format": "uuid" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "homeScore": { "type": "integer", "nullable": true },
+          "awayScore": { "type": "integer", "nullable": true },
+          "resultNote": { "type": "string", "nullable": true },
+          "matchPostId": { "type": "string", "format": "uuid", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "MatchPost": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "teamId": { "type": "string", "format": "uuid" },
+          "fieldId": { "type": "string", "format": "uuid", "nullable": true },
+          "lat": { "type": "number", "format": "float", "nullable": true },
+          "lng": { "type": "number", "format": "float", "nullable": true },
+          "preferredStartTime": { "type": "string", "format": "date-time", "nullable": true },
+          "preferredEndTime": { "type": "string", "format": "date-time", "nullable": true },
+          "visibility": { "type": "string", "enum": ["public", "private"], "default": "public" },
+          "code": { "type": "string", "nullable": true, "description": "Access code for private posts" },
+          "status": { "type": "string", "example": "open" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Lobby": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "fieldId": { "type": "string", "format": "uuid" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "teamSize": { "type": "integer" },
+          "initialSize": { "type": "integer", "default": 1 },
+          "creatorId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "example": "open" },
+          "visibility": { "type": "string", "enum": ["public", "private"], "default": "public" },
+          "code": { "type": "string", "nullable": true },
+          "matchId": { "type": "string", "format": "uuid", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Friendship": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "senderId": { "type": "string", "format": "uuid" },
+          "receiverId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "senderId": { "type": "string", "format": "uuid" },
+          "receiverId": { "type": "string", "format": "uuid" },
+          "content": { "type": "string" },
+          "readAt": { "type": "string", "format": "date-time", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "sender": { "$ref": "#/components/schemas/UserPublic" },
+          "receiver": { "$ref": "#/components/schemas/UserPublic" }
+        }
+      },
+      "TeamInvite": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "teamId": { "type": "string", "format": "uuid" },
+          "invitedById": { "type": "string", "format": "uuid" },
+          "inviteeId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["pending", "accepted", "declined"] },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a new user",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password", "name", "email"],
+                "properties": {
+                  "username": { "type": "string", "example": "duong" },
+                  "password": { "type": "string", "minLength": 6, "example": "secret123" },
+                  "name": { "type": "string", "example": "Duong Pham" },
+                  "email": { "type": "string", "format": "email", "example": "duong@example.com" },
+                  "phone": { "type": "string", "nullable": true, "example": "+84901234567" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created user record",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } }
+          },
+          "500": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Log in and receive a JWT",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string", "example": "duong" },
+                  "password": { "type": "string", "example": "secret123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token + user. Use `token` as the Bearer credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get the current user's id from the token",
+        "responses": {
+          "200": {
+            "description": "Decoded user id",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "userId": { "type": "string", "format": "uuid" } } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/fields": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "List all fields (enriched with complex info)",
+        "parameters": [
+          { "name": "complexId", "in": "query", "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "schema": { "type": "string" } },
+          { "name": "indoor", "in": "query", "schema": { "type": "boolean" } },
+          { "name": "lights", "in": "query", "schema": { "type": "boolean" } }
+        ],
+        "responses": {
+          "200": { "description": "Fields", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Field" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/fields/nearby": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "List fields within a radius, nearest first",
+        "parameters": [
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "radius", "in": "query", "description": "Radius in km (default 50)", "schema": { "type": "number", "default": 50 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fields each with a `distanceKm` property",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "allOf": [ { "$ref": "#/components/schemas/Field" }, { "type": "object", "properties": { "distanceKm": { "type": "number" } } } ] } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/fields/{fieldId}": {
+      "get": {
+        "tags": ["Fields"],
+        "summary": "Get a single field with complex + owner info",
+        "parameters": [ { "name": "fieldId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Field", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Field" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/bookings/occupied": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Confirmed bookings overlapping a time window (calendar feed)",
+        "security": [],
+        "parameters": [
+          { "name": "fieldId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "startTime", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "endTime", "in": "query", "required": true, "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": { "description": "Occupied bookings", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/api/bookings/user/{userId}": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "A user's booking history (newest first)",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Bookings (with field/match/user includes)", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/bookings/{bookingId}": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get a single booking",
+        "parameters": [ { "name": "bookingId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Booking", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Booking" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/matches/mine": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "Matches the current user is part of",
+        "responses": {
+          "200": { "description": "Matches", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Match" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/matches/{matchId}": {
+      "get": {
+        "tags": ["Matches"],
+        "summary": "Get a single match",
+        "parameters": [ { "name": "matchId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Match", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Match" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Matches"],
+        "summary": "Cancel a match (frees the booking slot)",
+        "parameters": [ { "name": "matchId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Canceled match", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Match" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/teams": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create a team (caller becomes leader)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["name", "size"], "properties": { "name": { "type": "string", "example": "FC United" }, "size": { "type": "integer", "example": 5 } } } } }
+        },
+        "responses": {
+          "201": { "description": "Created team", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/teams/mine": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Teams the current user leads or belongs to",
+        "responses": {
+          "200": { "description": "Teams", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Team" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/teams/{teamId}": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get a team with members",
+        "parameters": [ { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Team", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "put": {
+        "tags": ["Teams"],
+        "summary": "Update a team (leader only)",
+        "parameters": [ { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "size": { "type": "integer" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated team", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Disband a team (leader only)",
+        "parameters": [ { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/teams/{teamId}/members": {
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Add a member (leader only)",
+        "parameters": [ { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["userId"], "properties": { "userId": { "type": "string", "format": "uuid" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Updated team", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/teams/{teamId}/members/{userId}": {
+      "delete": {
+        "tags": ["Teams"],
+        "summary": "Remove a member (leader only; cannot remove leader)",
+        "parameters": [
+          { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Updated team", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Team" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/match-posts": {
+      "get": {
+        "tags": ["MatchPosts"],
+        "summary": "List public open match posts",
+        "security": [],
+        "parameters": [
+          { "name": "teamSize", "in": "query", "schema": { "type": "integer" } },
+          { "name": "fieldId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Match posts", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MatchPost" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["MatchPosts"],
+        "summary": "Create a match post",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["teamId"], "properties": {
+            "teamId": { "type": "string", "format": "uuid" },
+            "fieldId": { "type": "string", "format": "uuid", "nullable": true },
+            "lat": { "type": "number", "nullable": true },
+            "lng": { "type": "number", "nullable": true },
+            "preferredStartTime": { "type": "string", "format": "date-time", "nullable": true },
+            "preferredEndTime": { "type": "string", "format": "date-time", "nullable": true },
+            "visibility": { "type": "string", "enum": ["public", "private"], "default": "public" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MatchPost" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/match-posts/mine": {
+      "get": {
+        "tags": ["MatchPosts"],
+        "summary": "Match posts created by the current user's teams",
+        "responses": {
+          "200": { "description": "Match posts", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MatchPost" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/match-posts/{postId}": {
+      "get": {
+        "tags": ["MatchPosts"],
+        "summary": "Get a match post (private posts need ?code=)",
+        "parameters": [
+          { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "code", "in": "query", "description": "Access code, required for private posts", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Match post", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MatchPost" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "delete": {
+        "tags": ["MatchPosts"],
+        "summary": "Cancel a match post",
+        "parameters": [ { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/match-posts/{postId}/accept": {
+      "post": {
+        "tags": ["MatchPosts"],
+        "summary": "Accept a match post — forms a Match and books the slot",
+        "parameters": [ { "name": "postId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["acceptingTeamId"], "properties": {
+            "acceptingTeamId": { "type": "string", "format": "uuid" },
+            "fieldId": { "type": "string", "format": "uuid" },
+            "startTime": { "type": "string", "format": "date-time" },
+            "endTime": { "type": "string", "format": "date-time" },
+            "code": { "type": "string", "description": "Required for private posts" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created match", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Match" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/lobbies": {
+      "get": {
+        "tags": ["Lobbies"],
+        "summary": "List open lobbies (public)",
+        "security": [],
+        "parameters": [
+          { "name": "fieldId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "teamSize", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Lobbies", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Lobby" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Lobbies"],
+        "summary": "Create a lobby (creator takes the first slot)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["fieldId", "startTime", "endTime", "teamSize"], "properties": {
+            "fieldId": { "type": "string", "format": "uuid" },
+            "startTime": { "type": "string", "format": "date-time" },
+            "endTime": { "type": "string", "format": "date-time" },
+            "teamSize": { "type": "integer", "example": 5 },
+            "initialSize": { "type": "integer", "default": 1 }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created lobby", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Lobby" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/lobbies/mine": {
+      "get": {
+        "tags": ["Lobbies"],
+        "summary": "Lobbies the current user created or joined",
+        "responses": {
+          "200": { "description": "Lobbies", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Lobby" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/lobbies/{lobbyId}": {
+      "get": {
+        "tags": ["Lobbies"],
+        "summary": "Get a lobby with its slots (public)",
+        "security": [],
+        "parameters": [ { "name": "lobbyId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Lobby", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Lobby" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      },
+      "delete": {
+        "tags": ["Lobbies"],
+        "summary": "Cancel a lobby (creator only)",
+        "parameters": [ { "name": "lobbyId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/lobbies/{lobbyId}/join": {
+      "post": {
+        "tags": ["Lobbies"],
+        "summary": "Join a lobby — auto-forms a match when full",
+        "parameters": [ { "name": "lobbyId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "201": { "description": "Updated lobby (and match if formed)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Lobby" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/lobbies/{lobbyId}/leave": {
+      "delete": {
+        "tags": ["Lobbies"],
+        "summary": "Leave a lobby",
+        "parameters": [ { "name": "lobbyId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/venues/complexes": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "List the current user's complexes (with field count)",
+        "responses": {
+          "200": { "description": "Complexes", "content": { "application/json": { "schema": { "type": "array", "items": { "allOf": [ { "$ref": "#/components/schemas/Complex" }, { "type": "object", "properties": { "fieldsCount": { "type": "integer" } } } ] } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Venues"],
+        "summary": "Create a complex",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["name", "address"], "properties": {
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "description": { "type": "string" },
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "complex": { "$ref": "#/components/schemas/Complex" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/venues/complexes/{id}": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "Get one of the current user's complexes (with fields)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Complex", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Complex" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Venues"],
+        "summary": "Update a complex (owner only)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": {
+            "name": { "type": "string" }, "address": { "type": "string" }, "description": { "type": "string" }, "lat": { "type": "number" }, "lng": { "type": "number" }
+          } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "complex": { "$ref": "#/components/schemas/Complex" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Venues"],
+        "summary": "Delete a complex (owner only)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/venues/complexes/{complexId}/fields": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "List fields in a complex (owner only)",
+        "parameters": [ { "name": "complexId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Fields", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Field" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Venues"],
+        "summary": "Create a field in a complex (owner only)",
+        "parameters": [ { "name": "complexId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["name", "type", "startTime", "endTime"], "properties": {
+            "name": { "type": "string" },
+            "type": { "type": "string", "example": "5-a-side" },
+            "startTime": { "type": "string", "format": "date-time", "description": "Daily opening time" },
+            "endTime": { "type": "string", "format": "date-time", "description": "Daily closing time" },
+            "indoor": { "type": "boolean", "default": false },
+            "lights": { "type": "boolean", "default": false },
+            "price": { "type": "number", "description": "Price per hour" },
+            "address": { "type": "string" },
+            "description": { "type": "string" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "field": { "$ref": "#/components/schemas/Field" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/venues/complexes/{complexId}/schedule": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "Grid of every field's bookings for a day (owner only)",
+        "parameters": [
+          { "name": "complexId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "date", "in": "query", "required": true, "description": "YYYY-MM-DD", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complex summary + fields with bookings",
+            "content": { "application/json": { "schema": { "type": "object", "properties": {
+              "complex": { "type": "object", "properties": { "id": { "type": "string" }, "name": { "type": "string" } } },
+              "fields": { "type": "array", "items": { "$ref": "#/components/schemas/Field" } }
+            } } } }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/venues/fields/{id}": {
+      "put": {
+        "tags": ["Venues"],
+        "summary": "Update a field (owner only)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": {
+            "name": { "type": "string" }, "type": { "type": "string" },
+            "startTime": { "type": "string", "format": "date-time" }, "endTime": { "type": "string", "format": "date-time" },
+            "indoor": { "type": "boolean" }, "lights": { "type": "boolean" },
+            "price": { "type": "number" }, "address": { "type": "string" }, "description": { "type": "string" }
+          } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "field": { "$ref": "#/components/schemas/Field" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Venues"],
+        "summary": "Delete a field (owner only)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/venues/fields/{id}/schedule": {
+      "get": {
+        "tags": ["Venues"],
+        "summary": "A field's bookings for a day (owner only)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "date", "in": "query", "required": true, "description": "YYYY-MM-DD", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": { "description": "Bookings", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/venues/fields/{id}/manual-booking": {
+      "post": {
+        "tags": ["Venues"],
+        "summary": "Create a walk-in (manual) booking (owner only)",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["date", "startTime", "endTime"], "properties": {
+            "date": { "type": "string", "format": "date", "description": "YYYY-MM-DD", "example": "2026-06-20" },
+            "startTime": { "type": "string", "description": "HH:MM", "example": "18:00" },
+            "endTime": { "type": "string", "description": "HH:MM", "example": "19:00" },
+            "customerName": { "type": "string" },
+            "note": { "type": "string" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created booking + synthetic match", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "booking": { "$ref": "#/components/schemas/Booking" }, "match": { "$ref": "#/components/schemas/Match" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/api/users/search": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Search users by name or username (excludes self, max 20)",
+        "parameters": [ { "name": "q", "in": "query", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Matching users", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UserPublic" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/users/{userId}": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Public profile",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Profile", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserPublic" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/api/friends": {
+      "get": {
+        "tags": ["Friends"],
+        "summary": "List accepted friends",
+        "responses": {
+          "200": { "description": "Friends", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UserPublic" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/friends/requests": {
+      "get": {
+        "tags": ["Friends"],
+        "summary": "Incoming pending friend requests",
+        "responses": {
+          "200": { "description": "Requests", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Friendship" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/friends/request/{userId}": {
+      "post": {
+        "tags": ["Friends"],
+        "summary": "Send a friend request",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "201": { "description": "Sent", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "friendship": { "$ref": "#/components/schemas/Friendship" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/friends/accept/{senderId}": {
+      "post": {
+        "tags": ["Friends"],
+        "summary": "Accept a pending friend request",
+        "parameters": [ { "name": "senderId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Accepted", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "friendship": { "$ref": "#/components/schemas/Friendship" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/friends/{userId}": {
+      "delete": {
+        "tags": ["Friends"],
+        "summary": "Remove a friend or decline a request",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Removed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/api/messages": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "List recent conversations (one row per contact)",
+        "responses": {
+          "200": {
+            "description": "Conversations",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object", "properties": {
+              "partner": { "$ref": "#/components/schemas/UserPublic" },
+              "lastMessage": { "$ref": "#/components/schemas/ChatMessage" },
+              "unreadCount": { "type": "integer" }
+            } } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/messages/{userId}": {
+      "get": {
+        "tags": ["Messages"],
+        "summary": "Conversation thread with a user (marks incoming as read)",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Messages (oldest first)", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/ChatMessage" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Messages"],
+        "summary": "Send a message to a user",
+        "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["content"], "properties": { "content": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Created message", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChatMessage" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+
+    "/api/invites/mine": {
+      "get": {
+        "tags": ["Invites"],
+        "summary": "Pending team invites received by the current user",
+        "responses": {
+          "200": { "description": "Invites", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TeamInvite" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/invites/team/{teamId}/user/{inviteeId}": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Invite a user to a team (must be a team member)",
+        "parameters": [
+          { "name": "teamId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "inviteeId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "201": { "description": "Sent", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "invite": { "$ref": "#/components/schemas/TeamInvite" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/invites/{inviteId}/accept": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Accept a team invite (invitee only)",
+        "parameters": [ { "name": "inviteId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Joined", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/invites/{inviteId}/decline": {
+      "post": {
+        "tags": ["Invites"],
+        "summary": "Decline a team invite (invitee only)",
+        "parameters": [ { "name": "inviteId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Declined", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+
+    "/api/admin/complexes": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all complexes",
+        "responses": {
+          "200": { "description": "Complexes", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Complex" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create a complex (assign an owner)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["ownerId", "name", "address"], "properties": {
+            "ownerId": { "type": "string", "format": "uuid" },
+            "name": { "type": "string" },
+            "address": { "type": "string" },
+            "description": { "type": "string" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "complex": { "$ref": "#/components/schemas/Complex" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/complexes/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get a complex",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Complex", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Complex" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update a complex",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": { "name": { "type": "string" }, "address": { "type": "string" }, "description": { "type": "string" } } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "complex": { "$ref": "#/components/schemas/Complex" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a complex",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/fields": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List all fields",
+        "responses": {
+          "200": { "description": "Fields", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Field" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create a field",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["complexId", "name", "type", "startTime", "endTime"], "properties": {
+            "complexId": { "type": "string", "format": "uuid" },
+            "name": { "type": "string" },
+            "type": { "type": "string" },
+            "startTime": { "type": "string", "format": "date-time" },
+            "endTime": { "type": "string", "format": "date-time" },
+            "indoor": { "type": "boolean" },
+            "lights": { "type": "boolean" },
+            "price": { "type": "number" }
+          } } } }
+        },
+        "responses": {
+          "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "field": { "$ref": "#/components/schemas/Field" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/complexes/{complexId}/fields": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List fields for a complex",
+        "parameters": [ { "name": "complexId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Fields", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Field" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/admin/fields/{id}": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update a field",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "content": { "application/json": { "schema": { "type": "object", "properties": {
+            "name": { "type": "string" }, "type": { "type": "string" }, "price": { "type": "number" },
+            "startTime": { "type": "string", "format": "date-time" }, "endTime": { "type": "string", "format": "date-time" },
+            "indoor": { "type": "boolean" }, "lights": { "type": "boolean" }
+          } } } }
+        },
+        "responses": {
+          "200": { "description": "Updated", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "field": { "$ref": "#/components/schemas/Field" } } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete a field",
+        "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "Result", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Message" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/fields/{fieldId}/schedule": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "All confirmed/completed bookings on a field for a day",
+        "parameters": [
+          { "name": "fieldId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "date", "in": "query", "required": true, "description": "YYYY-MM-DD", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": { "description": "Bookings (deduped per match)", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Booking" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/matches/{matchId}/result": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Record a match result",
+        "parameters": [ { "name": "matchId", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["homeScore", "awayScore"], "properties": {
+            "homeScore": { "type": "integer" },
+            "awayScore": { "type": "integer" },
+            "resultNote": { "type": "string" }
+          } } } }
+        },
+        "responses": {
+          "200": { "description": "Recorded", "content": { "application/json": { "schema": { "type": "object", "properties": { "message": { "type": "string" }, "match": { "$ref": "#/components/schemas/Match" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  }
+}
