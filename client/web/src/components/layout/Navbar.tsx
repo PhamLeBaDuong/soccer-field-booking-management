@@ -77,35 +77,33 @@ export function Navbar() {
   ];
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-40 border-b border-stone-200/60 bg-white/80 shadow-[0_1px_0_rgba(0,0,0,0.04),0_4px_20px_rgba(0,0,0,0.04)] backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Logo />
-
-        <nav className="hidden items-center gap-0.5 md:flex">
-          {navItems.map((item) => {
-            const isActive =
-              pathname.startsWith(item.href) && item.href !== ROUTES.home;
-            return (
+    <header className="fixed left-0 right-0 top-0 z-40 border-b border-stone-200/70 bg-white/76 shadow-[0_8px_30px_rgba(23,23,23,0.05)] backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        {/* Left: logo + nav links */}
+        <div className="flex min-w-0 items-center gap-5">
+          <Logo />
+          <nav className="hidden items-center gap-0.5 lg:flex">
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-[7px] px-3 py-2 text-sm font-medium transition-all duration-150",
-                  isActive
-                    ? "bg-neutral-950 text-white shadow-[0_1px_2px_rgba(0,0,0,0.16)]"
-                    : "text-stone-600 hover:bg-stone-100 hover:text-neutral-900",
+                  "flex items-center gap-1.5 whitespace-nowrap rounded-[8px] px-2.5 py-2 text-sm font-semibold text-stone-600 transition-colors hover:bg-stone-100 hover:text-neutral-950",
+                  pathname.startsWith(item.href) &&
+                    item.href !== ROUTES.home &&
+                    "bg-neutral-950 text-white hover:bg-neutral-900 hover:text-white",
                 )}
                 href={item.href}
               >
-                {item.icon ? (
-                  <item.icon className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : null}
+                {item.icon ? <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
                 {item.label}
               </Link>
-            );
-          })}
-        </nav>
+            ))}
+          </nav>
+        </div>
 
-        <div className="hidden items-center gap-2.5 md:flex">
+        {/* Right: language toggle + user menu */}
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
+          {/* Language toggle */}
           <button
             type="button"
             onClick={toggle}

@@ -1,19 +1,33 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Navbar } from "@/components/layout/Navbar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TopBar } from "@/components/layout/TopBar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideNavbar =
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
+  const hideNav =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/admin");
 
+  if (hideNav) {
+    return <main>{children}</main>;
+  }
+
   return (
-    <>
-      {hideNavbar ? null : <Navbar />}
-      <main className={hideNavbar ? "" : "app-background pt-16"}>{children}</main>
-    </>
+    <div className="app-background min-h-screen">
+      <AppSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      <TopBar onMenuClick={() => setDrawerOpen(true)} />
+      <main className="pt-14 lg:pl-64">{children}</main>
+    </div>
   );
 }

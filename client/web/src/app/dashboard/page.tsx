@@ -21,6 +21,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
+import { useI18n } from "@/lib/i18n/context";
 import { ROUTES } from "@/lib/constants";
 import { useBookings } from "@/hooks/useBookings";
 
@@ -31,6 +32,7 @@ function statLabel(value: number): string {
 export default function DashboardPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { t, lang } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { bookings, loading, error, refresh, cancel } = useBookings(user?.id);
 
@@ -59,15 +61,21 @@ export default function DashboardPage() {
   );
 
   const recent = bookings.slice(0, 5);
-  const today = new Intl.DateTimeFormat("en", {
+  const today = new Intl.DateTimeFormat(lang === "vi" ? "vi-VN" : "en", {
     weekday: "long",
     month: "long",
     day: "numeric",
   }).format(new Date());
 
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? t("dash.greetingMorning")
+    : hour < 18 ? t("dash.greetingAfternoon")
+    : t("dash.greetingEvening");
+
   async function handleCancel(bookingId: string) {
     await cancel(bookingId);
-    showToast("Booking canceled.");
+    showToast(t("dash.bookingCanceled"));
   }
 
   if (authLoading || !user) {
@@ -83,11 +91,11 @@ export default function DashboardPage() {
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             {today}
           </p>
-          <h1 className="mt-5 max-w-2xl text-4xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-5xl lg:text-6xl">
-            Good morning, {user.name}
+          <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-[0] text-white sm:text-5xl">
+            {greeting}, {user.name}
           </h1>
-          <p className="mt-4 max-w-md text-base leading-7 text-white/68">
-            Your next match, field, and team plan — all in one place.
+          <p className="mt-4 max-w-xl text-base leading-7 text-white/76">
+            {t("dash.tagline")}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
@@ -99,7 +107,7 @@ export default function DashboardPage() {
               href={ROUTES.fields}
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              Book a Field
+              {t("dash.bookField")}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
             <Link
@@ -111,16 +119,15 @@ export default function DashboardPage() {
               href={ROUTES.matching}
             >
               <Search className="h-4 w-4" aria-hidden="true" />
-              Find a Match
+              {t("dash.findMatch")}
             </Link>
           </div>
         </div>
-
-        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <HeroStat icon={Trophy}      label="Total"    value={stats.total} />
-          <HeroStat icon={Clock3}      label="Upcoming" value={stats.upcoming} />
-          <HeroStat icon={UsersRound}  label="Pending"  value={stats.pending} />
-          <HeroStat icon={XCircle}     label="Canceled" value={stats.canceled} />
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <HeroStat icon={Trophy} label={t("dash.statTotal")} value={stats.total} />
+          <HeroStat icon={Clock3} label={t("dash.statUpcoming")} value={stats.upcoming} />
+          <HeroStat icon={UsersRound} label={t("dash.statPending")} value={stats.pending} />
+          <HeroStat icon={XCircle} label={t("dash.statCanceled")} value={stats.canceled} />
         </div>
       </section>
 
@@ -134,18 +141,11 @@ export default function DashboardPage() {
       <section className="mt-10">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
-              Next up
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-neutral-950">
-              Upcoming bookings
-            </h2>
+            <p className="text-xs font-semibold uppercase text-stone-500">{t("dash.nextUp")}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{t("dash.upcomingBookings")}</h2>
           </div>
-          <Link
-            className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-700 transition-colors hover:text-neutral-950"
-            href={ROUTES.bookings}
-          >
-            View all
+          <Link className="inline-flex items-center gap-1 text-sm font-semibold text-neutral-900 hover:underline" href={ROUTES.bookings}>
+            {t("dash.viewAll")}
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
@@ -168,23 +168,18 @@ export default function DashboardPage() {
           </div>
         ) : (
           <EmptyState
-            icon={<CalendarCheck className="h-5 w-5" aria-hidden="true" />}
-            title="No upcoming bookings"
-            description="Browse available pitches and reserve your next game."
-            action={{ label: "Browse Fields", onClick: () => router.push(ROUTES.fields) }}
+            icon={<span className="text-lg">+</span>}
+            title={t("dash.noUpcoming")}
+            description={t("dash.noUpcomingDesc")}
+            action={{ label: t("dash.browseFields"), onClick: () => router.push(ROUTES.fields) }}
           />
         )}
       </section>
 
-      {/* Recent activity */}
-      <section className="mt-10 pb-10">
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase tracking-widest text-stone-400">
-            Activity
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-neutral-950">
-            Recent bookings
-          </h2>
+      <section className="mt-8 pb-8">
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase text-stone-500">{t("dash.log")}</p>
+          <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{t("dash.recentActivity")}</h2>
         </div>
         <Card>
           <CardContent className="divide-y divide-stone-100 p-0">
@@ -198,19 +193,19 @@ export default function DashboardPage() {
                     <p className="truncate text-sm font-semibold text-neutral-950">
                       {booking.field?.name ?? "Soccer field"}
                     </p>
-                    <p className="mt-0.5 text-xs capitalize text-stone-500">{booking.status}</p>
+                    <p className="text-sm text-stone-500">{t(`status.${booking.status}`)}</p>
                   </div>
                   <Link
                     className="shrink-0 inline-flex items-center gap-1 text-sm font-semibold text-neutral-700 transition-colors hover:text-neutral-950"
                     href={`/bookings/${booking.id}`}
                   >
-                    Open
-                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t("dash.open")}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </div>
               ))
             ) : (
-              <div className="px-5 py-6 text-sm text-stone-400">No recent bookings.</div>
+              <div className="p-6 text-sm text-stone-500">{t("dash.noRecent")}</div>
             )}
           </CardContent>
         </Card>

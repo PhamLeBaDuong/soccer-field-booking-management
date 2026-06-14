@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useRequireAuth } from "@/lib/auth/hooks";
+import { useI18n } from "@/lib/i18n/context";
 import { useBookings } from "@/hooks/useBookings";
 import { useMatches } from "@/hooks/useMatches";
 import type { Booking, Match } from "@/lib/types";
@@ -23,6 +24,7 @@ import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 type Tab = "bookings" | "matches";
 
 export default function HistoryPage() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { bookings, loading: bookingsLoading, error: bookingsError, refresh: refreshBookings } = useBookings(user?.id);
   const { matches,  loading: matchesLoading,  error: matchesError,  refresh: refreshMatches  } = useMatches();
@@ -36,18 +38,18 @@ export default function HistoryPage() {
       <section className="hairline-panel rounded-[8px] p-6">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
           <History className="h-4 w-4" aria-hidden="true" />
-          Activity
+          {t("history.activity")}
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">History</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">{t("history.title")}</h1>
         <p className="mt-2 text-sm text-stone-500">
-          Your complete booking record and match results.
+          {t("history.subtitle")}
         </p>
       </section>
 
       {/* Tabs */}
       <div className="mt-6 flex gap-2">
-        <TabButton active={tab === "bookings"} icon={CalendarCheck} label="Bookings" onClick={() => setTab("bookings")} />
-        <TabButton active={tab === "matches"}  icon={Swords}        label="Matches"  onClick={() => setTab("matches")}  />
+        <TabButton active={tab === "bookings"} icon={CalendarCheck} label={t("history.bookings")} onClick={() => setTab("bookings")} />
+        <TabButton active={tab === "matches"}  icon={Swords}        label={t("history.matches")}  onClick={() => setTab("matches")}  />
       </div>
 
       <div className="mt-6">
@@ -57,10 +59,10 @@ export default function HistoryPage() {
           ) : bookingsLoading ? (
             <LoadingRows />
           ) : bookings.length === 0 ? (
-            <EmptyState icon={<CalendarCheck className="h-5 w-5" />} title="No bookings yet" description="Book a field to see your history here." />
+            <EmptyState icon={<CalendarCheck className="h-5 w-5" />} title={t("history.noBookings")} description={t("history.noBookingsDesc")} />
           ) : (
             <div className="grid gap-3">
-              {bookings.map((b) => <BookingRow key={b.id} booking={b} />)}
+              {bookings.map((b) => <BookingRow key={b.id} booking={b} t={t} />)}
             </div>
           )
         ) : (
@@ -69,10 +71,10 @@ export default function HistoryPage() {
           ) : matchesLoading ? (
             <LoadingRows />
           ) : matches.length === 0 ? (
-            <EmptyState icon={<Swords className="h-5 w-5" />} title="No matches yet" description="Post or accept a match request to see results here." />
+            <EmptyState icon={<Swords className="h-5 w-5" />} title={t("history.noMatches")} description={t("history.noMatchesDesc")} />
           ) : (
             <div className="grid gap-3">
-              {matches.map((m) => <MatchRow key={m.id} match={m} />)}
+              {matches.map((m) => <MatchRow key={m.id} match={m} t={t} />)}
             </div>
           )
         )}
@@ -83,7 +85,7 @@ export default function HistoryPage() {
 
 // ─── Booking Row ──────────────────────────────────────────────────────────────
 
-function BookingRow({ booking }: { booking: Booking }) {
+function BookingRow({ booking, t }: { booking: Booking; t: (k: string) => string }) {
   const isPast = new Date(booking.endTime) < new Date();
   return (
     <Card>
@@ -94,9 +96,9 @@ function BookingRow({ booking }: { booking: Booking }) {
               <span className="text-base font-semibold text-neutral-950">
                 {booking.field?.name ?? "Field"}
               </span>
-              <StatusBadge status={booking.status} />
+              <StatusBadge status={booking.status} t={t} />
               {isPast && booking.status !== "canceled" && (
-                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-600">Completed</span>
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-600">{t("history.completed")}</span>
               )}
             </div>
             <p className="mt-1 font-mono text-sm text-stone-500">
@@ -107,7 +109,7 @@ function BookingRow({ booking }: { booking: Booking }) {
             <p className="font-mono text-base font-semibold text-neutral-950">
               {formatCurrency(booking.totalPrice, booking.currency)}
             </p>
-            <p className="text-xs text-stone-500">total</p>
+            <p className="text-xs text-stone-500">{t("history.totalLabel")}</p>
           </div>
         </div>
       </CardContent>
@@ -117,14 +119,14 @@ function BookingRow({ booking }: { booking: Booking }) {
 
 // ─── Match Row ────────────────────────────────────────────────────────────────
 
-function MatchRow({ match }: { match: Match }) {
+function MatchRow({ match, t }: { match: Match; t: (k: string) => string }) {
   const hasResult = match.homeScore !== null && match.awayScore !== null;
   const fieldName = match.field?.name
     ?? match.matchPost?.field?.name
-    ?? "Field";
+    ?? t("schedule.field");
   const teamNames = match.matchPost
-    ? `${match.matchPost.teamName} vs opponent`
-    : "Lobby match";
+    ? `${match.matchPost.teamName}`
+    : t("nav.lobbies");
 
   return (
     <Card>
@@ -134,7 +136,7 @@ function MatchRow({ match }: { match: Match }) {
             <div className="flex flex-wrap items-center gap-2">
               <Swords className="h-4 w-4 shrink-0 text-stone-400" aria-hidden="true" />
               <span className="text-base font-semibold text-neutral-950">{fieldName}</span>
-              <MatchStatusBadge status={match.status} />
+              <MatchStatusBadge status={match.status} t={t} />
               <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold capitalize text-stone-600">
                 {match.source}
               </span>
@@ -160,7 +162,7 @@ function MatchRow({ match }: { match: Match }) {
               </>
             ) : (
               <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-500">
-                Result pending
+                {t("history.resultPending")}
               </span>
             )}
           </div>
@@ -172,28 +174,30 @@ function MatchRow({ match }: { match: Match }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
   return (
     <span className={cn(
-      "rounded-full px-2 py-0.5 text-xs font-semibold capitalize",
+      "rounded-full px-2 py-0.5 text-xs font-semibold",
       status === "confirmed" && "bg-emerald-50 text-emerald-800",
       status === "canceled"  && "bg-red-50 text-red-700",
       status === "pending"   && "bg-amber-50 text-amber-700",
       status === "matching"  && "bg-sky-50 text-sky-700",
+      status === "completed" && "bg-stone-100 text-stone-600",
     )}>
-      {status}
+      {t(`status.${status}`)}
     </span>
   );
 }
 
-function MatchStatusBadge({ status }: { status: string }) {
+function MatchStatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
   return (
     <span className={cn(
-      "rounded-full px-2 py-0.5 text-xs font-semibold capitalize",
+      "rounded-full px-2 py-0.5 text-xs font-semibold",
       status === "confirmed" && "bg-emerald-50 text-emerald-800",
       status === "canceled"  && "bg-red-50 text-red-700",
+      status === "completed" && "bg-stone-100 text-stone-600",
     )}>
-      {status}
+      {t(`status.${status}`)}
     </span>
   );
 }

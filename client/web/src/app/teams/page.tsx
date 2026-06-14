@@ -17,6 +17,7 @@ import {
   type FriendUser, type TeamInvite,
 } from "@/lib/api/friends";
 import { useTeams } from "@/hooks/useTeams";
+import { useI18n } from "@/lib/i18n/context";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 
@@ -25,6 +26,7 @@ type CreateForm = { name: string; size: string };
 export default function TeamsPage() {
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
+  const { t } = useI18n();
   const { teams, loading, error, refresh } = useTeams();
 
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
@@ -136,11 +138,11 @@ export default function TeamsPage() {
       <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
         <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
           <Users className="h-3.5 w-3.5" aria-hidden="true" />
-          Team management
+          {t("teams.management")}
         </p>
-        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">My teams</h1>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("teams.title")}</h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          Create and manage your teams. Select a team to view its members and post match requests.
+          {t("teams.subtitle")}
         </p>
       </section>
 
@@ -150,7 +152,7 @@ export default function TeamsPage() {
           <CardContent>
             <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
               <Mail className="h-4 w-4" aria-hidden="true" />
-              Team invitations
+              {t("teams.invitations")}
               {pendingInvites.length > 0 && (
                 <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
                   {pendingInvites.length}
@@ -160,7 +162,7 @@ export default function TeamsPage() {
             {loadingInvites ? (
               <Skeleton className="mt-3 h-12" />
             ) : pendingInvites.length === 0 ? (
-              <p className="mt-3 text-sm text-stone-500">No pending invitations.</p>
+              <p className="mt-3 text-sm text-stone-500">{t("teams.noInvites")}</p>
             ) : (
               <div className="mt-3 grid gap-2">
                 {pendingInvites.map((inv) => (
@@ -168,17 +170,17 @@ export default function TeamsPage() {
                     <div>
                       <p className="text-sm font-semibold text-neutral-950">{inv.team.name}</p>
                       <p className="text-xs text-stone-500">
-                        {inv.team.size}v{inv.team.size} · Invited by <span className="font-medium">{inv.invitedBy.name}</span>
+                        {inv.team.size}v{inv.team.size} · {t("teams.invitedBy")} <span className="font-medium">{inv.invitedBy.name}</span>
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button size="sm" onClick={() => handleAcceptInvite(inv.id, inv.team.name)}>
                         <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                        Join
+                        {t("teams.join")}
                       </Button>
                       <Button size="sm" variant="secondary" onClick={() => handleDeclineInvite(inv.id)}>
                         <X className="h-3.5 w-3.5" aria-hidden="true" />
-                        Decline
+                        {t("teams.decline")}
                       </Button>
                     </div>
                   </div>
@@ -193,8 +195,8 @@ export default function TeamsPage() {
         {/* Team list + create */}
         <Card>
           <CardContent>
-            <p className="text-xs font-semibold uppercase text-stone-500">My teams</p>
-            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">Select a team</h2>
+            <p className="text-xs font-semibold uppercase text-stone-500">{t("teams.myTeams")}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{t("teams.selectTeam")}</h2>
 
             {error && <ErrorState message={error} onRetry={refresh} />}
 
@@ -203,8 +205,8 @@ export default function TeamsPage() {
                 <><Skeleton className="h-16" /><Skeleton className="h-16" /></>
               ) : teams.length === 0 ? (
                 <EmptyState icon={<Users className="h-5 w-5" />}
-                  title="No teams yet"
-                  description="Create your first team below." />
+                  title={t("teams.noTeams")}
+                  description={t("teams.noTeamsDesc")} />
               ) : (
                 teams.map((team) => {
                   const isActive = team.id === (activeTeamId ?? teams[0]?.id);
@@ -220,7 +222,7 @@ export default function TeamsPage() {
                       <span>
                         <span className="block text-sm font-semibold">{team.name}</span>
                         <span className={cn("text-xs", isActive ? "text-white/70" : "text-stone-500")}>
-                          {team.membersCount}/{team.size} players · rating {team.rating.toFixed(1)}
+                          {team.membersCount}/{team.size} {t("common.players")} · {t("teams.rating")} {team.rating.toFixed(1)}
                         </span>
                       </span>
                       <span className="font-mono text-sm">{team.size}v{team.size}</span>
@@ -231,13 +233,13 @@ export default function TeamsPage() {
             </div>
 
             <form className="mt-5 grid gap-3 sm:grid-cols-[1fr_110px_auto]" onSubmit={handleCreate}>
-              <Input label="Team name" placeholder="e.g. Thunder FC"
+              <Input label={t("teams.teamName")} placeholder={t("teams.namePlaceholder")}
                 value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-              <Input label="Size" type="number" min={2} max={22}
+              <Input label={t("teams.size")} type="number" min={2} max={22}
                 value={form.size} onChange={(e) => setForm((p) => ({ ...p, size: e.target.value }))} />
               <div className="flex items-end">
                 <Button className="w-full" type="submit">
-                  <Plus className="h-4 w-4" aria-hidden="true" />Create
+                  <Plus className="h-4 w-4" aria-hidden="true" />{t("teams.create")}
                 </Button>
               </div>
             </form>
@@ -249,22 +251,22 @@ export default function TeamsPage() {
           <CardContent>
             {!activeTeam ? (
               <EmptyState icon={<Users className="h-5 w-5" />}
-                title="No team selected"
-                description="Create or select a team on the left." />
+                title={t("teams.noTeamSelected")}
+                description={t("teams.noTeamSelectedDesc")} />
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase text-stone-500">Team detail</p>
+                    <p className="text-xs font-semibold uppercase text-stone-500">{t("teams.detail")}</p>
                     <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{activeTeam.name}</h2>
                   </div>
                   {activeTeam.leaderId === user.id && (
                     <Button variant="secondary"
                       onClick={() => handleDisband(activeTeam.id)}
                       className="text-red-600 hover:bg-red-50"
-                      title="Disband team">
+                      title={t("teams.disband")}>
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Disband
+                      {t("teams.disband")}
                     </Button>
                   )}
                 </div>
@@ -272,9 +274,9 @@ export default function TeamsPage() {
                 {/* Stats */}
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   {[
-                    { label: "Format",  value: `${activeTeam.size}v${activeTeam.size}` },
-                    { label: "Members", value: `${activeTeam.membersCount}/${activeTeam.size}` },
-                    { label: "Rating",  value: activeTeam.rating.toFixed(1) },
+                    { label: t("teams.format"),  value: `${activeTeam.size}v${activeTeam.size}` },
+                    { label: t("teams.members"), value: `${activeTeam.membersCount}/${activeTeam.size}` },
+                    { label: t("teams.ratingLabel"), value: activeTeam.rating.toFixed(1) },
                   ].map((s) => (
                     <div key={s.label} className="rounded-[8px] bg-stone-50 p-3 ring-1 ring-stone-200">
                       <p className="text-xs font-semibold text-stone-500">{s.label}</p>
@@ -285,27 +287,28 @@ export default function TeamsPage() {
 
                 {/* Team ID */}
                 <div className="mt-4 rounded-[8px] bg-stone-50 px-3 py-2 ring-1 ring-stone-200">
-                  <p className="text-xs font-semibold text-stone-500">Team ID</p>
+                  <p className="text-xs font-semibold text-stone-500">{t("teams.teamId")}</p>
                   <p className="mt-0.5 break-all font-mono text-xs text-neutral-700">{activeTeam.id}</p>
                 </div>
 
                 {/* Members */}
                 <div className="mt-5">
-                  <p className="text-xs font-semibold uppercase text-stone-500">Members</p>
+                  <p className="text-xs font-semibold uppercase text-stone-500">{t("teams.members")}</p>
                   <MemberList
                     team={activeTeam}
                     currentUserId={user.id}
                     onRemove={(userId) => handleRemoveMember(activeTeam.id, userId)}
+                    t={t}
                   />
                 </div>
 
                 {/* Invite Player */}
                 <div className="mt-5 border-t border-stone-100 pt-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase text-stone-500">Invite a player</p>
+                    <p className="text-xs font-semibold uppercase text-stone-500">{t("teams.invitePlayer")}</p>
                     <button type="button" onClick={() => setShowInvite((v) => !v)}
                       className="text-xs font-semibold text-neutral-700 hover:underline">
-                      {showInvite ? "Hide" : "Show"}
+                      {showInvite ? t("teams.hide") : t("teams.show")}
                     </button>
                   </div>
                   {showInvite && (
@@ -314,14 +317,14 @@ export default function TeamsPage() {
                         <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" aria-hidden="true" />
                         <input
                           className="w-full rounded-[8px] border border-stone-200 bg-white py-2 pl-8 pr-3 text-sm outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
-                          placeholder="Search by name or username…"
+                          placeholder={t("teams.searchPlayers")}
                           value={inviteQuery}
                           onChange={(e) => handleInviteSearch(e.target.value)}
                         />
                       </div>
-                      {inviteLoading && <p className="mt-2 text-xs text-stone-400">Searching…</p>}
+                      {inviteLoading && <p className="mt-2 text-xs text-stone-400">{t("teams.searching")}</p>}
                       {!inviteLoading && inviteQuery && inviteResults.length === 0 && (
-                        <p className="mt-2 text-xs text-stone-400">No players found.</p>
+                        <p className="mt-2 text-xs text-stone-400">{t("teams.noPlayers")}</p>
                       )}
                       <div className="mt-2 grid gap-1.5">
                         {inviteResults.map((u) => (
@@ -334,7 +337,7 @@ export default function TeamsPage() {
                               onClick={() => handleSendInvite(activeTeam.id, u.id, u.name)}
                               className="flex items-center gap-1.5 rounded-[6px] border border-stone-200 px-2 py-1 text-xs font-semibold text-neutral-700 hover:bg-stone-50">
                               <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                              Invite
+                              {t("teams.invite")}
                             </button>
                           </div>
                         ))}
@@ -353,16 +356,14 @@ export default function TeamsPage() {
 
 // ─── Member list ──────────────────────────────────────────────────────────────
 
-function MemberList({ team, currentUserId, onRemove }: {
+function MemberList({ team, currentUserId, onRemove, t }: {
   team: Team;
   currentUserId: string;
   onRemove: (userId: string) => void;
+  t: (key: string) => string;
 }) {
-  const isLeader = team.leaderId === currentUserId;
   const memberCount = team.membersCount;
 
-  // The API returns membersCount; actual member names require a deeper endpoint.
-  // Display placeholder rows for now with the count we know.
   return (
     <div className="mt-3 grid gap-2">
       <div className="flex items-center justify-between rounded-[8px] border border-stone-200 bg-white/80 px-3 py-2">
@@ -371,23 +372,23 @@ function MemberList({ team, currentUserId, onRemove }: {
             {currentUserId === team.leaderId ? "Y" : "?"}
           </span>
           <span className="text-sm font-medium text-neutral-950">
-            {currentUserId === team.leaderId ? "You (leader)" : "Team leader"}
+            {currentUserId === team.leaderId ? t("teams.youLeader") : t("teams.teamLeader")}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
-            <Crown className="h-3 w-3" aria-hidden="true" />Leader
+            <Crown className="h-3 w-3" aria-hidden="true" />{t("teams.leader")}
           </span>
         </div>
       </div>
 
       {memberCount > 1 && (
         <p className="rounded-[8px] bg-stone-50 px-3 py-2 text-xs text-stone-500 ring-1 ring-stone-100">
-          +{memberCount - 1} other member{memberCount > 2 ? "s" : ""} · share the team ID for others to join
+          +{memberCount - 1} {t("teams.otherMembers")} · {t("teams.shareIdHint")}
         </p>
       )}
 
       {memberCount < team.size && (
         <p className="rounded-[8px] bg-blue-50 px-3 py-2 text-xs text-blue-700 ring-1 ring-blue-100">
-          {team.size - memberCount} open slot{team.size - memberCount > 1 ? "s" : ""} — share the team ID ({team.id}) with players to add them
+          {team.size - memberCount} {t("teams.openSlots")} — {t("teams.shareIdToAdd")} ({team.id}) {t("teams.withPlayers")}
         </p>
       )}
     </div>

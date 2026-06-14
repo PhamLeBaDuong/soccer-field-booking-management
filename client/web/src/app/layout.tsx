@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import { Be_Vietnam_Pro } from "next/font/google";
 import { AppShell } from "@/components/layout/AppShell";
 import { ToastProvider } from "@/components/ui/Toast";
 import { AuthProvider } from "@/lib/auth/context";
@@ -7,9 +7,11 @@ import { BookingsProvider } from "@/lib/bookings/context";
 import { I18nProvider } from "@/lib/i18n/context";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+// Be Vietnam Pro renders Vietnamese diacritics cleanly and looks good in Latin too.
+const appFont = Be_Vietnam_Pro({
   variable: "--font-dm-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
@@ -25,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} antialiased`}>
+      <body className={`${appFont.variable} antialiased`}>
         <I18nProvider>
           <AuthProvider>
             <BookingsProvider>

@@ -23,6 +23,7 @@ import { useLobbies } from "@/hooks/useLobbies";
 import { useJoinedLobbies } from "@/hooks/useJoinedLobbies";
 import type { Booking, Field, Lobby, LobbyStatus } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
+import { useI18n } from "@/lib/i18n/context";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 
 type BookingConfirmation = {
@@ -35,6 +36,7 @@ type BookingConfirmation = {
 };
 
 export default function LobbiesPage() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
   const { addBookings } = useBookingsContext();
@@ -116,11 +118,11 @@ export default function LobbiesPage() {
       <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
         <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
           <DoorOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          Open lobbies
+          {t("lobby.openLobbies")}
         </p>
-        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">Lobby list</h1>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("lobby.title")}</h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          Join an open lobby or create your own from a field&apos;s booking page. Booking is confirmed the moment a lobby reaches capacity.
+          {t("lobby.subtitle")}
         </p>
       </section>
 
@@ -132,11 +134,11 @@ export default function LobbiesPage() {
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-bold text-emerald-900">Booking confirmed!</p>
+                <p className="text-sm font-bold text-emerald-900">{t("lobby.bookingConfirmed")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-emerald-800">{confirmation.fieldName}</p>
                 <p className="mt-0.5 font-mono text-sm text-emerald-700">{confirmation.dateRange}</p>
                 <p className="mt-1 text-xs text-emerald-700">
-                  {confirmation.playerCount} players · {formatCurrency(confirmation.pricePerHour, confirmation.currency)}/hr
+                  {confirmation.playerCount} {t("common.players")} · {formatCurrency(confirmation.pricePerHour, confirmation.currency)}/hr
                 </p>
               </div>
             </div>
@@ -151,20 +153,20 @@ export default function LobbiesPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase text-stone-500">
-              {lobbiesLoading ? "Loading…" : `${visibleLobbies.length} ${filterStatus === "all" ? "total" : filterStatus}`}
+              {lobbiesLoading ? t("common.loading") : `${visibleLobbies.length} ${filterStatus === "all" ? t("common.all") : t(`lobby.${filterStatus}`)}`}
             </p>
-            <h2 className="mt-0.5 text-2xl font-semibold text-neutral-950">Lobbies</h2>
+            <h2 className="mt-0.5 text-2xl font-semibold text-neutral-950">{t("lobby.lobbies")}</h2>
           </div>
           <div className="flex gap-2">
             {(["all", "open", "full"] as const).map((s) => (
               <button key={s} type="button" onClick={() => setFilterStatus(s)}
                 className={cn(
-                  "shrink-0 rounded-[8px] border px-3 py-1.5 text-xs font-semibold capitalize transition-colors",
+                  "shrink-0 rounded-[8px] border px-3 py-1.5 text-xs font-semibold transition-colors",
                   filterStatus === s
                     ? "border-neutral-950 bg-neutral-950 text-white"
                     : "border-stone-200 bg-white/78 text-stone-600 hover:bg-white",
                 )}>
-                {s}
+                {s === "all" ? t("common.all") : t(`lobby.${s}`)}
               </button>
             ))}
           </div>
@@ -181,8 +183,8 @@ export default function LobbiesPage() {
           <Card>
             <CardContent>
               <EmptyState icon={<DoorOpen className="h-5 w-5" />}
-                title="No lobbies yet"
-                description="Create a lobby when booking a field — others can join and share the cost." />
+                title={t("lobby.noLobbies")}
+                description={t("lobby.noLobbiesDesc")} />
             </CardContent>
           </Card>
         ) : (

@@ -16,6 +16,7 @@ import {
 import { FieldSchedulePanel } from "@/components/schedule/FieldSchedulePanel";
 import { ComplexScheduleGrid } from "@/components/schedule/ComplexScheduleGrid";
 import { getVenueFieldSchedule, createManualBooking } from "@/lib/api/venues";
+import { useI18n } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -40,6 +41,7 @@ const EMPTY_COMPLEX: ComplexForm = { name: "", address: "", description: "" };
 const EMPTY_FIELD: FieldForm     = { name: "", type: "5v5", startTime: "06:00", endTime: "22:00", price: "", indoor: false, lights: false, description: "" };
 
 export default function MyVenuesPage() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
 
@@ -204,19 +206,19 @@ export default function MyVenuesPage() {
       <section className="hairline-panel rounded-[8px] p-6">
         <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
           <Building2 className="h-4 w-4" aria-hidden="true" />
-          Venue management
+          {t("venues.management")}
         </p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">My Venues</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">{t("venues.title")}</h1>
         <p className="mt-2 text-sm text-stone-500">
-          Register your complexes and add fields for players to discover and book.
+          {t("venues.subtitle")}
         </p>
       </section>
 
       <div className="mt-6 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-neutral-950">My complexes</h2>
+        <h2 className="text-lg font-semibold text-neutral-950">{t("venues.myComplexes")}</h2>
         <Button onClick={startCreateComplex}>
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Add complex
+          {t("venues.addComplex")}
         </Button>
       </div>
 
@@ -311,10 +313,10 @@ export default function MyVenuesPage() {
                   {expandedId === complex.id && (
                     <div className="mt-4 border-t border-stone-100 pt-4">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold uppercase text-stone-500">Fields</p>
+                        <p className="text-xs font-semibold uppercase text-stone-500">{t("venues.fields")}</p>
                         <Button variant="secondary" onClick={() => startAddField(complex.id)}>
                           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                          Add field
+                          {t("venues.addField")}
                         </Button>
                       </div>
 

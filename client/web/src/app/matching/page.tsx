@@ -29,6 +29,7 @@ import { useMatchPosts } from "@/hooks/useMatchPosts";
 import { useTeams } from "@/hooks/useTeams";
 import { useFields } from "@/hooks/useFields";
 import { useField } from "@/hooks/useFields";
+import { useI18n } from "@/lib/i18n/context";
 import type { Booking, MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -69,6 +70,7 @@ export default function MatchingPage() {
 }
 
 function MatchingContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const urlFieldId = searchParams.get("fieldId") ?? "";
 
@@ -204,11 +206,11 @@ function MatchingContent() {
       <section className="pitch-hero-bg rounded-[8px] p-6 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:p-8">
         <p className="inline-flex items-center gap-2 rounded-full bg-white/14 px-3 py-1 text-xs font-semibold text-white/86 ring-1 ring-white/18 backdrop-blur">
           <Swords className="h-3.5 w-3.5" aria-hidden="true" />
-          Matchmaking
+          {t("match.matchmaking")}
         </p>
-        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">Match requests</h1>
+        <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("match.title")}</h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          Post a challenge or accept an open request. Booking is confirmed the moment a match is made.
+          {t("match.subtitle")}
         </p>
       </section>
 
@@ -220,7 +222,7 @@ function MatchingContent() {
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-sm font-bold text-emerald-900">Match booking confirmed!</p>
+                <p className="text-sm font-bold text-emerald-900">{t("match.bookingConfirmed")}</p>
                 <p className="mt-0.5 text-sm font-semibold text-emerald-800">
                   {confirmation.postingTeam} vs {confirmation.acceptingTeam}
                 </p>
@@ -242,17 +244,17 @@ function MatchingContent() {
         {/* Post form */}
         <Card>
           <CardContent>
-            <p className="text-xs font-semibold uppercase text-stone-500">Post request</p>
-            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">New match request</h2>
+            <p className="text-xs font-semibold uppercase text-stone-500">{t("match.postRequest")}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{t("match.newRequest")}</h2>
 
             {/* Active team selector */}
             <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold text-stone-500">Playing as</p>
+              <p className="mb-2 text-xs font-semibold text-stone-500">{t("match.playingAs")}</p>
               {teamsLoading ? (
                 <Skeleton className="h-9" />
               ) : teams.length === 0 ? (
                 <p className="rounded-[8px] bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-200">
-                  No teams yet — create one on the <a href="/teams" className="underline font-semibold">Teams</a> page first.
+                  {t("match.noTeamsHint")} <a href="/teams" className="underline font-semibold">{t("match.teamsPage")}</a> {t("match.pageFirst")}
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -275,7 +277,7 @@ function MatchingContent() {
             <form className="mt-4 grid gap-3" onSubmit={handlePost}>
               {/* Field selector */}
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold text-neutral-900">Field</span>
+                <span className="text-sm font-semibold text-neutral-900">{t("schedule.field")}</span>
                 <select
                   className="select-control"
                   value={form.fieldId}
@@ -284,7 +286,7 @@ function MatchingContent() {
                     setForm((p) => ({ ...p, fieldId: e.target.value, start: "", end: "" }))
                   }
                 >
-                  {fieldsLoading && <option>Loading…</option>}
+                  {fieldsLoading && <option>{t("common.loading")}</option>}
                   {fields.map((f) => (
                     <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
@@ -293,7 +295,7 @@ function MatchingContent() {
 
               {/* Date */}
               <Input
-                label="Date"
+                label={t("common.date")}
                 type="date"
                 leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
                 value={form.date}
@@ -304,8 +306,8 @@ function MatchingContent() {
               {/* Time slot picker */}
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold text-neutral-900">Time slot</span>
-                  <span className="text-xs font-medium text-stone-500">1-hour slots</span>
+                  <span className="text-sm font-semibold text-neutral-900">{t("field.timeSlot")}</span>
+                  <span className="text-xs font-medium text-stone-500">{t("field.hourSlots")}</span>
                 </div>
                 <TimeSlotPicker
                   key={form.fieldId + form.date}
@@ -316,7 +318,7 @@ function MatchingContent() {
                 />
                 {form.start && form.end && (
                   <p className="mt-2 text-xs font-medium text-stone-500">
-                    Selected: {form.start} – {form.end}
+                    {form.start} – {form.end}
                   </p>
                 )}
               </div>
@@ -324,20 +326,20 @@ function MatchingContent() {
               {/* Visibility + Note */}
               <div className="grid grid-cols-2 gap-3">
                 <label className="block space-y-1.5">
-                  <span className="text-sm font-semibold text-neutral-900">Visibility</span>
+                  <span className="text-sm font-semibold text-neutral-900">{t("match.visibility")}</span>
                   <select className="select-control" value={form.visibility}
                     onChange={(e) => setForm((p) => ({ ...p, visibility: e.target.value as MatchRequestVisibility }))}>
-                    <option value="public">Public</option>
-                    <option value="private">Private (code)</option>
+                    <option value="public">{t("match.public")}</option>
+                    <option value="private">{t("match.private")}</option>
                   </select>
                 </label>
-                <Input label="Note (optional)" placeholder="Friendly pace…"
+                <Input label={t("match.note")} placeholder={t("match.notePlaceholder")}
                   value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
               </div>
 
               <Button className="w-full" type="submit" disabled={teams.length === 0 || fieldsLoading}>
                 <Send className="h-4 w-4" aria-hidden="true" />
-                Post request
+                {t("match.post")}
               </Button>
             </form>
           </CardContent>
@@ -348,20 +350,20 @@ function MatchingContent() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase text-stone-500">
-                {postsLoading ? "Loading…" : `${visiblePosts.length} ${filterStatus === "all" ? "total" : filterStatus}`}
+                {postsLoading ? t("common.loading") : `${visiblePosts.length} ${filterStatus === "all" ? t("common.all") : t(`match.${filterStatus}`)}`}
               </p>
-              <h2 className="mt-0.5 text-2xl font-semibold text-neutral-950">Match list</h2>
+              <h2 className="mt-0.5 text-2xl font-semibold text-neutral-950">{t("match.matchList")}</h2>
             </div>
             <div className="flex gap-2">
               {(["all", "open", "matched"] as const).map((s) => (
                 <button key={s} type="button" onClick={() => setFilterStatus(s)}
                   className={cn(
-                    "shrink-0 rounded-[8px] border px-3 py-1.5 text-xs font-semibold capitalize transition-colors",
+                    "shrink-0 rounded-[8px] border px-3 py-1.5 text-xs font-semibold transition-colors",
                     filterStatus === s
                       ? "border-neutral-950 bg-neutral-950 text-white"
                       : "border-stone-200 bg-white/78 text-stone-600 hover:bg-white",
                   )}>
-                  {s}
+                  {s === "all" ? t("common.all") : t(`match.${s}`)}
                 </button>
               ))}
             </div>
@@ -375,8 +377,8 @@ function MatchingContent() {
             <Card>
               <CardContent>
                 <EmptyState icon={<Swords className="h-5 w-5" />}
-                  title="No match requests"
-                  description="Post a request above to find an opponent." />
+                  title={t("match.noRequests")}
+                  description={t("match.noRequestsDesc")} />
               </CardContent>
             </Card>
           ) : (
