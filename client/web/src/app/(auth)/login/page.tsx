@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<LoginErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [apiError, setApiError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,11 +30,33 @@ export default function LoginPage() {
     }
   }, [loading, router, user]);
 
+  function validateField(field: "identifier" | "password", value: string): string {
+    if (field === "identifier" && !value.trim()) return "Enter your username or email.";
+    if (field === "password" && !value) return "Enter your password.";
+    return "";
+  }
+
+  function handleBlur(field: "identifier" | "password", value: string) {
+    setTouched((t) => ({ ...t, [field]: true }));
+    const msg = validateField(field, value);
+    setErrors((e) => ({ ...e, [field]: msg || undefined }));
+  }
+
+  function handleChange(field: "identifier" | "password", value: string) {
+    if (field === "identifier") setIdentifier(value);
+    else setPassword(value);
+    if (touched[field]) {
+      const msg = validateField(field, value);
+      setErrors((e) => ({ ...e, [field]: msg || undefined }));
+    }
+  }
+
   function validate(): boolean {
     const nextErrors: LoginErrors = {};
     if (!identifier.trim()) nextErrors.identifier = "Enter your username or email.";
     if (!password) nextErrors.password = "Enter your password.";
     setErrors(nextErrors);
+    setTouched({ identifier: true, password: true });
     return Object.keys(nextErrors).length === 0;
   }
 
@@ -108,7 +131,8 @@ export default function LoginPage() {
                 leadingIcon={<UserRound className="h-4 w-4" aria-hidden="true" />}
                 value={identifier}
                 error={errors.identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={(e) => handleChange("identifier", e.target.value)}
+                onBlur={(e) => handleBlur("identifier", e.target.value)}
               />
               <Input
                 label="Password"
@@ -118,7 +142,8 @@ export default function LoginPage() {
                 leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
                 value={password}
                 error={errors.password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => handleChange("password", e.target.value)}
+                onBlur={(e) => handleBlur("password", e.target.value)}
               />
               <Button className="mt-2 w-full" loading={submitting} type="submit" size="lg">
                 <LogIn className="h-4 w-4" aria-hidden="true" />

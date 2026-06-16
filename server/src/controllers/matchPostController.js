@@ -1,4 +1,5 @@
 import * as matchPostService from "../services/matchPostService.js";
+import { getIO } from "../socket.js";
 
 function handleError(res, error) {
     const clientPhrases = [
@@ -68,6 +69,18 @@ export async function acceptMatchPost(req, res) {
             requesterId: req.user.id,
         });
         res.status(201).json(match);
+
+        // Notify the original poster + broadcast updated post status to all clients
+        const io = getIO();
+        if (io) {
+            io.emit("matchpost:updated", { id: req.params.postId, status: "matched" });
+            if (match?.matchPost?.team?.leaderId) {
+                io.to(match.matchPost.team.leaderId).emit("notify", {
+                    type: "match_accepted",
+                    matchPostId: req.params.postId,
+                });
+            }
+        }
     } catch (error) { handleError(res, error); }
 }
 

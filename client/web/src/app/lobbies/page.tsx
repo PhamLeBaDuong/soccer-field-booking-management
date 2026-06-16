@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Check,
   CheckCircle2,
@@ -8,12 +9,12 @@ import {
   DoorOpen,
   Lock,
   Users,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
@@ -22,6 +23,7 @@ import { joinLobby as apiJoinLobby } from "@/lib/api/lobbies";
 import { useLobbies } from "@/hooks/useLobbies";
 import { useJoinedLobbies } from "@/hooks/useJoinedLobbies";
 import type { Booking, Field, Lobby, LobbyStatus } from "@/lib/types";
+import { getSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils/cn";
 import { useI18n } from "@/lib/i18n/context";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
@@ -41,11 +43,28 @@ export default function LobbiesPage() {
   const { showToast } = useToast();
   const { addBookings } = useBookingsContext();
 
-  const { lobbies, loading: lobbiesLoading, error: lobbiesError, refresh: refreshLobbies } = useLobbies();
+  const { lobbies, setLobbies, loading: lobbiesLoading, error: lobbiesError, refresh: refreshLobbies } = useLobbies();
   const { joinedIds, markJoined } = useJoinedLobbies();
 
   const [filterStatus, setFilterStatus] = useState<LobbyStatus | "all">("all");
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
+
+  // Real-time lobby updates via WebSocket
+  useEffect(() => {
+    const sock = getSocket();
+    if (!sock) return;
+    const onUpdate = (update: { id: string; joinedCount: number; status: string }) => {
+      setLobbies((prev) =>
+        prev.map((l) =>
+          l.id === update.id
+            ? { ...l, joinedCount: update.joinedCount, status: update.status as LobbyStatus }
+            : l,
+        ),
+      );
+    };
+    sock.on("lobby:updated", onUpdate);
+    return () => { sock.off("lobby:updated", onUpdate); };
+  }, [setLobbies]);
 
   const visibleLobbies = lobbies.filter(
     (l) => filterStatus === "all" || l.status === filterStatus,
@@ -126,28 +145,32 @@ export default function LobbiesPage() {
         </p>
       </section>
 
-      {confirmation && (
-        <div className="mt-5 rounded-[8px] border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <div>
-                <p className="text-sm font-bold text-emerald-900">{t("lobby.bookingConfirmed")}</p>
-                <p className="mt-0.5 text-sm font-semibold text-emerald-800">{confirmation.fieldName}</p>
-                <p className="mt-0.5 font-mono text-sm text-emerald-700">{confirmation.dateRange}</p>
-                <p className="mt-1 text-xs text-emerald-700">
-                  {confirmation.playerCount} {t("common.players")} · {formatCurrency(confirmation.pricePerHour, confirmation.currency)}/hr
-                </p>
-              </div>
+      <Modal
+        open={!!confirmation}
+        size="sm"
+        title={t("lobby.bookingConfirmed")}
+        onClose={() => setConfirmation(null)}
+        footer={
+          <Button className="w-full" onClick={() => setConfirmation(null)}>
+            {t("common.close")}
+          </Button>
+        }
+      >
+        {confirmation && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              <p className="font-semibold text-neutral-950">{confirmation.fieldName}</p>
+              <p className="font-mono text-sm text-stone-600">{confirmation.dateRange}</p>
+              <p className="text-xs text-stone-500">
+                {confirmation.playerCount} {t("common.players")} · {formatCurrency(confirmation.pricePerHour, confirmation.currency)}/hr
+              </p>
             </div>
-            <button type="button" onClick={() => setConfirmation(null)} className="shrink-0 p-1 text-emerald-600 hover:bg-emerald-100 rounded-[6px]">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       <div className="mt-6 flex flex-col gap-4">
         <div className="flex items-center justify-between gap-3">
@@ -188,16 +211,25 @@ export default function LobbiesPage() {
             </CardContent>
           </Card>
         ) : (
-          visibleLobbies.map((lobby) => (
-            <LobbyCard
-              key={lobby.id}
-              lobby={lobby}
-              hasJoined={joinedIds.includes(lobby.id)}
-              isOwner={!!user && (lobby.creatorId === user.id || lobby.creatorName === user.name)}
-              onJoin={handleJoin}
-              onCopy={copyText}
-            />
-          ))
+          <AnimatePresence mode="popLayout">
+            {visibleLobbies.map((lobby, i) => (
+              <motion.div
+                key={lobby.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ duration: 0.2, delay: i * 0.04, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <LobbyCard
+                  lobby={lobby}
+                  hasJoined={joinedIds.includes(lobby.id)}
+                  isOwner={!!user && (lobby.creatorId === user.id || lobby.creatorName === user.name)}
+                  onJoin={handleJoin}
+                  onCopy={copyText}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>
@@ -274,8 +306,12 @@ function LobbyCard({
                 </span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-stone-100">
-                <div className={cn("h-full rounded-full transition-all", isFull ? "bg-emerald-500" : "bg-neutral-950")}
-                  style={{ width: `${filledPct}%` }} />
+                <motion.div
+                  className={cn("h-full rounded-full", isFull ? "bg-emerald-500" : "bg-neutral-950")}
+                  initial={false}
+                  animate={{ width: `${filledPct}%` }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                />
               </div>
             </div>
           </div>

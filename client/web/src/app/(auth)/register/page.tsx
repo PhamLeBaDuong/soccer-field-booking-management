@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuth } from "@/lib/auth/hooks";
 import { APP_NAME, ROUTES } from "@/lib/constants";
+import { cn } from "@/lib/utils/cn";
 import type { RegisterPayload } from "@/lib/types";
 
 type RegisterForm = RegisterPayload & { confirmPassword: string };
@@ -22,13 +23,34 @@ const initialForm: RegisterForm = {
   confirmPassword: "",
 };
 
+function passwordStrength(pw: string): 0 | 1 | 2 | 3 | 4 {
+  if (!pw) return 0;
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) || /[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  return Math.min(4, score) as 0 | 1 | 2 | 3 | 4;
+}
+
+const strengthMeta: { label: string; color: string }[] = [
+  { label: "", color: "" },
+  { label: "Weak", color: "bg-red-500" },
+  { label: "Fair", color: "bg-orange-400" },
+  { label: "Good", color: "bg-yellow-400" },
+  { label: "Strong", color: "bg-emerald-500" },
+];
+
 export default function RegisterPage() {
   const router = useRouter();
   const { user, loading, register } = useAuth();
   const [form, setForm] = useState<RegisterForm>(initialForm);
   const [errors, setErrors] = useState<RegisterErrors>({});
+  const [touched, setTouched] = useState<Partial<Record<keyof RegisterForm, boolean>>>({});
   const [apiError, setApiError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const strength = passwordStrength(form.password);
 
   useEffect(() => {
     if (!loading && user) {
@@ -36,18 +58,47 @@ export default function RegisterPage() {
     }
   }, [loading, router, user]);
 
+  function validateSingle(field: keyof RegisterForm, value: string, currentPw?: string): string {
+    switch (field) {
+      case "name": return !value.trim() ? "Enter your name." : "";
+      case "username":
+        if (!value.trim()) return "Choose a username.";
+        if (value.trim().length < 3) return "Username must be at least 3 characters.";
+        return "";
+      case "email": return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "Enter a valid email." : "";
+      case "password": return value.length < 6 ? "Use at least 6 characters." : "";
+      case "confirmPassword": return value !== (currentPw ?? form.password) ? "Passwords do not match." : "";
+      default: return "";
+    }
+  }
+
   function updateField(field: keyof RegisterForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+    if (touched[field]) {
+      setErrors((e) => ({ ...e, [field]: validateSingle(field, value) || undefined }));
+    }
+    // Keep confirm password in sync when password changes
+    if (field === "password" && touched.confirmPassword) {
+      setErrors((e) => ({ ...e, confirmPassword: form.confirmPassword !== value ? "Passwords do not match." : undefined }));
+    }
+  }
+
+  function handleBlur(field: keyof RegisterForm) {
+    setTouched((t) => ({ ...t, [field]: true }));
+    const msg = validateSingle(field, form[field] as string);
+    setErrors((e) => ({ ...e, [field]: msg || undefined }));
   }
 
   function validate(): boolean {
     const nextErrors: RegisterErrors = {};
     if (!form.name.trim()) nextErrors.name = "Enter your name.";
     if (!form.username.trim()) nextErrors.username = "Choose a username.";
+    else if (form.username.trim().length < 3) nextErrors.username = "Username must be at least 3 characters.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) nextErrors.email = "Enter a valid email.";
     if (form.password.length < 6) nextErrors.password = "Use at least 6 characters.";
     if (form.password !== form.confirmPassword) nextErrors.confirmPassword = "Passwords do not match.";
     setErrors(nextErrors);
+    setTouched({ name: true, username: true, email: true, password: true, confirmPassword: true });
     return Object.keys(nextErrors).length === 0;
   }
 
@@ -127,6 +178,7 @@ export default function RegisterPage() {
                 value={form.name}
                 error={errors.name}
                 onChange={(e) => updateField("name", e.target.value)}
+                onBlur={() => handleBlur("name")}
               />
               <Input
                 label="Username"
@@ -134,6 +186,7 @@ export default function RegisterPage() {
                 value={form.username}
                 error={errors.username}
                 onChange={(e) => updateField("username", e.target.value)}
+                onBlur={() => handleBlur("username")}
               />
               <Input
                 className="sm:col-span-2"
@@ -143,6 +196,7 @@ export default function RegisterPage() {
                 value={form.email}
                 error={errors.email}
                 onChange={(e) => updateField("email", e.target.value)}
+                onBlur={() => handleBlur("email")}
               />
               <Input
                 className="sm:col-span-2"
@@ -152,14 +206,41 @@ export default function RegisterPage() {
                 error={errors.phone}
                 onChange={(e) => updateField("phone", e.target.value)}
               />
-              <Input
-                label="Password"
-                type="password"
-                leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
-                value={form.password}
-                error={errors.password}
-                onChange={(e) => updateField("password", e.target.value)}
-              />
+
+              {/* Password with strength bar */}
+              <div className="space-y-1.5">
+                <Input
+                  label="Password"
+                  type="password"
+                  leadingIcon={<LockKeyhole className="h-4 w-4" aria-hidden="true" />}
+                  value={form.password}
+                  error={errors.password}
+                  onChange={(e) => updateField("password", e.target.value)}
+                  onBlur={() => handleBlur("password")}
+                />
+                {form.password.length > 0 && (
+                  <div aria-live="polite">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((level) => (
+                        <div
+                          key={level}
+                          className={cn(
+                            "h-1 flex-1 rounded-full transition-colors duration-300",
+                            strength >= level ? strengthMeta[strength].color : "bg-stone-200",
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <p className={cn(
+                      "mt-1 text-xs font-medium transition-colors",
+                      strength <= 1 ? "text-red-500" : strength === 2 ? "text-orange-500" : strength === 3 ? "text-yellow-600" : "text-emerald-600",
+                    )}>
+                      {strengthMeta[strength].label}
+                    </p>
+                  </div>
+                )}
+              </div>
+
               <Input
                 label="Confirm password"
                 type="password"
@@ -167,6 +248,7 @@ export default function RegisterPage() {
                 value={form.confirmPassword}
                 error={errors.confirmPassword}
                 onChange={(e) => updateField("confirmPassword", e.target.value)}
+                onBlur={() => handleBlur("confirmPassword")}
               />
               <Button
                 className="sm:col-span-2"

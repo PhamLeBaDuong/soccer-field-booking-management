@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ArrowRight, Clock, MapPin, Swords } from "lucide-react";
 import { AmenitiesList } from "@/components/fields/AmenitiesList";
 import { buttonClasses } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { useI18n } from "@/lib/i18n/context";
 import type { Field } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/format";
@@ -61,6 +60,6 @@ export function FieldCard({ field }: { field: Field }) {
           </Link>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

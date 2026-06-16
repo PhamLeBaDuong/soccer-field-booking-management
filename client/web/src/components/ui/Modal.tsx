@@ -6,112 +6,115 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+
+const sizeClasses = {
+  sm: "max-w-sm",
+  md: "max-w-xl",
+  lg: "max-w-2xl",
+};
 
 export function Modal({
   open,
   title,
   children,
   footer,
+  size = "md",
   onClose,
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: "sm" | "md" | "lg";
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
+    if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const firstInput = panelRef.current?.querySelector<HTMLElement>(
       "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
     );
     firstInput?.focus();
-
     return () => previous?.focus();
   }, [open]);
 
-  if (!open) {
-    return null;
-  }
-
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      onClose();
-      return;
-    }
-
-    if (event.key !== "Tab" || !panelRef.current) {
-      return;
-    }
-
+    if (event.key === "Escape") { onClose(); return; }
+    if (event.key !== "Tab" || !panelRef.current) return;
     const focusable = Array.from(
       panelRef.current.querySelectorAll<HTMLElement>(
         "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
       ),
-    ).filter((element) => !element.hasAttribute("disabled"));
-
-    if (focusable.length === 0) {
-      return;
-    }
-
+    ).filter((el) => !el.hasAttribute("disabled"));
+    if (focusable.length === 0) return;
     const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
+    const last  = focusable[focusable.length - 1];
     if (event.shiftKey && document.activeElement === first) {
-      last.focus();
-      event.preventDefault();
+      last.focus(); event.preventDefault();
     } else if (!event.shiftKey && document.activeElement === last) {
-      first.focus();
-      event.preventDefault();
+      first.focus(); event.preventDefault();
     }
   }
 
   return (
-    <div
-      className="reveal-fade fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 p-4 backdrop-blur-sm"
-      onMouseDown={onClose}
-      onKeyDown={handleKeyDown}
-      role="presentation"
-    >
-      <div
-        ref={panelRef}
-        className={cn(
-          "modal-enter max-h-[90vh] w-full max-w-xl overflow-hidden bg-white",
-          "rounded-[10px] border border-stone-200/80 shadow-[0_8px_16px_rgba(0,0,0,0.08),0_32px_80px_rgba(0,0,0,0.18)]",
-        )}
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
-          <h2 id="modal-title" className="text-base font-semibold text-neutral-950">
-            {title}
-          </h2>
-          <button
-            className="rounded-[6px] p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-green-700"
-            onClick={onClose}
-            type="button"
-            aria-label="Close modal"
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="modal-overlay"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          style={{ backgroundColor: "rgba(10,10,10,0.5)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onMouseDown={onClose}
+          onKeyDown={handleKeyDown}
+          role="presentation"
+        >
+          <motion.div
+            ref={panelRef}
+            key="modal-panel"
+            className={cn(
+              "max-h-[90vh] w-full overflow-hidden bg-white",
+              "rounded-[10px] border border-stone-200/80 shadow-[0_8px_16px_rgba(0,0,0,0.08),0_32px_80px_rgba(0,0,0,0.18)]",
+              sizeClasses[size],
+            )}
+            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            onMouseDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
           >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-        <div className="max-h-[65vh] overflow-y-auto p-5">{children}</div>
-        {footer ? (
-          <div className="border-t border-stone-100 bg-stone-50/80 px-5 py-4">
-            {footer}
-          </div>
-        ) : null}
-      </div>
-    </div>
+            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+              <h2 id="modal-title" className="text-base font-semibold text-neutral-950">
+                {title}
+              </h2>
+              <button
+                className="rounded-[6px] p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-green-700"
+                onClick={onClose}
+                type="button"
+                aria-label="Close modal"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto p-5">{children}</div>
+            {footer && (
+              <div className="border-t border-stone-100 bg-stone-50/80 px-5 py-4">
+                {footer}
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

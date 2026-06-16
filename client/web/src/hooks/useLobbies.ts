@@ -13,17 +13,21 @@ export function useLobbies(params?: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fieldId  = params?.fieldId;
+  const status   = params?.status;
+  const teamSize = params?.teamSize;
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setLobbies(await listLobbies(params));
+      setLobbies(await listLobbies({ fieldId, status, teamSize }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load lobbies");
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fieldId, status, teamSize]);
 
   useEffect(() => {
     refresh();

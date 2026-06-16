@@ -32,6 +32,12 @@ export default function RootLayout({
           <AuthProvider>
             <BookingsProvider>
               <ToastProvider>
+                <a
+                  href="#main-content"
+                  className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-[8px] focus:bg-neutral-950 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none"
+                >
+                  Skip to content
+                </a>
                 <AppShell>{children}</AppShell>
               </ToastProvider>
             </BookingsProvider>

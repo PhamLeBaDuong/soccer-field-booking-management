@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Swords,
   Users,
-  X,
 } from "lucide-react";
 import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
@@ -26,6 +26,7 @@ import { useBookingsContext } from "@/lib/bookings/context";
 import { acceptMatchPost } from "@/lib/api/matchPosts";
 import { createMatchPost } from "@/lib/api/teams";
 import { useMatchPosts } from "@/hooks/useMatchPosts";
+import { getSocket } from "@/lib/socket";
 import { useTeams } from "@/hooks/useTeams";
 import { useFields } from "@/hooks/useFields";
 import { useField } from "@/hooks/useFields";
@@ -80,7 +81,7 @@ function MatchingContent() {
 
   const { fields, loading: fieldsLoading } = useFields();
   const { teams, loading: teamsLoading } = useTeams();
-  const { posts, loading: postsLoading, error: postsError, refresh: refreshPosts } = useMatchPosts();
+  const { posts, setPosts, loading: postsLoading, error: postsError, refresh: refreshPosts } = useMatchPosts();
 
   const [form, setForm] = useState<PostForm>({
     teamId: "",
@@ -113,6 +114,21 @@ function MatchingContent() {
       setForm((p) => ({ ...p, fieldId: fields[0].id }));
     }
   }, [fields]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real-time match post updates via WebSocket
+  useEffect(() => {
+    const sock = getSocket();
+    if (!sock) return;
+    const onUpdate = (update: { id: string; status: string }) => {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === update.id ? { ...p, status: update.status as MatchRequestStatus } : p,
+        ),
+      );
+    };
+    sock.on("matchpost:updated", onUpdate);
+    return () => { sock.off("matchpost:updated", onUpdate); };
+  }, [setPosts]);
 
   const activeTeam = teams.find((t) => t.id === activeTeamId) ?? teams[0];
   const visiblePosts = posts.filter((p) => filterStatus === "all" || p.status === filterStatus);
@@ -181,13 +197,14 @@ function MatchingContent() {
         addBookings([booking]);
       }
 
+      const hrs = (new Date(post.preferredEndTime).getTime() - new Date(post.preferredStartTime).getTime()) / 3_600_000;
       setConfirmation({
         postingTeam:   post.teamName,
         acceptingTeam: activeTeam.name,
         fieldName:     post.field?.name ?? "Field",
         dateRange:     formatDateRange(post.preferredStartTime, post.preferredEndTime),
         teamSize:      post.teamSize,
-        priceEstimate: (post.field?.metadata.price ?? 0) * 2,
+        priceEstimate: (post.field?.metadata.price ?? 0) * Math.max(0, hrs),
         currency:      post.field?.metadata.currency,
       });
 
@@ -214,31 +231,35 @@ function MatchingContent() {
         </p>
       </section>
 
-      {confirmation && (
-        <div className="mt-5 rounded-[8px] border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
-                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              </span>
-              <div>
-                <p className="text-sm font-bold text-emerald-900">{t("match.bookingConfirmed")}</p>
-                <p className="mt-0.5 text-sm font-semibold text-emerald-800">
-                  {confirmation.postingTeam} vs {confirmation.acceptingTeam}
-                </p>
-                <p className="mt-0.5 text-sm text-emerald-700">{confirmation.fieldName}</p>
-                <p className="mt-0.5 font-mono text-sm text-emerald-700">{confirmation.dateRange}</p>
-                <p className="mt-1 text-xs text-emerald-700">
-                  {confirmation.teamSize}v{confirmation.teamSize} · Est. {formatCurrency(confirmation.priceEstimate, confirmation.currency)}
-                </p>
-              </div>
+      <Modal
+        open={!!confirmation}
+        size="sm"
+        title={t("match.bookingConfirmed")}
+        onClose={() => setConfirmation(null)}
+        footer={
+          <Button className="w-full" onClick={() => setConfirmation(null)}>
+            {t("common.close")}
+          </Button>
+        }
+      >
+        {confirmation && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="space-y-1">
+              <p className="font-semibold text-neutral-950">
+                {confirmation.postingTeam} vs {confirmation.acceptingTeam}
+              </p>
+              <p className="text-sm text-stone-600">{confirmation.fieldName}</p>
+              <p className="font-mono text-sm text-stone-600">{confirmation.dateRange}</p>
+              <p className="text-xs text-stone-500">
+                {confirmation.teamSize}v{confirmation.teamSize} · Est. {formatCurrency(confirmation.priceEstimate, confirmation.currency)}
+              </p>
             </div>
-            <button type="button" onClick={() => setConfirmation(null)} className="shrink-0 p-1 text-emerald-600 hover:bg-emerald-100 rounded-[6px]">
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         {/* Post form */}

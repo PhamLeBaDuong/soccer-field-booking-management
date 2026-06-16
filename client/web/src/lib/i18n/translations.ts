@@ -13,13 +13,18 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "nav.history":    { en: "History",     vi: "Lịch sử" },
   "nav.myVenues":   { en: "My Venues",   vi: "Sân của tôi" },
   "nav.admin":      { en: "Admin",       vi: "Quản trị" },
-  "nav.friends":    { en: "Friends & Chat", vi: "Bạn bè & Trò chuyện" },
+  "nav.friends":        { en: "Friends & Chat",        vi: "Bạn bè & Trò chuyện" },
+  "friends.newRequest": { en: "You have a new friend request!", vi: "Bạn có lời mời kết bạn mới!" },
   "nav.profile":    { en: "Profile",     vi: "Hồ sơ" },
   "nav.logout":     { en: "Logout",      vi: "Đăng xuất" },
   "nav.login":      { en: "Login",       vi: "Đăng nhập" },
 
   // ── Common ──────────────────────────────────────────────────────────────────
+  "common.error":    { en: "Something went wrong", vi: "Đã xảy ra lỗi" },
+  "common.retry":    { en: "Retry",    vi: "Thử lại" },
   "common.cancel":   { en: "Cancel",   vi: "Hủy" },
+  "common.yes":      { en: "Yes",      vi: "Có" },
+  "common.no":       { en: "No",       vi: "Không" },
   "common.save":     { en: "Save",     vi: "Lưu" },
   "common.confirm":  { en: "Confirm",  vi: "Xác nhận" },
   "common.delete":   { en: "Delete",   vi: "Xóa" },
@@ -46,7 +51,9 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "status.matching":  { en: "Matching",  vi: "Đang ghép" },
 
   // ── Bookings page ─────────────────────────────────────────────────────────────
-  "bookings.title":       { en: "My bookings",     vi: "Lịch đặt của tôi" },
+  "bookings.confirmCancel": { en: "Cancel booking?",                                vi: "Hủy đặt sân?" },
+  "bookings.cancelWarning": { en: "This action cannot be undone.",                  vi: "Hành động này không thể hoàn tác." },
+  "bookings.title":         { en: "My bookings",                                   vi: "Lịch đặt của tôi" },
   "bookings.subtitle":    { en: "Track reservations, matches, and cancellations.", vi: "Theo dõi đặt sân, trận đấu và hủy đặt." },
   "bookings.schedule":    { en: "Schedule",        vi: "Lịch trình" },
   "bookings.teamSize":    { en: "Team size",       vi: "Số người" },
@@ -200,7 +207,8 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "teams.decline":      { en: "Decline",          vi: "Từ chối" },
 
   // ── Matches page ──────────────────────────────────────────────────────────────
-  "match.matchmaking":  { en: "Matchmaking",      vi: "Ghép trận" },
+  "matches.yourMatchAccepted": { en: "Your match challenge was accepted!", vi: "Lời thách đấu của bạn đã được chấp nhận!" },
+  "match.matchmaking":         { en: "Matchmaking",      vi: "Ghép trận" },
   "match.title":        { en: "Match requests",   vi: "Yêu cầu tìm đối" },
   "match.subtitle":     { en: "Post a challenge or accept an open request. Booking is confirmed the moment a match is made.", vi: "Đăng lời thách đấu hoặc chấp nhận một yêu cầu. Lịch đặt được xác nhận ngay khi ghép trận thành công." },
   "match.postRequest":  { en: "Post request",     vi: "Đăng yêu cầu" },
@@ -226,7 +234,9 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "match.bookingConfirmed": { en: "Match booking confirmed!", vi: "Đã xác nhận đặt sân cho trận đấu!" },
 
   // ── Lobbies page ──────────────────────────────────────────────────────────────
-  "lobby.openLobbies":  { en: "Open lobbies",     vi: "Phòng đang mở" },
+  "lobbies.yourLobbyFull":  { en: "Your lobby is full — booking confirmed!", vi: "Phòng đã đủ người — đặt sân đã xác nhận!" },
+  "lobby.filled":           { en: "Lobby filled",     vi: "Phòng đã đầy" },
+  "lobby.openLobbies":      { en: "Open lobbies",     vi: "Phòng đang mở" },
   "lobby.title":        { en: "Lobby list",       vi: "Danh sách phòng" },
   "lobby.subtitle":     { en: "Join an open lobby or create your own from a field's booking page. Booking is confirmed the moment a lobby reaches capacity.", vi: "Tham gia phòng đang mở hoặc tạo phòng từ trang đặt sân. Lịch đặt được xác nhận ngay khi phòng đủ người." },
   "lobby.lobbies":      { en: "Lobbies",          vi: "Phòng chờ" },

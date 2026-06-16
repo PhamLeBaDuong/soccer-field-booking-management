@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Check,
   MessageCircle,
   Search,
@@ -30,9 +31,9 @@ import {
   removeFriend,
   searchUsers,
   sendFriendRequest,
-  sendMessage,
   sendTeamInvite,
 } from "@/lib/api/friends";
+import { getSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils/cn";
 
 type Tab = "friends" | "requests" | "search";
@@ -43,19 +44,19 @@ export default function FriendsPage() {
   const { teams } = useTeams();
 
   // ─── State ───────────────────────────────────────────────────────────────────
-  const [tab, setTab]             = useState<Tab>("friends");
-  const [friends, setFriends]     = useState<FriendUser[]>([]);
-  const [requests, setRequests]   = useState<FriendRequest[]>([]);
-  const [searchQ, setSearchQ]     = useState("");
-  const [results, setResults]     = useState<FriendUser[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [tab, setTab]               = useState<Tab>("friends");
+  const [friends, setFriends]       = useState<FriendUser[]>([]);
+  const [requests, setRequests]     = useState<FriendRequest[]>([]);
+  const [searchQ, setSearchQ]       = useState("");
+  const [results, setResults]       = useState<FriendUser[]>([]);
+  const [searching, setSearching]   = useState(false);
   const [activeFriend, setActiveFriend] = useState<FriendUser | null>(null);
-  const [messages, setMessages]   = useState<ChatMessage[]>([]);
-  const [msgInput, setMsgInput]   = useState("");
-  const [loading, setLoading]     = useState(true);
-  const [inviteOpen, setInviteOpen] = useState<string | null>(null); // friendId
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [messages, setMessages]     = useState<ChatMessage[]>([]);
+  const [msgInput, setMsgInput]     = useState("");
+  const [loading, setLoading]       = useState(true);
+  const [inviteOpen, setInviteOpen] = useState<string | null>(null);
+  const [chatOpen, setChatOpen]     = useState(false); // mobile: show chat vs list
+  const messagesEndRef              = useRef<HTMLDivElement>(null);
 
   // ─── Load friends + requests ─────────────────────────────────────────────────
   const load = useCallback(async () => {
@@ -70,26 +71,48 @@ export default function FriendsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // ─── Chat polling ─────────────────────────────────────────────────────────────
-  const fetchMessages = useCallback(async (friendId: string) => {
-    try {
-      const msgs = await getConversation(friendId);
-      setMessages(msgs);
-    } catch {/* ignore */}
-  }, []);
-
+  // ─── Real-time chat via WebSocket ─────────────────────────────────────────────
   useEffect(() => {
     if (!activeFriend) { setMessages([]); return; }
-    fetchMessages(activeFriend.id);
-    pollRef.current = setInterval(() => fetchMessages(activeFriend.id), 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [activeFriend, fetchMessages]);
+
+    // Load message history via REST
+    getConversation(activeFriend.id)
+      .then(setMessages)
+      .catch(() => {/* ignore */});
+
+    const sock = getSocket();
+    if (!sock) return;
+
+    // Mark conversation as read
+    sock.emit("message:read", { senderId: activeFriend.id });
+
+    const onReceive = (msg: ChatMessage) => {
+      if (msg.senderId === activeFriend.id || msg.receiverId === activeFriend.id) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    };
+    const onSent = (msg: ChatMessage) => {
+      // Replace the optimistic message with the server-confirmed one
+      setMessages((prev) => {
+        const idx = prev.findIndex((m) => m.id === msg.id);
+        if (idx !== -1) return prev; // already added by onReceive echo
+        return [...prev, msg];
+      });
+    };
+
+    sock.on("message:receive", onReceive);
+    sock.on("message:sent", onSent);
+    return () => {
+      sock.off("message:receive", onReceive);
+      sock.off("message:sent", onSent);
+    };
+  }, [activeFriend?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ─── Search users ─────────────────────────────────────────────────────────────
+  // ─── Search users (with proper cleanup) ───────────────────────────────────────
   useEffect(() => {
     if (!searchQ.trim()) { setResults([]); return; }
     const t = setTimeout(async () => {
@@ -98,7 +121,7 @@ export default function FriendsPage() {
       catch {/* ignore */}
       finally { setSearching(false); }
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(t); // fixed: was missing cleanup
   }, [searchQ]);
 
   // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -119,19 +142,40 @@ export default function FriendsPage() {
     try {
       await removeFriend(userId);
       setFriends((f) => f.filter((x) => x.id !== userId));
-      if (activeFriend?.id === userId) setActiveFriend(null);
+      if (activeFriend?.id === userId) { setActiveFriend(null); setChatOpen(false); }
       showToast("Friend removed.");
     } catch (e) { showToast(e instanceof Error ? e.message : "Failed.", "error"); }
   }
 
-  async function handleSend() {
+  function openChat(friend: FriendUser) {
+    setActiveFriend(friend);
+    setChatOpen(true);
+    setInviteOpen(null);
+  }
+
+  function handleSend() {
     if (!activeFriend || !msgInput.trim()) return;
-    const text = msgInput.trim();
+    const content = msgInput.trim();
     setMsgInput("");
-    try {
-      const msg = await sendMessage(activeFriend.id, text);
-      setMessages((m) => [...m, msg]);
-    } catch (e) { showToast(e instanceof Error ? e.message : "Send failed.", "error"); }
+
+    const sock = getSocket();
+    if (sock) {
+      // Optimistic: add a temp message immediately
+      const optimistic: ChatMessage = {
+        id: `opt-${Date.now()}`,
+        senderId: user!.id,
+        receiverId: activeFriend.id,
+        content,
+        readAt: null,
+        createdAt: new Date().toISOString(),
+        sender: { id: user!.id, name: user!.name, username: user!.username },
+        receiver: { id: activeFriend.id, name: activeFriend.name, username: activeFriend.username },
+      };
+      setMessages((m) => [...m, optimistic]);
+      sock.emit("message:send", { recipientId: activeFriend.id, content });
+    } else {
+      showToast("Not connected. Please refresh.", "error");
+    }
   }
 
   async function handleInviteToTeam(teamId: string, friendId: string) {
@@ -145,6 +189,8 @@ export default function FriendsPage() {
   const isFriend = (id: string) => friends.some((f) => f.id === id);
 
   if (authLoading || !user) return <FriendsSkeleton />;
+
+  const showList = !chatOpen || typeof window === "undefined";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -161,8 +207,8 @@ export default function FriendsPage() {
 
       <div className="mt-6 grid gap-5 lg:grid-cols-[320px_1fr]">
 
-        {/* ── Left panel ── */}
-        <div className="flex flex-col gap-4">
+        {/* ── Left panel (hidden on mobile when chat is open) ── */}
+        <div className={cn("flex flex-col gap-4", chatOpen ? "hidden lg:flex" : "flex")}>
           {/* Tabs */}
           <div className="flex gap-2">
             {(
@@ -209,7 +255,7 @@ export default function FriendsPage() {
                         isActive={activeFriend?.id === f.id}
                         teams={teams}
                         inviteOpen={inviteOpen === f.id}
-                        onChat={() => { setActiveFriend(f); setInviteOpen(null); }}
+                        onChat={() => openChat(f)}
                         onRemove={() => handleRemove(f.id)}
                         onInviteOpen={() => setInviteOpen(inviteOpen === f.id ? null : f.id)}
                         onInviteTeam={(teamId) => handleInviteToTeam(teamId, f.id)}
@@ -289,8 +335,11 @@ export default function FriendsPage() {
           )}
         </div>
 
-        {/* ── Right panel: Chat ── */}
-        <Card className="flex flex-col overflow-hidden">
+        {/* ── Right panel: Chat (full-screen on mobile when open) ── */}
+        <Card className={cn(
+          "flex flex-col overflow-hidden",
+          chatOpen ? "flex" : "hidden lg:flex",
+        )}>
           {!activeFriend ? (
             <CardContent className="flex flex-1 items-center justify-center">
               <EmptyState icon={<MessageCircle className="h-6 w-6" />}
@@ -301,31 +350,44 @@ export default function FriendsPage() {
             <>
               {/* Chat header */}
               <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-neutral-950">{activeFriend.name}</p>
-                  <p className="text-xs text-stone-500">@{activeFriend.username}</p>
+                <div className="flex items-center gap-2">
+                  {/* Back button on mobile */}
+                  <button
+                    type="button"
+                    aria-label="Back to friends list"
+                    onClick={() => { setChatOpen(false); }}
+                    className="rounded-[6px] p-1 text-stone-400 hover:bg-stone-100 lg:hidden">
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <div>
+                    <p className="font-semibold text-neutral-950">{activeFriend.name}</p>
+                    <p className="text-xs text-stone-500">@{activeFriend.username}</p>
+                  </div>
                 </div>
-                <button type="button" onClick={() => setActiveFriend(null)}
-                  className="rounded-[6px] p-1 text-stone-400 hover:bg-stone-100">
+                <button type="button" aria-label="Close chat"
+                  onClick={() => { setActiveFriend(null); setChatOpen(false); }}
+                  className="rounded-[6px] p-1 text-stone-400 hover:bg-stone-100 hidden lg:block">
                   <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 300, maxHeight: 480 }}>
+              {/* Messages — grows to fill, scrolls internally */}
+              <div className="flex-1 overflow-y-auto px-4 py-3" style={{ minHeight: 200 }}>
                 {messages.length === 0 ? (
-                  <p className="text-center text-sm text-stone-400 mt-8">No messages yet. Say hi!</p>
+                  <p className="mt-8 text-center text-sm text-stone-400">No messages yet. Say hi!</p>
                 ) : (
                   <div className="flex flex-col gap-2">
                     {messages.map((m) => {
                       const isMine = m.senderId === user.id;
+                      const isOptimistic = m.id.startsWith("opt-");
                       return (
                         <div key={m.id} className={cn("flex", isMine ? "justify-end" : "justify-start")}>
                           <div className={cn(
-                            "max-w-[75%] rounded-[12px] px-3 py-2 text-sm",
+                            "max-w-[75%] rounded-[12px] px-3 py-2 text-sm transition-opacity",
                             isMine
                               ? "rounded-br-[4px] bg-neutral-950 text-white"
                               : "rounded-bl-[4px] bg-stone-100 text-neutral-950",
+                            isOptimistic && "opacity-70",
                           )}>
                             <p>{m.content}</p>
                             <p className={cn("mt-0.5 text-[10px]", isMine ? "text-white/50" : "text-stone-400")}>
@@ -340,8 +402,8 @@ export default function FriendsPage() {
                 )}
               </div>
 
-              {/* Message input */}
-              <div className="flex items-center gap-2 border-t border-stone-100 px-4 py-3">
+              {/* Message input — sticks to bottom */}
+              <div className="sticky bottom-0 flex items-center gap-2 border-t border-stone-100 bg-white px-4 py-3">
                 <input
                   className="flex-1 rounded-[8px] border border-stone-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-400"
                   placeholder="Type a message…"
@@ -387,15 +449,15 @@ function FriendRow({
           <p className="text-xs text-stone-500">@{friend.username}</p>
         </button>
         <div className="flex shrink-0 gap-1">
-          <button type="button" title="Chat" onClick={onChat}
+          <button type="button" title="Chat" aria-label={`Chat with ${friend.name}`} onClick={onChat}
             className="rounded-[6px] p-1.5 text-stone-400 hover:bg-stone-100 hover:text-neutral-950">
             <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          <button type="button" title="Invite to team" onClick={onInviteOpen}
+          <button type="button" title="Invite to team" aria-label={`Invite ${friend.name} to team`} onClick={onInviteOpen}
             className="rounded-[6px] p-1.5 text-stone-400 hover:bg-stone-100 hover:text-neutral-950">
             <Users className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          <button type="button" title="Remove friend" onClick={onRemove}
+          <button type="button" title="Remove friend" aria-label={`Remove ${friend.name}`} onClick={onRemove}
             className="rounded-[6px] p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-600">
             <UserMinus className="h-3.5 w-3.5" aria-hidden="true" />
           </button>

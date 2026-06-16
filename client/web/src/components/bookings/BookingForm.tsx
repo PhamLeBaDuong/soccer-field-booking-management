@@ -34,6 +34,8 @@ export function BookingForm({ field }: { field: Field }) {
   const [end, setEnd] = useState("");
   const [numPlayers, setNumPlayers] = useState("1");
   const [openLobby, setOpenLobby] = useState(false);
+  const [dateError, setDateError] = useState("");
+  const [timeError, setTimeError] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -47,9 +49,30 @@ export function BookingForm({ field }: { field: Field }) {
   const total    = hours * field.metadata.price;
   const teamSize = fieldTeamSize(field);
 
+  function handleDateChange(value: string) {
+    setDate(value);
+    setStart("");
+    setEnd("");
+    setTimeError("");
+    const today = todayInputValue();
+    setDateError(value < today ? "Date cannot be in the past." : "");
+  }
+
+  function handleRangeSelect(s: string, e: string) {
+    setStart(s);
+    setEnd(e);
+    if (s && e && timeToMinutes(e) <= timeToMinutes(s) && timeToMinutes(e) !== 0) {
+      setTimeError("End time must be after start time.");
+    } else {
+      setTimeError("");
+    }
+  }
+
   async function submit() {
     if (!user) { router.push(ROUTES.login); return; }
+    if (dateError) { setError(dateError); return; }
     if (!start || !end) { setError("Choose a time slot."); return; }
+    if (timeError) { setError(timeError); return; }
 
     const n = Number(numPlayers);
     if (n < 1 || n > teamSize) {
@@ -84,7 +107,8 @@ export function BookingForm({ field }: { field: Field }) {
         leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
         value={date}
         min={todayInputValue()}
-        onChange={(e) => { setDate(e.target.value); setStart(""); setEnd(""); }}
+        error={dateError}
+        onChange={(e) => handleDateChange(e.target.value)}
       />
 
       <div>
@@ -96,12 +120,15 @@ export function BookingForm({ field }: { field: Field }) {
           startTime={field.startTime}
           endTime={field.endTime}
           occupiedSlots={field.occupiedTimes ?? []}
-          onRangeSelect={(s, e) => { setStart(s); setEnd(e); }}
+          onRangeSelect={handleRangeSelect}
         />
-        {start && end && (
+        {start && end && !timeError && (
           <p className="mt-2 text-xs font-medium text-stone-500">
             Selected: {start} – {end} ({hours} hr)
           </p>
+        )}
+        {timeError && (
+          <p className="mt-2 text-xs font-medium text-red-600">{timeError}</p>
         )}
       </div>
 
