@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { getMeRequest, loginRequest, registerRequest } from "@/lib/api/auth";
 import { normalizeUser } from "@/lib/api/normalizers";
 import { ROUTES } from "@/lib/constants";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 import type { RegisterPayload, User, UserRole } from "@/lib/types";
 
 type AuthContextValue = {
@@ -109,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setToken(storedToken);
+    connectSocket(storedToken);
     try {
       const apiUser = await getMeRequest();
       setUser(mergeTokenUser(storedToken, apiUser));
@@ -126,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await loginRequest(identifier, password);
       localStorage.setItem("token", response.token);
       setToken(response.token);
+      connectSocket(response.token);
       setUser(
         response.user
           ? mergeTokenUser(response.token, response.user)
@@ -145,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem("token");
+    disconnectSocket();
     setToken(null);
     setUser(null);
     router.push(ROUTES.login);

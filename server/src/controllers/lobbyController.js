@@ -1,4 +1,5 @@
 import * as lobbyService from "../services/lobbyService.js";
+import { getIO } from "../socket.js";
 
 function handleError(res, error) {
     const clientPhrases = [
@@ -57,6 +58,21 @@ export async function joinLobby(req, res) {
     try {
         const result = await lobbyService.joinLobby(req.params.lobbyId, req.user.id);
         res.status(201).json(result);
+
+        // Broadcast the updated lobby to all clients and notify creator
+        const { lobby } = result;
+        const io = getIO();
+        if (lobby && io) {
+            const update = {
+                id:          lobby.id,
+                joinedCount: (lobby.initialSize ?? 1) + (lobby.slots?.length ?? 0),
+                status:      lobby.status,
+            };
+            io.emit("lobby:updated", update);
+            if (lobby.status === "full" || lobby.status === "matched") {
+                io.to(lobby.creatorId).emit("notify", { type: "lobby_full", lobbyId: lobby.id });
+            }
+        }
     } catch (error) { handleError(res, error); }
 }
 

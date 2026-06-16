@@ -1,4 +1,5 @@
 import prisma from "../db.cjs";
+import { getIO } from "../socket.js";
 
 function handleError(res, error) {
     const msg = error.message?.toLowerCase() ?? "";
@@ -74,6 +75,16 @@ export async function sendFriendRequest(req, res) {
             data: { senderId: req.user.id, receiverId: userId, status: "pending" },
         });
         res.status(201).json({ message: "Friend request sent", friendship });
+
+        // Notify the recipient in real-time
+        const io = getIO();
+        if (io) {
+            const sender = await prisma.user.findUnique({
+                where: { id: req.user.id },
+                select: { id: true, name: true, username: true },
+            });
+            io.to(userId).emit("notify", { type: "friend_request", from: sender });
+        }
     } catch (error) { handleError(res, error); }
 }
 

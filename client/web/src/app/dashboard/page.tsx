@@ -124,7 +124,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <HeroStat icon={Trophy} label={t("dash.statTotal")} value={stats.total} />
+          <HeroStat icon={Trophy} label={t("dash.statTotal")} value={stats.total} gold />
           <HeroStat icon={Clock3} label={t("dash.statUpcoming")} value={stats.upcoming} />
           <HeroStat icon={UsersRound} label={t("dash.statPending")} value={stats.pending} />
           <HeroStat icon={XCircle} label={t("dash.statCanceled")} value={stats.canceled} />
@@ -218,16 +218,28 @@ function HeroStat({
   icon: Icon,
   label,
   value,
+  gold,
 }: {
   icon: typeof Trophy;
   label: string;
   value: number;
+  gold?: boolean;
 }) {
   return (
-    <div className="rounded-[8px] border border-white/12 bg-white/10 p-4 backdrop-blur-sm transition-colors hover:bg-white/14">
+    <div
+      className="rounded-[8px] border p-4 backdrop-blur-sm transition-colors hover:bg-white/14"
+      style={gold
+        ? { borderColor: "rgba(201,164,92,0.28)", backgroundColor: "rgba(201,164,92,0.10)" }
+        : { borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.10)" }
+      }
+    >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-white/60">{label}</p>
-        <Icon className="h-4 w-4 text-white/50" aria-hidden="true" />
+        <Icon
+          className="h-4 w-4"
+          style={{ color: gold ? "var(--gold)" : "rgba(255,255,255,0.5)" }}
+          aria-hidden="true"
+        />
       </div>
       <p className="mt-3 font-mono text-3xl font-semibold tracking-[-0.03em] text-white">
         {statLabel(value)}

@@ -24,6 +24,7 @@ export function MobileNav({
   user: User | null;
   onLogout: () => void;
 }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { t, lang, toggle } = useI18n();
 

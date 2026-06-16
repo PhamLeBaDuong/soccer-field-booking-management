@@ -31,6 +31,7 @@ export default function TeamsPage() {
 
   const [activeTeamId, setActiveTeamId] = useState<string | null>(null);
   const [form, setForm] = useState<CreateForm>({ name: "", size: "5" });
+  const [nameError, setNameError] = useState("");
 
   // Received invites (pending team join requests)
   const [pendingInvites,  setPendingInvites]  = useState<TeamInvite[]>([]);
@@ -97,7 +98,7 @@ export default function TeamsPage() {
     setInviteQuery(q);
     if (!q.trim()) { setInviteResults([]); return; }
     setInviteLoading(true);
-    try { setInviteResults(await searchUsers(q)); }
+    try { setInviteResults(await searchUsers(q.trim())); }
     catch {/* ignore */}
     finally { setInviteLoading(false); }
   }
@@ -233,8 +234,23 @@ export default function TeamsPage() {
             </div>
 
             <form className="mt-5 grid gap-3 sm:grid-cols-[1fr_110px_auto]" onSubmit={handleCreate}>
-              <Input label={t("teams.teamName")} placeholder={t("teams.namePlaceholder")}
-                value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+              <Input
+                label={t("teams.teamName")}
+                placeholder={t("teams.namePlaceholder")}
+                maxLength={30}
+                value={form.name}
+                error={nameError}
+                helper={form.name.length > 0 ? `${form.name.length}/30` : undefined}
+                onChange={(e) => {
+                  setForm((p) => ({ ...p, name: e.target.value }));
+                  if (nameError) setNameError(e.target.value.trim().length < 2 ? "Name must be at least 2 characters." : "");
+                }}
+                onBlur={() => {
+                  if (!form.name.trim()) setNameError("Team name is required.");
+                  else if (form.name.trim().length < 2) setNameError("Name must be at least 2 characters.");
+                  else setNameError("");
+                }}
+              />
               <Input label={t("teams.size")} type="number" min={2} max={22}
                 value={form.size} onChange={(e) => setForm((p) => ({ ...p, size: e.target.value }))} />
               <div className="flex items-end">
