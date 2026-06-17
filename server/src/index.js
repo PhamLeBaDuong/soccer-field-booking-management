@@ -28,6 +28,8 @@ const server = http.createServer(app);
 const PORT   = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+// Render free instances spin down after ~15 min idle; ping just under that.
+const KEEPALIVE_INTERVAL_MS = 14 * 60 * 1000;
 
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 
@@ -97,6 +99,11 @@ app.get("/", (req, res) => {
     res.json({ message: "Soccer field booking API is running!" });
 });
 
+// Lightweight health check — no DB hit, cheap to ping (used by keep-alive).
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use("/api/auth",         authRoutes);
 app.use("/api/admin",        adminRoutes);
 app.use("/api/fields",       fieldRoutes);
@@ -111,8 +118,27 @@ app.use("/api/friends",      friendsRoutes);
 app.use("/api/messages",     messagesRoutes);
 app.use("/api/invites",      invitesRoutes);
 
+// ── Keep-alive (Render free tier) ───────────────────────────────────────────
+// Self-ping our own public URL just under the idle window so the instance
+// never spins down (avoids 50s cold starts). Only runs on Render, where
+// RENDER_EXTERNAL_URL is set automatically — never locally. An external pinger
+// (e.g. UptimeRobot) on /health is more robust; this is a zero-setup fallback.
+function startKeepAlive() {
+    const url = process.env.RENDER_EXTERNAL_URL;
+    if (!url) return;
+    setInterval(async () => {
+        try {
+            const res = await fetch(`${url}/health`);
+            console.log(`[keepalive] ${url}/health → ${res.status}`);
+        } catch (err) {
+            console.error("[keepalive] ping failed:", err.message);
+        }
+    }, KEEPALIVE_INTERVAL_MS);
+}
+
 server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     runCleanup();
     setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+    startKeepAlive();
 });

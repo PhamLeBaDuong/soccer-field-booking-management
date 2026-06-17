@@ -1,5 +1,12 @@
 import prisma from "./src/db.cjs";
 
+// Safety guard: this script wipes every table before reseeding. Never let it
+// run against a production database.
+if (process.env.NODE_ENV === "production") {
+  console.error("❌ Refusing to run seed against production database (NODE_ENV=production).");
+  process.exit(1);
+}
+
 const daysAgo  = (n, h = 18, m = 0) => new Date(Date.UTC(2026, 4, 31 - n, h, m, 0));
 const daysFrom = (n, h = 18, m = 0) => new Date(Date.UTC(2026, 4, 31 + n, h, m, 0));
 
