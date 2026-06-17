@@ -27,7 +27,15 @@ const app    = express();
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+// Cleanup sweep cadence. Each run queries the DB, so a short interval keeps a
+// scale-to-zero database (e.g. Neon free tier) awake around the clock — and
+// with keep-alive enabled the backend never sleeps either, so the sweep would
+// run 24/7 and drain the compute budget. Default to a generous 30 min.
+// Override with CLEANUP_INTERVAL_MIN, or set CLEANUP_ENABLED=false to run
+// cleanup elsewhere (e.g. an external cron job).
+const CLEANUP_ENABLED      = process.env.CLEANUP_ENABLED !== "false";
+const CLEANUP_INTERVAL_MIN = Number(process.env.CLEANUP_INTERVAL_MIN) || 30;
+const CLEANUP_INTERVAL_MS  = CLEANUP_INTERVAL_MIN * 60 * 1000;
 // Render free instances spin down after ~15 min idle; ping just under that.
 const KEEPALIVE_INTERVAL_MS = 14 * 60 * 1000;
 
@@ -138,7 +146,12 @@ function startKeepAlive() {
 
 server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    runCleanup();
-    setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+    if (CLEANUP_ENABLED) {
+        runCleanup();
+        setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+        console.log(`🧹 Cleanup sweep every ${CLEANUP_INTERVAL_MIN} min`);
+    } else {
+        console.log("🧹 In-process cleanup disabled (CLEANUP_ENABLED=false)");
+    }
     startKeepAlive();
 });
