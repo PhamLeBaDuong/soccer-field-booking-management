@@ -54,8 +54,10 @@ export async function login(username, password) {
     // const { username, password } = req.body;
 
     // try {
-        const user = await prisma.user.findUnique({
-            where: { username },
+        // The login form sends the same value as both username and email,
+        // so accept either one as the identifier.
+        const user = await prisma.user.findFirst({
+            where: { OR: [{ username }, { email: username }] },
         });
 
         if (!user) {
