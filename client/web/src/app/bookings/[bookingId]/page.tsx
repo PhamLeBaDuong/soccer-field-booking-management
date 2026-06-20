@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeft, CalendarCheck, Check, Hash, MapPin, UsersRound, X } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Check, Hash, MapPin, Navigation, UsersRound, X } from "lucide-react";
 import { BookingStatusBadge } from "@/components/bookings/BookingStatusBadge";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -14,6 +14,7 @@ import { cancelBooking, confirmBooking } from "@/lib/api/bookings";
 import { useRequireAuth } from "@/lib/auth/hooks";
 import { ROUTES } from "@/lib/constants";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
+import { fieldDirectionsUrl } from "@/lib/utils/location";
 import { useBooking } from "@/hooks/useBookings";
 
 export default function BookingDetailPage() {
@@ -76,6 +77,7 @@ export default function BookingDetailPage() {
   }
 
   const canAct = booking.status === "pending" || booking.status === "confirmed";
+  const directionsUrl = fieldDirectionsUrl(booking.field);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
@@ -154,14 +156,29 @@ export default function BookingDetailPage() {
 
       <Card className="mt-6">
         <CardContent>
-          <h2 className="text-lg font-semibold text-neutral-950">Field</h2>
-          <p className="mt-3 font-semibold text-neutral-950">
-            {booking.field?.name ?? "Soccer field"}
-          </p>
-          <p className="mt-1 flex items-center gap-2 text-sm text-stone-500">
-            <MapPin className="h-4 w-4" aria-hidden="true" />
-            {booking.field?.complex?.name ?? booking.field?.address ?? "Address unavailable"}
-          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-950">Field</h2>
+              <p className="mt-3 font-semibold text-neutral-950">
+                {booking.field?.name ?? "Soccer field"}
+              </p>
+              <p className="mt-1 flex items-center gap-2 text-sm text-stone-500">
+                <MapPin className="h-4 w-4" aria-hidden="true" />
+                {booking.field?.address ?? booking.field?.complex?.name ?? "Address unavailable"}
+              </p>
+            </div>
+            {directionsUrl ? (
+              <a
+                className={buttonClasses("primary", "md", "shrink-0")}
+                href={directionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Navigation className="h-4 w-4" aria-hidden="true" />
+                Get directions
+              </a>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
     </div>
