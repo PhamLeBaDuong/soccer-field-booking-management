@@ -28,6 +28,12 @@ export function FieldCard({ field }: { field: Field }) {
         <h2 className="text-lg font-semibold tracking-[-0.01em] text-neutral-950">
           {field.name}
         </h2>
+        {field.complex?.address && (
+          <p className="mt-1 flex items-center gap-1 text-xs text-stone-500">
+            <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+            {field.complex.address}
+          </p>
+        )}
         <p className="mt-1.5 line-clamp-2 text-sm leading-6 text-stone-500">
           {field.description || field.address}
         </p>

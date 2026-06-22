@@ -1,5 +1,5 @@
 import { BOOKING_STATUSES, DEFAULT_CURRENCY } from "@/lib/constants";
-import type { Booking, BookingStatus, Complex, Field, User } from "@/lib/types";
+import type { Booking, BookingStatus, Complex, Field, PaymentMethod, PaymentStatus, User } from "@/lib/types";
 import { toDisplayTime } from "@/lib/utils/format";
 
 type DataRecord = Record<string, unknown>;
@@ -154,6 +154,14 @@ export function normalizeBooking(value: unknown, fields: Field[] = []): Booking 
       ? normalizeField(fieldValue)
       : fields.find((item) => item.id === readString(record, "fieldId"));
 
+  const rawPaymentStatus = readString(record, "paymentStatus", "unpaid");
+  const paymentStatus: PaymentStatus =
+    rawPaymentStatus === "paid" || rawPaymentStatus === "refunded" ? rawPaymentStatus : "unpaid";
+
+  const rawPaymentMethod = record.paymentMethod;
+  const paymentMethod: PaymentMethod | undefined =
+    typeof rawPaymentMethod === "string" ? rawPaymentMethod as PaymentMethod : undefined;
+
   return {
     id: readString(record, "id"),
     userId: readString(record, "userId"),
@@ -165,6 +173,8 @@ export function normalizeBooking(value: unknown, fields: Field[] = []): Booking 
     status: normalizeStatus(readString(record, "status", "pending")),
     totalPrice: readNumber(record, "totalPrice"),
     currency: readString(record, "currency", DEFAULT_CURRENCY),
+    paymentStatus,
+    paymentMethod,
     field,
     user: isRecord(record.user) ? normalizeUser(record.user) : undefined,
   };

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRight, CalendarCheck, MapPin, Search, UsersRound, X } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, CalendarCheck, CreditCard, MapPin, Search, UsersRound, X } from "lucide-react";
 import { BookingStatusBadge } from "@/components/bookings/BookingStatusBadge";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -80,6 +80,17 @@ export function BookingCard({
             <p className="font-mono text-xl font-semibold tracking-[-0.02em] text-neutral-950">
               {formatCurrency(booking.totalPrice, booking.currency)}
             </p>
+            {booking.paymentStatus === "paid" ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                Paid
+              </span>
+            ) : booking.status !== "canceled" ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">
+                <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+                Unpaid
+              </span>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Link
                 className={buttonClasses("secondary", "sm")}

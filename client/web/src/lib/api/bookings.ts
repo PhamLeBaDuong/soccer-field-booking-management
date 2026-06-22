@@ -8,7 +8,7 @@ import { normalizeBooking, normalizeField } from "@/lib/api/normalizers";
 import { getFields } from "@/lib/api/fields";
 import { mockBookings, mockMatchingBookings } from "@/lib/mock/bookings";
 import { mockFields } from "@/lib/mock/fields";
-import type { Booking, BookingPayload, MatchingSearch } from "@/lib/types";
+import type { Booking, BookingPayload, MatchingSearch, PaymentMethod, PaymentOption } from "@/lib/types";
 
 function createMockBooking(payload: BookingPayload): Booking {
   const field = mockFields.find((item) => item.id === payload.fieldId);
@@ -31,6 +31,7 @@ function createMockBooking(payload: BookingPayload): Booking {
           3_600_000,
       ),
     currency: payload.currency,
+    paymentStatus: "unpaid",
     field,
   };
 }
@@ -179,6 +180,115 @@ export async function searchMatchingBookings(
 
     throw error;
   }
+}
+
+export async function getPaymentOptions(bookingId: string): Promise<PaymentOption[]> {
+  return apiFetch<PaymentOption[]>(`/api/bookings/${bookingId}/payment-options`);
+}
+
+export async function payBooking(
+  bookingId: string,
+  paymentMethod: PaymentMethod,
+): Promise<Booking | { redirectUrl: null; message: string }> {
+  const fields = await getFields();
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/pay`, {
+    method: "POST",
+    body: JSON.stringify({ paymentMethod }),
+  });
+  if (
+    typeof result === "object" &&
+    result !== null &&
+    "message" in result &&
+    !("id" in result)
+  ) {
+    return result as { redirectUrl: null; message: string };
+  }
+  return normalizeBooking(result, fields);
+}
+
+export async function createStripeCheckout(
+  bookingId: string,
+): Promise<{ url: string; sessionId: string }> {
+  return apiFetch(`/api/bookings/${bookingId}/checkout/stripe`, { method: "POST" });
+}
+
+export async function verifyStripePayment(
+  bookingId: string,
+  sessionId: string,
+): Promise<Booking> {
+  const fields = await getFields();
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/checkout/stripe/verify`, {
+    method: "POST",
+    body: JSON.stringify({ sessionId }),
+  });
+  return normalizeBooking(result, fields);
+}
+
+export async function createPaypalOrder(
+  bookingId: string,
+): Promise<{ orderId: string }> {
+  return apiFetch(`/api/bookings/${bookingId}/checkout/paypal`, { method: "POST" });
+}
+
+export async function capturePaypalPayment(
+  bookingId: string,
+  orderId: string,
+): Promise<Booking> {
+  const fields = await getFields();
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/checkout/paypal/capture`, {
+    method: "POST",
+    body: JSON.stringify({ orderId }),
+  });
+  return normalizeBooking(result, fields);
+}
+
+export async function createMomoPayment(bookingId: string): Promise<{ payUrl: string }> {
+  return apiFetch(`/api/bookings/${bookingId}/checkout/momo`, { method: "POST" });
+}
+
+export async function verifyMomoPayment(
+  bookingId: string,
+  params: Record<string, string>,
+): Promise<Booking> {
+  const fields = await getFields();
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/checkout/momo/verify`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return normalizeBooking(result, fields);
+}
+
+export async function createVnpayPayment(bookingId: string): Promise<{ payUrl: string }> {
+  return apiFetch(`/api/bookings/${bookingId}/checkout/vnpay`, { method: "POST" });
+}
+
+export async function verifyVnpayPayment(
+  bookingId: string,
+  params: Record<string, string>,
+): Promise<Booking> {
+  const fields = await getFields();
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/checkout/vnpay/verify`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+  return normalizeBooking(result, fields);
+}
+
+export async function createZalopayOrder(bookingId: string): Promise<{ payUrl: string }> {
+  return apiFetch(`/api/bookings/${bookingId}/checkout/zalopay`, { method: "POST" });
+}
+
+export async function verifyZalopayOrder(
+  bookingId: string,
+): Promise<Booking | { pending: true; message: string }> {
+  const result = await apiFetch<unknown>(`/api/bookings/${bookingId}/checkout/zalopay/verify`, {
+    method: "POST",
+  });
+  if (typeof result === "object" && result !== null && "pending" in result) {
+    return result as { pending: true; message: string };
+  }
+  const fields = await getFields();
+  return normalizeBooking(result, fields);
 }
 
 export async function joinMatch(

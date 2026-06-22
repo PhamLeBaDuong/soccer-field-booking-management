@@ -13,6 +13,8 @@ export const mockBookings: Booking[] = [
     status: "confirmed",
     totalPrice: 640000,
     currency: "VND",
+    paymentStatus: "paid",
+    paymentMethod: "cash",
     field: mockFields[1],
   },
   {
@@ -26,6 +28,7 @@ export const mockBookings: Booking[] = [
     status: "matching",
     totalPrice: 150000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[5],
   },
   {
@@ -39,6 +42,7 @@ export const mockBookings: Booking[] = [
     status: "pending",
     totalPrice: 600000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[6],
   },
   {
@@ -52,6 +56,7 @@ export const mockBookings: Booking[] = [
     status: "canceled",
     totalPrice: 1000000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[4],
   },
 ];
@@ -68,6 +73,7 @@ export const mockMatchingBookings: Booking[] = [
     status: "matching",
     totalPrice: 360000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[0],
   },
   {
@@ -81,6 +87,7 @@ export const mockMatchingBookings: Booking[] = [
     status: "matching",
     totalPrice: 700000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[3],
   },
   {
@@ -94,7 +101,7 @@ export const mockMatchingBookings: Booking[] = [
     status: "matching",
     totalPrice: 960000,
     currency: "VND",
+    paymentStatus: "unpaid",
     field: mockFields[7],
   },
 ];
-

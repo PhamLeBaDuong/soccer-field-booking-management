@@ -1,623 +1,327 @@
-# PitchBook — Soccer Field Booking Management
+# PitchBook - Soccer Field Booking Management
 
-A full-stack web application for booking soccer fields, forming teams, and organizing matches. Built for Vietnamese sports communities with support for both individual bookings and team-vs-team matchmaking.
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Tech Stack](#tech-stack)
-3. [Prerequisites](#prerequisites)
-4. [Installation](#installation)
-5. [Environment Variables](#environment-variables)
-6. [Running the Project](#running-the-project)
-7. [Seed / Demo Data](#seed--demo-data)
-8. [Usage Guide](#usage-guide)
-   - [Authentication](#1-authentication)
-   - [Browse & Book a Field](#2-browse--book-a-field)
-   - [Manage Bookings](#3-manage-bookings)
-   - [Teams](#4-teams)
-   - [Team Matchmaking (Match Posts)](#5-team-matchmaking-match-posts)
-   - [Lobby Matchmaking (Pickup Games)](#6-lobby-matchmaking-pickup-games)
-   - [Friends & Messaging](#7-friends--messaging)
-   - [My Venues](#8-my-venues)
-   - [Admin Panel](#9-admin-panel)
-9. [Project Structure](#project-structure)
-10. [API Reference](#api-reference)
-
----
+PitchBook is a full-stack web application for soccer field discovery, team coordination, match organization, and booking management. It is built around Vietnamese football communities, with support for players, team leaders, venue owners, and admins.
 
 ## Overview
 
-**PitchBook** lets players search for and book football pitches, build teams, challenge other teams, and fill open lobbies for pickup games — all without leaving the browser.
+The app helps players find available fields, join pickup lobbies, form teams, challenge other teams, manage bookings, and communicate with friends. Venue owners and admins can manage complexes, fields, prices, schedules, and booking activity.
 
-### Key Features
+## Key Features
 
-| Feature | Description |
-|---|---|
-| Field Booking | Search, filter, and book 5v5 / 7v7 / 11v11 pitches by date and time |
-| Team Management | Create teams, invite members, manage rosters |
-| Match Posts | Post a match challenge; opponent teams accept to auto-confirm a game |
-| Lobby System | Open pickup game slots; players join until both sides are full |
-| Friends & Chat | Send friend requests, direct-message friends, invite them to your team |
-| Admin Panel | Manage complexes, fields, pricing, and operating hours |
-| Bilingual UI | Full English / Vietnamese language toggle |
-
----
+| Area | Features |
+| --- | --- |
+| Authentication | Register, login, JWT sessions, role-aware navigation |
+| Field Discovery | Browse fields, view details, see locations, compare pricing and amenities |
+| Booking Flow | Availability checks, booking history, booking details, payment status |
+| Payments | Cash, bank transfer, Stripe, PayPal, MoMo, VNPay, and ZaloPay integration points |
+| Team Management | Create teams, manage members, invite players |
+| Matchmaking | Public/private match posts, match acceptance, auto-created matches |
+| Pickup Lobbies | Create or join lobbies for individual players and small groups |
+| Social | Friends, direct messaging, team invites |
+| Admin | Manage complexes, fields, schedules, owners, and bookings |
+| Internationalization | English and Vietnamese UI strings |
 
 ## Tech Stack
 
 ### Frontend
 
-| Tool | Version | Role |
-|---|---|---|
-| Next.js | 15.4 | App Router, SSR |
-| React | 19.1 | UI framework |
-| TypeScript | 5 | Type safety |
-| Tailwind CSS | 4 | Styling |
-| Lucide React | latest | Icons |
-| DM Sans | — | Typography (Google Fonts) |
+| Tool | Role |
+| --- | --- |
+| Next.js 16 | App Router frontend |
+| React 19 | UI framework |
+| TypeScript | Static typing |
+| Tailwind CSS 4 | Styling |
+| Framer Motion | Page and UI transitions |
+| Lucide React | Icons |
+| Leaflet / React Leaflet | Field maps |
+| Socket.IO Client | Realtime messaging |
 
 ### Backend
 
-| Tool | Version | Role |
-|---|---|---|
-| Node.js | >= 20 | Runtime |
-| Express | 5.1 | HTTP server |
-| Prisma | 6.14 | ORM |
-| PostgreSQL | >= 14 | Database |
-| JWT | 9.0 | Authentication |
-| Bcrypt | 6.0 | Password hashing |
+| Tool | Role |
+| --- | --- |
+| Node.js | Runtime |
+| Express 5 | HTTP API |
+| Prisma 6 | ORM |
+| PostgreSQL | Database |
+| JWT | Authentication |
+| Bcrypt | Password hashing |
+| Socket.IO | Realtime chat |
+| Stripe SDK | Card checkout support |
 
----
+## Project Structure
+
+```text
+soccer-field-booking-management/
+|-- client/
+|   `-- web/                         # Next.js frontend
+|       |-- src/
+|       |   |-- app/                 # App Router pages
+|       |   |-- components/          # Reusable UI and feature components
+|       |   |-- hooks/               # Feature data hooks
+|       |   `-- lib/                 # API clients, auth, types, i18n, utilities
+|       `-- public/                  # Static assets
+|
+|-- server/                          # Express backend
+|   |-- src/
+|   |   |-- controllers/             # Request handlers
+|   |   |-- middleware/              # Auth middleware
+|   |   |-- prisma/                  # Prisma schema and migrations
+|   |   |-- routes/                  # API route definitions
+|   |   |-- services/                # Business logic and payment services
+|   |   |-- db.cjs                   # Prisma client
+|   |   |-- index.js                 # Express and Socket.IO entry point
+|   |   `-- socket.js                # Socket singleton helper
+|   |-- seed.js                      # Basic seed script
+|   |-- seed_demo.js                 # Full demo seed script
+|   `-- seed_social.cjs              # Social/admin seed helper
+|
+|-- docs/
+|   `-- API.md                       # API notes
+|-- docker-compose.yml
+|-- package.json                     # Root scripts
+`-- README.md
+```
 
 ## Prerequisites
 
-Make sure the following are installed before proceeding:
+- Node.js 20 or newer
+- npm 10 or newer
+- PostgreSQL 14 or newer
+- Git
 
-- **Node.js** >= 20 — [nodejs.org](https://nodejs.org)
-- **npm** >= 10 (comes with Node.js)
-- **PostgreSQL** >= 14 — [postgresql.org](https://www.postgresql.org)
-- **Git**
+For Windows, PostgreSQL can be installed with the official EDB installer or:
 
-> **Windows users:** Install PostgreSQL via the [EDB installer](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads) or run `winget install PostgreSQL.PostgreSQL`.
+```bash
+winget install PostgreSQL.PostgreSQL
+```
 
----
+## Environment Variables
+
+Create `server/.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/soccer_booking?schema=public"
+JWT_SECRET="change-me-to-a-long-random-string"
+PORT=5000
+CLIENT_URL="http://localhost:3000"
+API_URL="http://localhost:5000"
+
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
+PAYPAL_CLIENT_ID="..."
+PAYPAL_CLIENT_SECRET="..."
+PAYPAL_MODE="sandbox"
+
+MOMO_PARTNER_CODE="..."
+MOMO_ACCESS_KEY="..."
+MOMO_SECRET_KEY="..."
+MOMO_ENV="sandbox"
+
+VNPAY_TMN_CODE="..."
+VNPAY_HASH_SECRET="..."
+VNPAY_ENV="sandbox"
+
+ZALOPAY_APP_ID="..."
+ZALOPAY_KEY1="..."
+ZALOPAY_KEY2="..."
+ZALOPAY_ENV="sandbox"
+```
+
+Create `client/web/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_USE_MOCK=false
+```
 
 ## Installation
 
-### 1. Clone the repository
+Install dependencies from the root, backend, and frontend folders as needed:
 
 ```bash
-git clone https://github.com/your-username/soccer-field-booking-management.git
-cd soccer-field-booking-management
-```
-
-### 2. Install backend dependencies
-
-```bash
+npm install
 cd server
 npm install
-```
-
-### 3. Install frontend dependencies
-
-```bash
 cd ../client/web
 npm install
 ```
 
----
+## Database Setup
 
-## Environment Variables
+Create the PostgreSQL database:
 
-### Backend — `server/.env`
-
-Create the file `server/.env`:
-
-```env
-# PostgreSQL connection string
-# Format: postgresql://USER:PASSWORD@HOST:PORT/DATABASE
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/pitchbook"
-
-# Server port (optional — defaults to 5000)
-PORT=5000
-
-# JWT secret — use a long random string in production
-JWT_SECRET="replace-this-with-a-secure-random-string"
+```sql
+CREATE DATABASE soccer_booking;
 ```
 
-> **Create the database first** (in psql or pgAdmin):
-> ```sql
-> CREATE DATABASE pitchbook;
-> ```
-
-### Frontend — `client/web/.env.local`
-
-Create the file `client/web/.env.local`:
-
-```env
-# URL of the running backend (no trailing slash)
-NEXT_PUBLIC_API_URL=http://localhost:5000
-
-# Optional: use mock data when the backend is offline
-NEXT_PUBLIC_USE_MOCK=false
-```
-
----
-
-## Running the Project
-
-### Step 1 — Push the database schema
-
-Run this **once** after creating the database (or again after schema changes):
+Generate the Prisma client:
 
 ```bash
 cd server
-npx prisma db push
+npx prisma generate --schema src/prisma/schema.prisma
 ```
 
-### Step 2 — Start the backend
+Apply the schema during local development:
 
 ```bash
-# From the server/ directory
+npx prisma db push --schema src/prisma/schema.prisma
+```
+
+Or run migrations if you prefer the migration flow:
+
+```bash
+npx prisma migrate dev --schema src/prisma/schema.prisma
+```
+
+## Running Locally
+
+From the repository root, start both apps:
+
+```bash
 npm run dev
 ```
 
-The API is available at `http://localhost:5000`.
-You should see: `Server running on port 5000`.
-
-### Step 3 — Start the frontend
-
-Open a **second terminal**:
+Or run them separately:
 
 ```bash
-# From the client/web/ directory
+cd server
 npm run dev
 ```
 
-Open `http://localhost:3000` in your browser.
+```bash
+cd client/web
+npm run dev
+```
 
----
+Default local URLs:
 
-## Seed / Demo Data
+| App | URL |
+| --- | --- |
+| Frontend | `http://localhost:3000` |
+| Backend API | `http://localhost:5000` |
 
-The project ships with seed scripts that populate the database with sample complexes, fields, users, and bookings.
+## Seed Data
+
+From `server/`, run one of the seed scripts:
 
 ```bash
-# From the server/ directory
-
-# Minimal seed — admin user + basic fields
 node seed.js
+```
 
-# Full demo seed — multiple complexes, fields, users, bookings, matches
+```bash
 node seed_demo.js
 ```
 
-After running the demo seed, log in with these accounts:
+The demo seed creates users, complexes, fields, teams, friendships, match posts, lobbies, matches, and bookings.
+
+Common demo accounts from the seed scripts include:
 
 | Role | Username | Password |
-|---|---|---|
+| --- | --- | --- |
 | Admin | `admin` | `admin123` |
-| Player | `player1` | `password123` |
-| Player | `player2` | `password123` |
-
----
-
-## Usage Guide
-
-### 1. Authentication
-
-#### Register a new account
-
-1. Open `http://localhost:3000`. You are redirected to `/login`.
-2. Click **"Create one"** at the bottom of the form.
-3. Fill in the registration form:
-   - **Full name** — your display name (e.g. `Nguyen Van A`)
-   - **Username** — unique login handle, no spaces (e.g. `nguyenvana`)
-   - **Email address** — must be a valid format
-   - **Phone number** — optional
-   - **Password** — minimum 6 characters
-   - **Confirm password** — must match the password above
-4. Click **Create Account**. You are automatically logged in and redirected to the dashboard.
-
-#### Log in
-
-1. Go to `/login`.
-2. Enter your **username or email** and **password**.
-3. Click **Sign in**.
-
-#### Switch language
-
-Click the **EN | VI** toggle in the top-right of the navbar to switch between English and Vietnamese. The preference is saved locally.
-
-#### Log out
-
-Click your avatar (top-right navbar) — **Logout**. On mobile, tap the hamburger menu — **Sign out**.
-
----
-
-### 2. Browse & Book a Field
-
-#### Browse available fields
-
-1. Click **Fields** in the navbar, or go to `/fields`.
-2. Use the sticky filter bar to narrow results:
-   - **Search** — type a field name or complex/venue name
-   - **Type** — 5v5, 7v7, or 11v11
-   - **Surface** — Indoor or Outdoor
-   - **Date** — pick a date to check availability for that day
-   - **Sort by** — Price (low to high) or Name (A to Z)
-3. Each field card displays:
-   - Field name, venue (complex), and location tag
-   - Price per hour (VND)
-   - Operating hours
-   - Surface amenity badges (Indoor / Lights)
-4. Hover over a card to see it lift — click **View & Book** to open the detail page.
-
-#### Book a field
-
-1. On the field detail page (`/fields/:id`) you will see:
-   - Description, address, operating hours, and price
-   - **Timeline grid** — a visual block showing which time slots are already booked today. Occupied slots are shaded; your planned slot is highlighted as you select it.
-   - **Booking form** on the right (or below on mobile)
-2. Fill in the booking form:
-   - **Start time** — must be within operating hours and not overlap an occupied slot
-   - **End time** — must be after the start time and within operating hours
-   - **Team size** — number of players on your side
-   - **Need matching opponent** — toggle ON if you want the system to find you an opponent team (sets status to `matching`)
-3. Click **Book Field**.
-4. A success toast confirms the booking. Status is **Pending** until confirmed.
-
-> **Tip:** If the slot you want is unavailable, the timeline grid shows exactly when it is free.
-
----
-
-### 3. Manage Bookings
-
-#### View all bookings
-
-Go to `/bookings` (click **Bookings** in the navbar).
-
-Use the **segment tab bar** at the top to filter:
-
-| Tab | Shows |
-|---|---|
-| All | Every booking you have ever made |
-| Upcoming | Future bookings that are not canceled |
-| Pending | Awaiting venue or system confirmation |
-| Confirmed | Confirmed — ready to play |
-| Canceled | All canceled bookings |
-
-Each booking card shows: field name and venue, status badge (color-coded), date and time range, team size, and total price.
-
-#### Cancel a booking
-
-1. Find the booking card with status **Pending** or **Confirmed**.
-2. Click the **Cancel** button (far right of the card).
-3. An inline confirmation prompt appears — click **Yes** to proceed, **No** to dismiss.
-4. Status changes to **Canceled** and a toast notification confirms the action.
-
-> Only bookings with status **Pending** or **Confirmed** can be canceled.
-
-#### View booking details
-
-Click **View Details** on any booking card to open `/bookings/:id`, which shows full field info, booking time, price, status, and associated match information (if part of a matched game).
-
----
-
-### 4. Teams
-
-Go to `/teams` (click **Teams** in the navbar).
-
-#### Create a team
-
-1. Click **Create Team** (top-right of the page).
-2. Fill in:
-   - **Team name** — e.g. `FC Thu Duc`
-   - **Size** — number of players per side (e.g. `5` for a 5v5 team)
-3. Click **Create**. You become the team **Leader** automatically.
-
-#### Invite players to your team
-
-1. Open your team panel.
-2. Click **Invite Player**.
-3. Search for a player by username.
-4. Click **Send Invite**. The invitation appears in the target player's pending invites.
-
-#### Accept or decline an invite
-
-Pending invites appear in the **Invites** panel on the Teams page.
-- Click **Accept** to join the team.
-- Click **Decline** to reject it.
-
-#### Leader-only actions
-
-As the team leader you can:
-- **Remove a member** — click the remove icon next to their name
-- **Disband the team** — click **Disband** (permanent, cannot be undone)
-- **Edit team info** — click the edit icon on the team card
-
----
-
-### 5. Team Matchmaking (Match Posts)
-
-Match Posts let one team post a public challenge. Another team finds it and accepts. When accepted, a confirmed **Match** and both teams' **Bookings** are created automatically.
-
-Go to `/matching` (click **Matches** in the navbar).
-
-#### Post a match challenge
-
-1. Click **Post Match**.
-2. Fill in:
-   - **Team** — select one of the teams where you are the leader
-   - **Field** — the field where you want to play
-   - **Preferred start time** and **end time**
-   - **Visibility**:
-     - **Public** — appears in the open feed for any team to accept
-     - **Private** — generates a code; only the team you share the code with can accept
-3. Click **Post**. Your challenge appears in the feed with status **Open**.
-
-#### Browse and accept challenges
-
-1. The feed shows all open public match posts from other teams.
-2. Each card shows: team name, field, time, and size requirement.
-3. Click **Accept** on a post that matches your team's size.
-4. Select your team from the dropdown and confirm.
-5. If the field slot is available and sizes match, a **Match** is confirmed instantly. Both teams' bookings change to **Confirmed**.
-
-#### Private challenges (using a code)
-
-- The creator of a private post receives a **Match Code**.
-- Share the code directly with your intended opponent (e.g. via chat or phone).
-- The opponent clicks **Join with Code**, enters the code, and can then accept the private post.
-
-#### Cancel your own match post
-
-Open the post and click **Cancel Post** (available to the creator before the post is accepted).
-
----
-
-### 6. Lobby Matchmaking (Pickup Games)
-
-Lobbies are for individual players who want to join a game without organizing a full team. Two lobbies that fill up for the same field and time will auto-merge into a confirmed match.
-
-Go to `/lobbies` (click **Lobbies** in the navbar).
-
-#### Create a lobby
-
-1. Click **Create Lobby**.
-2. Fill in:
-   - **Field** — where you want to play
-   - **Start time / End time**
-   - **Team size** — total players needed per side (e.g. `5`)
-   - **Initial player count** — how many are already coming with you (minimum 1 = yourself)
-   - **Visibility** — Public or Private
-3. Click **Create**. A lobby card appears with a fill progress bar showing `X / TeamSize` players.
-
-#### Join a lobby
-
-1. Browse open lobbies in the list.
-2. Each card shows: field name, time, team size, and current fill ratio.
-3. Click **Join** on a lobby that has available slots.
-4. Your name is added. The fill bar updates.
-5. When both sides of a lobby set are full, the system auto-confirms a **Match** for everyone.
-
-#### Leave a lobby
-
-Click **Leave** on a lobby you have already joined. Your slot is freed for someone else.
-
-> **Note:** The lobby creator can also **Cancel** the entire lobby, which removes all joined players.
-
----
-
-### 7. Friends & Messaging
-
-Go to `/friends` (accessible from the user dropdown in the navbar).
-
-#### Send a friend request
-
-1. Click **Add Friend** (top of the Friends page).
-2. Type a username in the search box.
-3. Click **Send Request** next to the user you want to add.
-4. The request appears in their **Pending** tab.
-
-#### Accept or decline a friend request
-
-1. Open the **Pending** tab on the Friends page.
-2. Click **Accept** to add them as a friend, or **Decline** to reject the request.
-
-#### Chat with a friend
-
-1. Click on any friend's name in the **Friends** list.
-2. A chat panel opens on the right side of the screen.
-3. Type a message and press **Enter** or click the send button.
-4. Messages refresh every 3 seconds automatically.
-5. All message history is preserved.
-
-#### Invite a friend to your team (from chat)
-
-Inside a chat conversation, click **Invite to Team**, then select one of the teams where you are the leader. A team invite is sent directly to that friend.
-
-#### Remove a friend
-
-Click the **Remove** icon next to a friend's name. The friendship and chat history are deleted.
-
----
-
-### 8. My Venues
-
-Go to `/my-venues` (click **My Venues** in the navbar).
-
-This page is for **field owners** — players who own or manage sports complexes. Here you can:
-
-- View all complexes registered under your account
-- See an overview of fields per complex
-- View incoming bookings across all your fields
-- Check the daily schedule timeline for each field
-
-> To become a venue owner, an admin must associate your account with a complex via the admin panel.
-
----
-
-### 9. Admin Panel
-
-Only accounts with `role: "admin"` can access `/admin`. The **Admin** link appears automatically in the navbar for admin users.
-
-#### Dashboard (`/admin`)
-
-Summary statistics at a glance:
-- Total complexes, total fields, total bookings, pending bookings
-- A recent bookings table with field, time, status, and price
-- Quick navigation buttons to complex and field management
-
-#### Manage Complexes (`/admin/complexes`)
-
-A **Complex** is a physical sports venue that contains one or more fields (e.g. *San bong Thu Duc*).
-
-**Create a complex:**
-1. Click **New Complex**.
-2. Fill in: name, description, address, latitude, longitude.
-3. Click **Save**. The complex appears in the list immediately.
-
-**Edit a complex:**
-1. Click on a complex in the list.
-2. Edit any fields and click **Save Changes**.
-
-**Delete a complex:**
-- Click **Delete** on the complex card.
-- Deleting a complex also removes all fields within it.
-
-#### Manage Fields (`/admin/fields` or inside a complex)
-
-A **Field** is a single bookable pitch inside a complex.
-
-**Create a field:**
-1. Click **New Field**.
-2. Fill in:
-   - **Name** — e.g. `San A`, `Pitch 1`
-   - **Complex** — which venue this field belongs to
-   - **Type** — 5v5, 7v7, or 11v11
-   - **Opening time** — e.g. `06:00`
-   - **Closing time** — e.g. `22:00`
-   - **Price per hour** — in VND (e.g. `200000`)
-   - **Indoor** — toggle on if the field is covered/indoors
-   - **Lights** — toggle on if the field has floodlights for night games
-   - **Description** — optional free-text field info
-3. Click **Save**. The field is instantly visible on the public `/fields` page.
-
-**Edit a field:**
-1. Click on a field in the admin fields list.
-2. Adjust any settings and click **Save Changes**.
-
-**Delete a field:**
-- Click **Delete** on the field's admin page.
-
-#### Schedule View (`/admin/complexes/:id`)
-
-Inside a complex detail page, click **View Schedule** to open a full-width timeline grid showing:
-- All fields in the complex as rows
-- Time slots across the day as columns
-- Occupied slots shaded (with booking details on hover)
-
----
-
-## Project Structure
-
-```
-soccer-field-booking-management/
-|
-+-- client/web/                     # Next.js 15 frontend
-|   +-- src/
-|       +-- app/                    # Pages (App Router)
-|       |   +-- (auth)/             # Login, Register (no navbar)
-|       |   +-- admin/              # Admin-only pages
-|       |   +-- bookings/           # Bookings list + detail
-|       |   +-- dashboard/          # User home screen
-|       |   +-- fields/             # Field browser + detail
-|       |   +-- friends/            # Friends & direct chat
-|       |   +-- history/            # Past matches log
-|       |   +-- lobbies/            # Pickup lobby browser
-|       |   +-- matching/           # Match challenge feed
-|       |   +-- my-venues/          # Owner venue dashboard
-|       |   +-- teams/              # Team management
-|       +-- components/
-|       |   +-- ui/                 # Button, Card, Input, Modal, Toast, Badge...
-|       |   +-- layout/             # Navbar, AppShell, MobileNav
-|       |   +-- bookings/           # BookingCard, BookingForm, BookingStatusBadge
-|       |   +-- fields/             # FieldCard, FieldGrid, TimeSlotPicker
-|       |   +-- matching/           # MatchCard
-|       |   +-- schedule/           # ComplexScheduleGrid, FieldSchedulePanel
-|       +-- hooks/                  # useBookings, useFields, useTeams, useMatches...
-|       +-- lib/
-|           +-- api/                # HTTP call functions per feature
-|           +-- auth/               # JWT context + useAuth hook
-|           +-- bookings/           # Bookings context (cross-page state)
-|           +-- i18n/               # EN/VI translation strings + toggle
-|           +-- mock/               # Offline fallback mock data
-|           +-- types/              # Shared TypeScript interfaces
-|           +-- utils/              # cn() helper, formatCurrency, formatDateRange
-|
-+-- server/                         # Express.js backend
-    +-- src/
-        +-- controllers/            # Request handlers per feature
-        +-- middleware/             # verifyToken — JWT auth guard
-        +-- prisma/                 # schema.prisma (PostgreSQL schema)
-        +-- routes/                 # Route definitions
-        +-- services/               # cleanupService — auto-expires stale records every 5 min
-```
-
----
-
-## API Reference
-
-A complete endpoint reference is in [`docs/API.md`](docs/API.md).
-
-### Quick Summary
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | No | Register a new account |
-| POST | `/api/auth/login` | No | Login and receive JWT |
-| GET | `/api/auth/me` | Yes | Get the current user |
-| GET | `/api/fields` | No | List all fields |
-| GET | `/api/fields/:id` | No | Get a single field |
-| GET | `/api/bookings/user/:userId` | Yes | List a user's bookings |
-| POST | `/api/bookings` | Yes | Create a booking |
-| DELETE | `/api/bookings/:id` | Yes | Cancel a booking |
-| GET | `/api/teams/mine` | Yes | List your teams |
-| POST | `/api/teams` | Yes | Create a team |
-| POST | `/api/teams/:id/members` | Yes (leader) | Invite a member |
-| GET | `/api/match-posts` | No | Browse open match challenges |
-| POST | `/api/match-posts` | Yes (leader) | Post a challenge |
-| POST | `/api/match-posts/:id/accept` | Yes (leader) | Accept a challenge |
-| GET | `/api/lobbies` | No | Browse open lobbies |
-| POST | `/api/lobbies` | Yes | Create a lobby |
-| POST | `/api/lobbies/:id/join` | Yes | Join a lobby |
-| DELETE | `/api/lobbies/:id/leave` | Yes | Leave a lobby |
-| GET | `/api/friends` | Yes | List friends |
-| POST | `/api/friends` | Yes | Send a friend request |
-| POST | `/api/friends/:id/accept` | Yes | Accept a friend request |
-| GET | `/api/friends/:id/messages` | Yes | Get chat messages |
-| POST | `/api/friends/:id/messages` | Yes | Send a message |
-| GET | `/api/admin/complexes` | Admin | List all complexes |
-| POST | `/api/admin/complexes` | Admin | Create a complex |
-| POST | `/api/admin/fields` | Admin | Create a field |
-| PUT | `/api/admin/fields/:id` | Admin | Update a field |
-| DELETE | `/api/admin/fields/:id` | Admin | Delete a field |
-
-All protected endpoints require:
-```
+| Player | `duong99` | `player123` |
+| Player | `khanh88` | `player123` |
+| Player | `minh77` | `player123` |
+
+## Main User Flows
+
+### Player
+
+1. Register or log in.
+2. Browse fields and view availability.
+3. Join pickup lobbies or create a lobby.
+4. Create or join a team.
+5. Post or accept match challenges.
+6. View bookings and payment status.
+7. Add friends and send messages.
+
+### Team Leader
+
+1. Create a team.
+2. Invite members.
+3. Post public or private match challenges.
+4. Accept compatible challenges from other teams.
+5. Track confirmed matches and related bookings.
+
+### Venue Owner
+
+1. Open `My Venues`.
+2. Review owned complexes and fields.
+3. Monitor bookings and schedules for managed venues.
+
+### Admin
+
+1. Open `/admin`.
+2. Manage complexes and fields.
+3. Review bookings and schedule data.
+4. Maintain venue and field metadata.
+
+## API Summary
+
+More API detail is available in [`docs/API.md`](docs/API.md) and `server/src/routes/`.
+
+| Area | Base Path |
+| --- | --- |
+| Auth | `/api/auth` |
+| Admin | `/api/admin` |
+| Fields | `/api/fields` |
+| Bookings | `/api/bookings` |
+| Matches | `/api/matches` |
+| Teams | `/api/teams` |
+| Match Posts | `/api/match-posts` |
+| Lobbies | `/api/lobbies` |
+| Venues | `/api/venues` |
+| Users | `/api/users` |
+| Friends | `/api/friends` |
+| Messages | `/api/messages` |
+| Invites | `/api/invites` |
+| Webhooks | `/api/webhooks` |
+
+Protected endpoints require:
+
+```http
 Authorization: Bearer <jwt-token>
 ```
 
----
+## Useful Scripts
+
+### Root
+
+```bash
+npm run dev
+```
+
+Runs backend and frontend together with `concurrently`.
+
+### Server
+
+```bash
+npm run dev
+npm run start
+npm run build
+```
+
+Note: the Prisma schema is stored at `server/src/prisma/schema.prisma`. If Prisma cannot find it, pass `--schema src/prisma/schema.prisma`.
+
+### Frontend
+
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
 
 ## Notes
 
-- **Mock data mode** — Set `NEXT_PUBLIC_USE_MOCK=true` to run the frontend with local mock data when the backend is offline. Useful for UI-only development.
-- **Auto-cleanup** — The backend runs a cleanup job every 5 minutes to expire stale lobbies, open match posts, and dangling pending bookings.
-- **Currency** — All prices are in Vietnamese Dong (VND) by default.
-- **JWT expiry** — Auth tokens expire after 1 hour. When the session expires you are redirected to `/login` automatically.
-- **Roles** — Two roles exist: `player` (default for all registrations) and `admin` (set manually in the database or via seed scripts).
+- Prices default to Vietnamese Dong (VND).
+- JWT sessions currently expire after 1 hour.
+- The backend runs cleanup work on an interval to expire stale lobbies, match posts, and completed records.
+- `NEXT_PUBLIC_USE_MOCK=true` lets the frontend fall back to mock data for selected screens when the API is unavailable.
+- Payment providers need real sandbox credentials before online checkout can be fully tested.
+
+## Project Status
+
+This project is a strong full-stack booking and matchmaking prototype. Before production deployment, prioritize clean build scripts, automated tests, stricter authorization checks, payment webhook hardening, and production-ready environment configuration.

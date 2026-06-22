@@ -82,9 +82,10 @@ export default function LobbiesPage() {
       endTime:    lobby.endTime,
       needMatching: false,
       teamSize:   lobby.teamSize,
-      status:     "confirmed",
-      totalPrice: field.metadata.price * Math.max(0, hrs),
-      currency:   field.metadata.currency ?? "VND",
+      status:        "confirmed",
+      totalPrice:    field.metadata.price * Math.max(0, hrs),
+      currency:      field.metadata.currency ?? "VND",
+      paymentStatus: "unpaid",
       field,
     };
   }

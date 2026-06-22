@@ -20,6 +20,7 @@ import friendsRoutes    from "./routes/friendsRoute.js";
 import messagesRoutes   from "./routes/messagesRoute.js";
 import invitesRoutes    from "./routes/invitesRoute.js";
 import { runCleanup }   from "./services/cleanupService.js";
+import webhookRoutes   from "./routes/webhookRoute.js";
 
 dotenv.config();
 
@@ -91,6 +92,10 @@ setIO(io);
 // ── Express middleware ─────────────────────────────────────────────────────────
 
 app.use(cors({ origin: CLIENT_URL, credentials: true }));
+
+// Stripe webhook needs raw body — register BEFORE express.json()
+app.use("/api/webhooks", webhookRoutes);
+
 app.use(express.json());
 
 app.get("/", (req, res) => {

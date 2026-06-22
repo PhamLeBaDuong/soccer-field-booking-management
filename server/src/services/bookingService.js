@@ -35,7 +35,7 @@ export async function isSlotFree(fieldId, startTime, endTime, excludeBookingIds 
 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
-const BOOKING_INCLUDE = {
+export const BOOKING_INCLUDE = {
     field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
     match: {
         include: {
@@ -81,6 +81,49 @@ export async function getOccupiedSlots(fieldId, startTime, endTime) {
         },
         orderBy: { startTime: "asc" },
     });
+}
+
+// ─── Payment ─────────────────────────────────────────────────────────────────
+
+export const PAYMENT_OPTIONS = [
+    { id: "cash",          label: "Tiền mặt (Cash)",                icon: "cash",     available: true  },
+    { id: "bank_transfer", label: "Chuyển khoản ngân hàng",         icon: "bank",     available: true  },
+    { id: "stripe",        label: "Credit / Debit Card (Stripe)",   icon: "stripe",   available: true  },
+    { id: "paypal",        label: "PayPal",                         icon: "paypal",   available: true  },
+    { id: "momo",          label: "Ví MoMo",                        icon: "momo",     available: true  },
+    { id: "vnpay",         label: "VNPay",                          icon: "vnpay",    available: true  },
+    { id: "zalopay",       label: "ZaloPay",                        icon: "zalopay",  available: true  },
+];
+
+// These methods have dedicated checkout endpoints — the generic /pay route rejects them
+const REDIRECT_METHODS  = new Set(["stripe", "paypal", "momo", "vnpay", "zalopay"]);
+
+export async function payBooking(bookingId, paymentMethod, userId) {
+    if (!bookingId)     throw new Error("bookingId is required");
+    if (!paymentMethod) throw new Error("paymentMethod is required");
+
+    const validIds = PAYMENT_OPTIONS.map(o => o.id);
+    if (!validIds.includes(paymentMethod)) throw new Error("Invalid paymentMethod");
+
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+    if (!booking)                    throw new Error("Booking not found");
+    if (booking.userId !== userId)   throw new Error("Not authorized");
+    if (booking.paymentStatus === "paid") throw new Error("Booking is already paid");
+
+    const option = PAYMENT_OPTIONS.find(o => o.id === paymentMethod);
+    if (!option.available) {
+        return { redirectUrl: null, message: "Online payment coming soon" };
+    }
+    if (REDIRECT_METHODS.has(paymentMethod)) {
+        return { redirectUrl: null, message: "Use the dedicated checkout endpoint for this method" };
+    }
+
+    const updated = await prisma.booking.update({
+        where: { id: bookingId },
+        data:  { paymentMethod, paymentStatus: "paid" },
+        include: BOOKING_INCLUDE,
+    });
+    return updated;
 }
 
 // ─── Location utilities ───────────────────────────────────────────────────────
