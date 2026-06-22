@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowUpRight, BadgeCheck, CalendarCheck, CreditCard, MapPin, Search, UsersRound, X } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, CalendarCheck, CreditCard, MapPin, Navigation, Search, UsersRound, X } from "lucide-react";
 import { BookingStatusBadge } from "@/components/bookings/BookingStatusBadge";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { Booking } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/context";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
+import { fieldDirectionsUrl } from "@/lib/utils/location";
 import { cn } from "@/lib/utils/cn";
 
 const statusBorder: Record<Booking["status"], string> = {
@@ -31,6 +32,7 @@ export function BookingCard({
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
+  const directionsUrl = fieldDirectionsUrl(booking.field);
 
   async function handleCancel() {
     if (!onCancel) return;
@@ -99,6 +101,17 @@ export function BookingCard({
                 {t("bookings.viewDetails")}
                 <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
               </Link>
+              {directionsUrl ? (
+                <a
+                  className={buttonClasses("secondary", "sm")}
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Navigation className="h-3.5 w-3.5" aria-hidden="true" />
+                  Directions
+                </a>
+              ) : null}
               {booking.needMatching ? (
                 <Button variant="secondary" size="sm" onClick={onFindMatch}>
                   <Search className="h-3.5 w-3.5" aria-hidden="true" />
