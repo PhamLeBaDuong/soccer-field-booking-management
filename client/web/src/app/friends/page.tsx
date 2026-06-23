@@ -92,10 +92,18 @@ export default function FriendsPage() {
       }
     };
     const onSent = (msg: ChatMessage) => {
-      // Replace the optimistic message with the server-confirmed one
       setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === msg.id);
-        if (idx !== -1) return prev; // already added by onReceive echo
+        // Replace the optimistic placeholder (matched by content + sender)
+        const optIdx = prev.findIndex(
+          (m) => m.id.startsWith("opt-") && m.content === msg.content && m.senderId === msg.senderId,
+        );
+        if (optIdx !== -1) {
+          const next = [...prev];
+          next[optIdx] = msg;
+          return next;
+        }
+        // Guard against duplicates if server already echoed via onReceive
+        if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
       });
     };
