@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -28,6 +29,14 @@ import { useBooking } from "@/hooks/useBookings";
 import type { Booking } from "@/lib/types";
 
 export default function BookingDetailPage() {
+  return (
+    <Suspense fallback={<BookingDetailSkeleton />}>
+      <BookingDetailContent />
+    </Suspense>
+  );
+}
+
+function BookingDetailContent() {
   const params = useParams<{ bookingId: string }>();
   const { loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
