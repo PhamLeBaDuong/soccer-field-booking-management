@@ -52,11 +52,13 @@ A full-stack web application for booking soccer fields, forming teams, and organ
 
 | Tool | Version | Role |
 |---|---|---|
-| Next.js | 15.4 | App Router, SSR |
+| Next.js | 16.2 | App Router, SSR |
 | React | 19.1 | UI framework |
 | TypeScript | 5 | Type safety |
 | Tailwind CSS | 4 | Styling |
-| Lucide React | latest | Icons |
+| Lucide React | 1.17 | Icons |
+| Framer Motion | 12 | Animations |
+| Socket.IO Client | 4.8 | Real-time chat |
 | DM Sans | — | Typography (Google Fonts) |
 
 ### Backend
@@ -67,6 +69,7 @@ A full-stack web application for booking soccer fields, forming teams, and organ
 | Express | 5.1 | HTTP server |
 | Prisma | 6.14 | ORM |
 | PostgreSQL | >= 14 | Database |
+| Socket.IO | 4.8 | Real-time messaging |
 | JWT | 9.0 | Authentication |
 | Bcrypt | 6.0 | Password hashing |
 
@@ -193,6 +196,9 @@ node seed.js
 
 # Full demo seed — multiple complexes, fields, users, bookings, matches
 node seed_demo.js
+
+# Social seed — friend relationships and chat history
+node seed_social.cjs
 ```
 
 After running the demo seed, log in with these accounts:
@@ -554,10 +560,14 @@ soccer-field-booking-management/
 |           +-- api/                # HTTP call functions per feature
 |           +-- auth/               # JWT context + useAuth hook
 |           +-- bookings/           # Bookings context (cross-page state)
+|           +-- hooks/              # Shared lib-level hooks
 |           +-- i18n/               # EN/VI translation strings + toggle
 |           +-- mock/               # Offline fallback mock data
+|           +-- notifications/      # Notification helpers
 |           +-- types/              # Shared TypeScript interfaces
 |           +-- utils/              # cn() helper, formatCurrency, formatDateRange
+|           +-- constants.ts        # App-wide constants
+|           +-- socket.ts           # Socket.IO client setup
 |
 +-- server/                         # Express.js backend
     +-- src/
@@ -566,6 +576,9 @@ soccer-field-booking-management/
         +-- prisma/                 # schema.prisma (PostgreSQL schema)
         +-- routes/                 # Route definitions
         +-- services/               # cleanupService — auto-expires stale records every 5 min
+        +-- db.cjs                  # PostgreSQL client (CommonJS)
+        +-- index.js                # Server entry point
+        +-- socket.js               # Socket.IO server setup (real-time chat)
 ```
 
 ---
