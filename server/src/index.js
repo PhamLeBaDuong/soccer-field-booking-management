@@ -27,7 +27,17 @@ const app    = express();
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+// Cleanup sweep cadence. Each run queries the DB, so a short interval keeps a
+// scale-to-zero database (e.g. Neon free tier) awake around the clock — and
+// with keep-alive enabled the backend never sleeps either, so the sweep would
+// run 24/7 and drain the compute budget. Default to a generous 30 min.
+// Override with CLEANUP_INTERVAL_MIN, or set CLEANUP_ENABLED=false to run
+// cleanup elsewhere (e.g. an external cron job).
+const CLEANUP_ENABLED      = process.env.CLEANUP_ENABLED !== "false";
+const CLEANUP_INTERVAL_MIN = Number(process.env.CLEANUP_INTERVAL_MIN) || 30;
+const CLEANUP_INTERVAL_MS  = CLEANUP_INTERVAL_MIN * 60 * 1000;
+// Render free instances spin down after ~15 min idle; ping just under that.
+const KEEPALIVE_INTERVAL_MS = 14 * 60 * 1000;
 
 // ── Socket.io ─────────────────────────────────────────────────────────────────
 
@@ -97,6 +107,11 @@ app.get("/", (req, res) => {
     res.json({ message: "Soccer field booking API is running!" });
 });
 
+// Lightweight health check — no DB hit, cheap to ping (used by keep-alive).
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", uptime: process.uptime() });
+});
+
 app.use("/api/auth",         authRoutes);
 app.use("/api/admin",        adminRoutes);
 app.use("/api/fields",       fieldRoutes);
@@ -111,8 +126,32 @@ app.use("/api/friends",      friendsRoutes);
 app.use("/api/messages",     messagesRoutes);
 app.use("/api/invites",      invitesRoutes);
 
+// ── Keep-alive (Render free tier) ───────────────────────────────────────────
+// Self-ping our own public URL just under the idle window so the instance
+// never spins down (avoids 50s cold starts). Only runs on Render, where
+// RENDER_EXTERNAL_URL is set automatically — never locally. An external pinger
+// (e.g. UptimeRobot) on /health is more robust; this is a zero-setup fallback.
+function startKeepAlive() {
+    const url = process.env.RENDER_EXTERNAL_URL;
+    if (!url) return;
+    setInterval(async () => {
+        try {
+            const res = await fetch(`${url}/health`);
+            console.log(`[keepalive] ${url}/health → ${res.status}`);
+        } catch (err) {
+            console.error("[keepalive] ping failed:", err.message);
+        }
+    }, KEEPALIVE_INTERVAL_MS);
+}
+
 server.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    runCleanup();
-    setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+    if (CLEANUP_ENABLED) {
+        runCleanup();
+        setInterval(runCleanup, CLEANUP_INTERVAL_MS);
+        console.log(`🧹 Cleanup sweep every ${CLEANUP_INTERVAL_MIN} min`);
+    } else {
+        console.log("🧹 In-process cleanup disabled (CLEANUP_ENABLED=false)");
+    }
+    startKeepAlive();
 });

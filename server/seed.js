@@ -1,5 +1,11 @@
 import prisma from "./src/db.cjs";
 
+// Safety guard: don't seed a production database by accident.
+if (process.env.NODE_ENV === "production") {
+  console.error("❌ Refusing to run seed against production database (NODE_ENV=production).");
+  process.exit(1);
+}
+
 async function main() {
     console.log("🌱 Seeding database...");
 

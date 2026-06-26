@@ -1,10 +1,32 @@
 # PitchBook
 
-Soccer field booking and match coordination for Vietnamese football communities.
+## Tech Stack
+
+### Frontend
+
+| Tool | Version | Role |
+|---|---|---|
+| Next.js | 16.2 | App Router, SSR |
+| React | 19.1 | UI framework |
+| TypeScript | 5 | Type safety |
+| Tailwind CSS | 4 | Styling |
+| Lucide React | 1.17 | Icons |
+| Framer Motion | 12 | Animations |
+| Socket.IO Client | 4.8 | Real-time chat |
+| DM Sans | — | Typography (Google Fonts) |
 
 PitchBook is a full-stack web app for finding pitches, organizing teams, joining pickup lobbies, and confirming matches. It supports player workflows, venue-owner scheduling, admin catalogue management, and real-time friend/chat features.
 
 ## What It Does
+| Tool | Version | Role |
+|---|---|---|
+| Node.js | >= 20 | Runtime |
+| Express | 5.1 | HTTP server |
+| Prisma | 6.14 | ORM |
+| PostgreSQL | >= 14 | Database |
+| Socket.IO | 4.8 | Real-time messaging |
+| JWT | 9.0 | Authentication |
+| Bcrypt | 6.0 | Password hashing |
 
 | Area | Highlights |
 | --- | --- |
@@ -132,10 +154,12 @@ npm run dev --prefix client/web
 
 Open:
 
-- Web: http://localhost:3000
-- API: http://localhost:5000
+# Full demo seed — multiple complexes, fields, users, bookings, matches
+node seed_demo.js
 
-## Demo Accounts
+# Social seed — friend relationships and chat history
+node seed_social.cjs
+```
 
 After `node seed_demo.js`:
 
@@ -231,11 +255,55 @@ See [docs/API.md](docs/API.md) for the detailed endpoint reference.
 
 ### Pickup Lobby
 
-1. Pick a field and time.
-2. Create a lobby with a target team size and optional initial group size.
-3. Other players join until the lobby is full.
-4. When another compatible full lobby exists, the backend pairs them.
-5. The backend creates a confirmed match and bookings for all participants.
+```
+soccer-field-booking-management/
+|
++-- client/web/                     # Next.js 15 frontend
+|   +-- src/
+|       +-- app/                    # Pages (App Router)
+|       |   +-- (auth)/             # Login, Register (no navbar)
+|       |   +-- admin/              # Admin-only pages
+|       |   +-- bookings/           # Bookings list + detail
+|       |   +-- dashboard/          # User home screen
+|       |   +-- fields/             # Field browser + detail
+|       |   +-- friends/            # Friends & direct chat
+|       |   +-- history/            # Past matches log
+|       |   +-- lobbies/            # Pickup lobby browser
+|       |   +-- matching/           # Match challenge feed
+|       |   +-- my-venues/          # Owner venue dashboard
+|       |   +-- teams/              # Team management
+|       +-- components/
+|       |   +-- ui/                 # Button, Card, Input, Modal, Toast, Badge...
+|       |   +-- layout/             # Navbar, AppShell, MobileNav
+|       |   +-- bookings/           # BookingCard, BookingForm, BookingStatusBadge
+|       |   +-- fields/             # FieldCard, FieldGrid, TimeSlotPicker
+|       |   +-- matching/           # MatchCard
+|       |   +-- schedule/           # ComplexScheduleGrid, FieldSchedulePanel
+|       +-- hooks/                  # useBookings, useFields, useTeams, useMatches...
+|       +-- lib/
+|           +-- api/                # HTTP call functions per feature
+|           +-- auth/               # JWT context + useAuth hook
+|           +-- bookings/           # Bookings context (cross-page state)
+|           +-- hooks/              # Shared lib-level hooks
+|           +-- i18n/               # EN/VI translation strings + toggle
+|           +-- mock/               # Offline fallback mock data
+|           +-- notifications/      # Notification helpers
+|           +-- types/              # Shared TypeScript interfaces
+|           +-- utils/              # cn() helper, formatCurrency, formatDateRange
+|           +-- constants.ts        # App-wide constants
+|           +-- socket.ts           # Socket.IO client setup
+|
++-- server/                         # Express.js backend
+    +-- src/
+        +-- controllers/            # Request handlers per feature
+        +-- middleware/             # verifyToken — JWT auth guard
+        +-- prisma/                 # schema.prisma (PostgreSQL schema)
+        +-- routes/                 # Route definitions
+        +-- services/               # cleanupService — auto-expires stale records every 5 min
+        +-- db.cjs                  # PostgreSQL client (CommonJS)
+        +-- index.js                # Server entry point
+        +-- socket.js               # Socket.IO server setup (real-time chat)
+```
 
 ### Venue Management
 
