@@ -138,7 +138,7 @@ export const translations: Record<string, { en: string; vi: string }> = {
 
   // ── Field card / detail ─────────────────────────────────────────────────────
   "field.viewBook":       { en: "View & Book",     vi: "Xem & Đặt" },
-  "field.postMatch":      { en: "Post Match Request", vi: "Đăng tìm đối" },
+  "field.postMatch":      { en: "Post Match Request", vi: "Đăng tìm đội" },
   "field.lights":         { en: "Lights",          vi: "Có đèn" },
   "field.noLights":       { en: "No lights",       vi: "Không đèn" },
   "field.covered":        { en: "Covered",         vi: "Có mái che" },
