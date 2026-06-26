@@ -1,28 +1,107 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
-import { ArrowLeft, CalendarCheck, Check, Hash, MapPin, Navigation, UsersRound, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ArrowLeft, BadgeCheck, CalendarCheck, Check, CreditCard, Hash, MapPin, Navigation, UsersRound, X } from "lucide-react";
 import { BookingStatusBadge } from "@/components/bookings/BookingStatusBadge";
+import { PaymentModal } from "@/components/bookings/PaymentModal";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
-import { cancelBooking, confirmBooking } from "@/lib/api/bookings";
+import {
+  cancelBooking,
+  confirmBooking,
+  verifyStripePayment,
+  verifyMomoPayment,
+  verifyVnpayPayment,
+  verifyZalopayOrder,
+} from "@/lib/api/bookings";
 import { useRequireAuth } from "@/lib/auth/hooks";
 import { ROUTES } from "@/lib/constants";
 import { formatCurrency, formatDateRange } from "@/lib/utils/format";
 import { fieldDirectionsUrl } from "@/lib/utils/location";
 import { useBooking } from "@/hooks/useBookings";
+import type { Booking } from "@/lib/types";
 
 export default function BookingDetailPage() {
+  return (
+    <Suspense fallback={<BookingDetailSkeleton />}>
+      <BookingDetailContent />
+    </Suspense>
+  );
+}
+
+function BookingDetailContent() {
   const params = useParams<{ bookingId: string }>();
   const { loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
   const { booking, loading, error, refresh } = useBooking(params.bookingId);
+  const searchParams = useSearchParams();
   const [actionLoading, setActionLoading] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+
+  // Handle redirects back from payment providers
+  useEffect(() => {
+    const bookingId = params.bookingId;
+    if (!bookingId) return;
+
+    function clearParams() {
+      window.history.replaceState({}, "", `/bookings/${bookingId}`);
+    }
+
+    // Stripe
+    if (searchParams.get("stripe_success") === "1") {
+      const sessionId = searchParams.get("session_id");
+      if (!sessionId) return;
+      clearParams();
+      verifyStripePayment(bookingId, sessionId)
+        .then(() => { showToast("Payment confirmed via Stripe!"); refresh(); })
+        .catch((e: unknown) => showToast(e instanceof Error ? e.message : "Stripe verification failed.", "error"));
+      return;
+    }
+
+    // MoMo
+    if (searchParams.get("momo_success") === "1") {
+      clearParams();
+      const momoParams = Object.fromEntries(searchParams.entries());
+      verifyMomoPayment(bookingId, momoParams)
+        .then(() => { showToast("Thanh toán MoMo thành công!"); refresh(); })
+        .catch((e: unknown) => showToast(e instanceof Error ? e.message : "MoMo verification failed.", "error"));
+      return;
+    }
+
+    // VNPay
+    if (searchParams.get("vnpay_success") === "1") {
+      clearParams();
+      const vnpayParams = Object.fromEntries(searchParams.entries());
+      verifyVnpayPayment(bookingId, vnpayParams)
+        .then(() => { showToast("Thanh toán VNPay thành công!"); refresh(); })
+        .catch((e: unknown) => showToast(e instanceof Error ? e.message : "VNPay verification failed.", "error"));
+      return;
+    }
+
+    // ZaloPay — rely on IPN; just refresh and show pending if not yet marked
+    if (searchParams.get("zalopay_success") === "1") {
+      clearParams();
+      verifyZalopayOrder(bookingId)
+        .then((result) => {
+          if ("pending" in result) {
+            showToast(result.message, "error");
+          } else {
+            showToast("Thanh toán ZaloPay thành công!");
+          }
+          refresh();
+        })
+        .catch((e: unknown) => showToast(e instanceof Error ? e.message : "ZaloPay verification failed.", "error"));
+      return;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function cancelCurrentBooking() {
     if (!booking) {
@@ -79,6 +158,11 @@ export default function BookingDetailPage() {
   const canAct = booking.status === "pending" || booking.status === "confirmed";
   const directionsUrl = fieldDirectionsUrl(booking.field);
 
+  function handlePaymentSuccess(updated: Booking) {
+    showToast("Payment confirmed!");
+    refresh();
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
       <Link className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline" href={ROUTES.bookings}>
@@ -98,9 +182,20 @@ export default function BookingDetailPage() {
             {formatDateRange(booking.startTime, booking.endTime)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {booking.paymentStatus === "unpaid" && booking.status !== "canceled" ? (
+            <Button onClick={() => setPaymentOpen(true)}>
+              <CreditCard className="h-4 w-4" aria-hidden="true" />
+              Pay Now
+            </Button>
+          ) : booking.paymentStatus === "paid" ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+              <BadgeCheck className="h-4 w-4" aria-hidden="true" />
+              Paid
+            </span>
+          ) : null}
           {booking.status === "pending" ? (
-            <Button loading={actionLoading} onClick={confirmCurrentBooking}>
+            <Button variant="secondary" loading={actionLoading} onClick={confirmCurrentBooking}>
               <Check className="h-4 w-4" aria-hidden="true" />
               Confirm
             </Button>
@@ -125,11 +220,21 @@ export default function BookingDetailPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Detail icon={Hash} label="Booking ID" value={booking.id} />
               <Detail icon={UsersRound} label="Team size" value={String(booking.teamSize)} />
-              <Detail icon={UsersRound} label="Need matching" value={booking.needMatching ? "Yes" : "No"} />
               <Detail
                 icon={CalendarCheck}
                 label="Total"
                 value={formatCurrency(booking.totalPrice, booking.currency)}
+              />
+              <Detail
+                icon={CreditCard}
+                label="Payment"
+                value={
+                  booking.paymentStatus === "paid"
+                    ? `Paid · ${booking.paymentMethod ?? ""}`
+                    : booking.paymentStatus === "refunded"
+                    ? "Refunded"
+                    : "Unpaid"
+                }
               />
             </div>
           </CardContent>
@@ -181,6 +286,13 @@ export default function BookingDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <PaymentModal
+        booking={booking}
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }

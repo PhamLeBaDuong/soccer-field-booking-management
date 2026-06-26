@@ -189,9 +189,10 @@ function MatchingContent() {
           endTime:      post.preferredEndTime,
           needMatching: false,
           teamSize:     post.teamSize,
-          status:       "confirmed",
-          totalPrice:   field.metadata.price * Math.max(0, hrs),
-          currency:     field.metadata.currency ?? "VND",
+          status:        "confirmed",
+          totalPrice:    field.metadata.price * Math.max(0, hrs),
+          currency:      field.metadata.currency ?? "VND",
+          paymentStatus: "unpaid",
           field,
         };
         addBookings([booking]);

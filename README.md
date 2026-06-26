@@ -154,7 +154,7 @@ npm run dev --prefix client/web
 
 Open:
 
-# Full demo seed — multiple complexes, fields, users, bookings, matches
+```bash
 node seed_demo.js
 
 # Social seed — friend relationships and chat history
@@ -312,7 +312,7 @@ soccer-field-booking-management/
 3. Owners inspect schedule grids and can create manual bookings.
 4. Admins can manage the global catalogue under `/admin`.
 
-## Notes
+## Project Status
 
 - Currency is Vietnamese Dong (`VND`).
 - JWT tokens expire after 1 hour.

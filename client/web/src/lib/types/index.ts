@@ -40,6 +40,16 @@ export interface Field {
 }
 
 export type BookingStatus = "pending" | "confirmed" | "canceled" | "matching";
+export type PaymentStatus = "unpaid" | "paid" | "refunded";
+export type PaymentMethod = "cash" | "bank_transfer" | "stripe" | "paypal" | "momo" | "vnpay" | "zalopay";
+
+export interface PaymentOption {
+  id: PaymentMethod;
+  label: string;
+  icon: string;
+  available: boolean;
+  comingSoon?: boolean;
+}
 
 export interface Booking {
   id: string;
@@ -52,6 +62,8 @@ export interface Booking {
   status: BookingStatus;
   totalPrice: number;
   currency: string;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   field?: Field;
   user?: User;
 }

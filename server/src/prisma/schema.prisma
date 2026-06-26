@@ -56,6 +56,8 @@ model Field {
   name         String
   desc         String?
   address      String?
+  lat          Float?
+  lng          Float?
   type         String?
   startTime    DateTime
   endTime      DateTime
@@ -179,19 +181,21 @@ model Match {
 }
 
 model Booking {
-  id         String   @id @default(uuid())
-  userId     String
-  fieldId    String
-  matchId    String
-  startTime  DateTime
-  endTime    DateTime
-  totalPrice Float    @default(0)
-  currency   String   @default("VND")
-  status     String   @default("confirmed")
-  createdAt  DateTime @default(now())
-  field      Field    @relation(fields: [fieldId], references: [id])
-  match      Match    @relation(fields: [matchId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  id            String   @id @default(uuid())
+  userId        String
+  fieldId       String
+  matchId       String
+  startTime     DateTime
+  endTime       DateTime
+  totalPrice    Float    @default(0)
+  currency      String   @default("VND")
+  status        String   @default("confirmed")
+  paymentMethod String?
+  paymentStatus String   @default("unpaid")
+  createdAt     DateTime @default(now())
+  field         Field    @relation(fields: [fieldId], references: [id])
+  match         Match    @relation(fields: [matchId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([fieldId, startTime, endTime])

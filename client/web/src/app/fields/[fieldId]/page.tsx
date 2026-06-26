@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Clock, CloudSun, MapPin, Trophy, Zap } from "lucide-react";
 import { AmenitiesList } from "@/components/fields/AmenitiesList";
+import { FieldMap } from "@/components/fields/FieldMap";
 import { BookingForm } from "@/components/bookings/BookingForm";
 import { Card, CardContent } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -69,6 +70,14 @@ export default function FieldDetailPage() {
                   )}/hr`}
                 />
                 <Info icon={CloudSun} label="Surface" value={field.indoor ? "Indoor" : "Outdoor"} />
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <h2 className="text-lg font-semibold text-neutral-950">Location</h2>
+              <div className="mt-4">
+                <FieldMap field={field} />
               </div>
             </CardContent>
           </Card>
