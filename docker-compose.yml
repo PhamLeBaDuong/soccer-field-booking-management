@@ -1,15 +1,15 @@
-# Local full-stack test: Postgres + API in one command.
-#   docker compose up --build
-# API → http://localhost:5000   DB → localhost:5432
+# Full self-hosted stack: Postgres + API + web, published to the internet
+# through a Cloudflare Tunnel — no open ports or port-forwarding needed.
+#   docker compose up --build -d
+# Public URLs are whatever you map in the Cloudflare Zero Trust dashboard.
+# Config values (domain, tunnel token) live in a local .env file — see .env.example.
 services:
   db:
     image: postgres:16
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: soccer_booking
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -17,18 +17,44 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   server:
     build: ./server
     environment:
-      DATABASE_URL: "postgresql://postgres:postgres@db:5432/soccer_booking?schema=public"
-      JWT_SECRET: "local-dev-secret-change-me"
+      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/soccer_booking?schema=public"
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
       PORT: "5000"
-    ports:
-      - "5000:5000"
+      # Frontend origin — used for CORS + Socket.io (server/src/index.js).
+      CLIENT_URL: ${PUBLIC_WEB_URL}
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
 
+  web:
+    build:
+      context: ./client
+      args:
+        # Baked into the browser bundle at BUILD time → must be the PUBLIC api URL.
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      # Zero Trust → Networks → Tunnels → (your tunnel) → copy the token.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - web
+      - server
+    restart: unless-stopped
+
+# Note: no host port mappings. The tunnel reaches each service over the internal
+# Docker network (web:3000, server:5000), so nothing is exposed on the PC/LAN.
+# Add `ports:` back temporarily only if you need to debug a service locally.
 volumes:
   pgdata:

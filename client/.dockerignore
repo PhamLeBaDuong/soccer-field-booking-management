@@ -1,0 +1,10 @@
+# Keep the build context small and avoid copying host-only files.
+**/node_modules
+**/.next
+**/.git
+**/.env*
+**/npm-debug.log*
+**/*.tsbuildinfo
+**/dev-server.err
+Dockerfile
+.dockerignore

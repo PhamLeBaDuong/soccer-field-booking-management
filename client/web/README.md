@@ -50,6 +50,24 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The Next.js app lives in `client/web`, which is **not** the repository root. Configure
+the Vercel project as follows:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Import the repo** at [vercel.com/new](https://vercel.com/new).
+2. **Root Directory** → set to `client/web`. Vercel then auto-detects Next.js and uses
+   `next build` / `.next` automatically — no `vercel.json` needed.
+3. **Environment Variables** (Settings → Environment Variables, for the Production +
+   Preview environments):
+
+   | Name                   | Value                                                   |
+   | ---------------------- | ------------------------------------------------------- |
+   | `NEXT_PUBLIC_API_URL`  | `https://soccer-field-booking-management-1.onrender.com` |
+   | `NEXT_PUBLIC_USE_MOCK` | `false`                                                 |
+
+   These are `NEXT_PUBLIC_*` variables, so they are **inlined at build time**. If you add
+   or change them after a deploy, you must redeploy for the new value to take effect.
+   If `NEXT_PUBLIC_API_URL` is unset, the build silently falls back to
+   `http://localhost:5000` and the live site will fail to reach the backend.
+
+4. Make sure the backend CORS / Socket.IO origin allowlist includes the Vercel domain
+   (e.g. `https://<project>.vercel.app` and any custom domain).
