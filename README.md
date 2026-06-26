@@ -1,273 +1,254 @@
-# PitchBook — Soccer Field Booking Management
+# PitchBook
 
-A full-stack web application for booking soccer fields, forming teams, and organizing matches. Built for Vietnamese sports communities with support for both individual bookings and team-vs-team matchmaking.
+Soccer field booking and match coordination for Vietnamese football communities.
 
----
+PitchBook is a full-stack web app for finding pitches, organizing teams, joining pickup lobbies, and confirming matches. It supports player workflows, venue-owner scheduling, admin catalogue management, and real-time friend/chat features.
 
-## Table of Contents
+## What It Does
 
-1. [Overview](#overview)
-2. [Tech Stack](#tech-stack)
-3. [Getting Started](#getting-started)
-4. [Seed / Demo Data](#seed--demo-data)
-5. [Feature Walkthrough](#feature-walkthrough)
-6. [Project Structure](#project-structure)
-7. [API Reference](#api-reference)
-
----
-
-## Overview
-
-**PitchBook** lets players search for and book football pitches, build teams, challenge other teams, and fill open lobbies for pickup games — all without leaving the browser.
-
-### Key Features
-
-| Feature | Description |
-|---|---|
-| Field Booking | Search, filter, and book 5v5 / 7v7 / 11v11 pitches by date and time |
-| Team Management | Create teams, invite members, manage rosters |
-| Match Challenges | Post or accept team-vs-team challenges — auto-confirms booking on acceptance |
-| Lobby System | Pickup game lobbies that auto-merge into a confirmed match when full |
-| Real-time Chat | Friend requests, direct messaging, and team invites via Socket.IO |
-| Admin Panel | Manage venues, fields, pricing, and daily schedules |
-| Bilingual UI | English / Vietnamese language toggle |
-
----
+| Area | Highlights |
+| --- | --- |
+| Field discovery | Browse fields by type, surface, lights, price, complex, and location. |
+| Availability | View occupied time slots before choosing a booking window. |
+| Teams | Create teams, manage rosters, and invite players. |
+| Match posts | Team leaders can publish public or private opponent requests. Accepting a post creates the match and bookings. |
+| Lobbies | Individual players can create or join pickup lobbies. Compatible full lobbies auto-match. |
+| Bookings | Confirmed matches generate player bookings automatically. |
+| Social | Friend requests, direct messages, team invites, and Socket.IO live delivery. |
+| Venue tools | Venue owners manage their complexes, fields, schedules, and manual bookings. |
+| Admin tools | Admins manage all complexes, fields, schedules, and match results. |
+| Localization | English and Vietnamese UI strings with a language toggle. |
 
 ## Tech Stack
 
-### Frontend
+| Layer | Tools |
+| --- | --- |
+| Web | Next.js 15 App Router, React 19, TypeScript, Tailwind CSS 4, Framer Motion, Lucide icons |
+| API | Node.js 20, Express 5, Socket.IO, JWT auth, bcrypt |
+| Data | PostgreSQL, Prisma 6 |
+| Dev | npm workspaces, concurrently, Docker Compose |
 
-| Tool | Version | Role |
-|---|---|---|
-| Next.js | 15.4 | App Router, SSR |
-| React | 19.1 | UI framework |
-| TypeScript | 5 | Type safety |
-| Tailwind CSS | 4 | Styling |
-| Framer Motion | 12 | Animations |
-| Socket.IO Client | 4.8 | Real-time chat |
+## Repository Layout
 
-### Backend
+```text
+soccer-field-booking-management/
+  client/web/              Next.js frontend
+    src/app/               App Router pages
+    src/components/        Shared UI, layout, field, booking, schedule components
+    src/hooks/             Feature data hooks
+    src/lib/api/           HTTP client and API wrappers
+    src/lib/auth/          Auth context and hooks
+    src/lib/i18n/          English/Vietnamese translations
+    src/lib/mock/          Frontend mock data mode
+  server/                  Express API
+    src/controllers/       Request handlers
+    src/routes/            API route definitions
+    src/services/          Domain logic and cleanup jobs
+    src/prisma/            Prisma schema and migrations
+    src/socket.js          Socket.IO helper
+    seed*.js               Local/demo seed scripts
+  docs/API.md              Detailed backend API reference
+  docker-compose.yml       PostgreSQL + API local stack
+  package.json             Root dev script
+```
 
-| Tool | Version | Role |
-|---|---|---|
-| Node.js | >= 20 | Runtime |
-| Express | 5.1 | HTTP server |
-| Prisma | 6.14 | ORM |
-| PostgreSQL | >= 14 | Database |
-| Socket.IO | 4.8 | Real-time messaging |
-| JWT | 9.0 | Authentication |
-| Bcrypt | 6.0 | Password hashing |
+## Prerequisites
 
----
+- Node.js 20 or newer
+- npm
+- PostgreSQL 14 or newer
 
-## Getting Started
+Docker is optional. Use it if you want Postgres and the API started together without installing Postgres locally.
 
-**Prerequisites:** Node.js >= 20, PostgreSQL >= 14
+## Quick Start
 
-### 1. Clone and install
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/your-username/soccer-field-booking-management.git
-
-cd server && npm install
-cd ../client/web && npm install
+npm install
+npm install --prefix server
+npm install --prefix client/web
 ```
 
 ### 2. Configure environment
 
-`server/.env`:
+Create `server/.env`:
+
 ```env
-DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/pitchbook"
-PORT=5000
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/soccer_booking?schema=public"
 JWT_SECRET="replace-this-with-a-secure-random-string"
+PORT=5000
+CLIENT_URL=http://localhost:3000
 ```
 
-`client/web/.env.local`:
-```env
-# URL of the running backend (no trailing slash)
-NEXT_PUBLIC_API_URL=http://localhost:5000
+Create `client/web/.env.local`:
 
-# Set to true to run the frontend with local mock data (no backend needed)
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_USE_MOCK=false
 ```
 
-### 3. Set up the database
+### 3. Create and sync the database
 
-Create the database first, then push the schema:
+Create the database in PostgreSQL:
 
-```bash
-# In psql or pgAdmin:
-CREATE DATABASE pitchbook;
-
-# Then from the server/ directory:
-npx prisma db push
+```sql
+CREATE DATABASE soccer_booking;
 ```
 
-### 4. Run
+Then sync the Prisma schema:
 
 ```bash
-# Terminal 1 — backend (http://localhost:5000)
-cd server && npm run dev
-
-# Terminal 2 — frontend (http://localhost:3000)
-cd client/web && npm run dev
+cd server
+npx prisma generate --schema=src/prisma/schema.prisma
+npx prisma db push --schema=src/prisma/schema.prisma
 ```
 
----
+### 4. Seed demo data
 
-## Seed / Demo Data
-
-The project ships with seed scripts that populate the database with sample complexes, fields, users, and bookings.
+From `server/`:
 
 ```bash
-# From the server/ directory:
-node seed.js          # minimal — admin user + basic fields
-node seed_demo.js     # full demo — complexes, users, bookings, matches
-node seed_social.cjs  # social data — friends and chat history
+node seed_demo.js
+node seed_social.cjs
 ```
 
-Demo credentials after `seed_demo.js`:
+`seed_demo.js` creates demo users, complexes, fields, teams, bookings, match posts, lobbies, and match history. `seed_social.cjs` adds friend and chat data.
+
+### 5. Run the app
+
+From the repository root:
+
+```bash
+npm run dev
+```
+
+Or run each side separately:
+
+```bash
+npm run dev --prefix server
+npm run dev --prefix client/web
+```
+
+Open:
+
+- Web: http://localhost:3000
+- API: http://localhost:5000
+
+## Demo Accounts
+
+After `node seed_demo.js`:
 
 | Role | Username | Password |
-|---|---|---|
+| --- | --- | --- |
 | Admin | `admin` | `admin123` |
 | Player | `player1` | `password123` |
 | Player | `player2` | `password123` |
 
----
+Additional demo players and venue owners are printed by the seed script.
 
-## Feature Walkthrough
+## Docker Option
 
-### Field Booking
+The Docker Compose stack starts PostgreSQL and the API:
 
-Browse available pitches on `/fields` using filters for field type (5v5 / 7v7 / 11v11), surface (indoor/outdoor), and date. Each field detail page shows a visual timeline grid of booked and available slots for the selected day. Pick a start and end time, set your team size, and optionally toggle **"Need matching opponent"** to enter the matchmaking queue.
-
-### Teams
-
-Create a team from `/teams`, set its size, and invite players by username. The team leader can remove members, edit team info, or disband the team. Pending invites are shown in a dedicated panel — members accept or decline from there.
-
-### Match Challenges
-
-Team leaders post a public or private match challenge on `/matching`, specifying a field and preferred time. Other teams browse the open feed and accept a challenge that fits their size. On acceptance, the system auto-creates a confirmed **Match** and **Bookings** for both sides. Private posts generate a shareable code so leaders can invite a specific opponent directly.
-
-### Lobby System
-
-Individual players who don't have a full team can create or join a lobby on `/lobbies`. Each lobby tracks a fill ratio (`X / TeamSize`). When complementary lobbies for the same field and time fill up on both sides, the system automatically merges them into a confirmed match for all participants.
-
-### Real-time Chat & Friends
-
-Send friend requests from `/friends`, then open a chat panel to message friends directly via Socket.IO. Inside a conversation, leaders can send a team invite in one click. All message history is persisted in the database.
-
-### My Venues
-
-Field owners access `/my-venues` to see all their registered complexes, view incoming bookings across all fields, and inspect a daily schedule timeline per field. Venue ownership is assigned by an admin.
-
-### Admin Panel
-
-Admins manage the full catalogue of complexes and fields at `/admin`. The dashboard shows live stats (total fields, pending bookings) and a recent bookings table. Admins can create, edit, and delete complexes and fields, and view a schedule grid per complex showing all bookings across all fields for the day.
-
----
-
-## Project Structure
-
-```
-soccer-field-booking-management/
-├── client/web/                     # Next.js 15 frontend
-│   └── src/
-│       ├── app/                    # Pages (App Router)
-│       │   ├── (auth)/             # Login, Register (no navbar)
-│       │   ├── admin/              # Admin-only pages
-│       │   ├── bookings/           # Bookings list + detail
-│       │   ├── dashboard/          # User home screen
-│       │   ├── fields/             # Field browser + detail
-│       │   ├── friends/            # Friends & direct chat
-│       │   ├── lobbies/            # Pickup lobby browser
-│       │   ├── matching/           # Match challenge feed
-│       │   ├── my-venues/          # Owner venue dashboard
-│       │   └── teams/              # Team management
-│       ├── components/
-│       │   ├── ui/                 # Button, Card, Input, Modal, Toast, Badge...
-│       │   ├── layout/             # Navbar, AppShell, MobileNav
-│       │   ├── bookings/           # BookingCard, BookingForm, BookingStatusBadge
-│       │   ├── fields/             # FieldCard, FieldGrid, TimeSlotPicker
-│       │   ├── matching/           # MatchCard
-│       │   └── schedule/           # ComplexScheduleGrid, FieldSchedulePanel
-│       ├── hooks/                  # useBookings, useFields, useTeams, useMatches...
-│       └── lib/
-│           ├── api/                # HTTP call functions per feature
-│           ├── auth/               # JWT context + useAuth hook
-│           ├── bookings/           # Bookings context (cross-page state)
-│           ├── i18n/               # EN/VI translation strings + toggle
-│           ├── mock/               # Offline fallback mock data
-│           ├── notifications/      # Notification helpers
-│           ├── types/              # Shared TypeScript interfaces
-│           ├── utils/              # cn() helper, formatCurrency, formatDateRange
-│           ├── constants.ts        # App-wide constants
-│           └── socket.ts           # Socket.IO client setup
-│
-└── server/                         # Express backend
-    └── src/
-        ├── controllers/            # Route handlers per feature
-        ├── middleware/             # verifyToken — JWT auth guard
-        ├── prisma/                 # schema.prisma (PostgreSQL schema)
-        ├── routes/                 # Route definitions
-        ├── services/               # Auto-cleanup job (runs every 5 min)
-        ├── db.cjs                  # PostgreSQL client
-        ├── index.js                # Server entry point
-        └── socket.js               # Socket.IO server (real-time chat)
+```bash
+docker compose up --build
 ```
 
----
+The API container runs `prisma db push` on boot. Start the frontend separately:
 
-## API Reference
-
-Full endpoint reference: [`docs/API.md`](docs/API.md)
-
-### Quick Summary
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` | No | Register a new account |
-| POST | `/api/auth/login` | No | Login and receive JWT |
-| GET | `/api/auth/me` | Yes | Get the current user |
-| GET | `/api/fields` | No | List all fields |
-| GET | `/api/fields/:id` | No | Get a single field |
-| GET | `/api/bookings/user/:userId` | Yes | List a user's bookings |
-| POST | `/api/bookings` | Yes | Create a booking |
-| DELETE | `/api/bookings/:id` | Yes | Cancel a booking |
-| GET | `/api/teams/mine` | Yes | List your teams |
-| POST | `/api/teams` | Yes | Create a team |
-| POST | `/api/teams/:id/members` | Yes (leader) | Invite a member |
-| GET | `/api/match-posts` | No | Browse open match challenges |
-| POST | `/api/match-posts` | Yes (leader) | Post a challenge |
-| POST | `/api/match-posts/:id/accept` | Yes (leader) | Accept a challenge |
-| GET | `/api/lobbies` | No | Browse open lobbies |
-| POST | `/api/lobbies` | Yes | Create a lobby |
-| POST | `/api/lobbies/:id/join` | Yes | Join a lobby |
-| DELETE | `/api/lobbies/:id/leave` | Yes | Leave a lobby |
-| GET | `/api/friends` | Yes | List friends |
-| POST | `/api/friends` | Yes | Send a friend request |
-| POST | `/api/friends/:id/accept` | Yes | Accept a friend request |
-| GET | `/api/friends/:id/messages` | Yes | Get chat messages |
-| POST | `/api/friends/:id/messages` | Yes | Send a message |
-| GET | `/api/admin/complexes` | Admin | List all complexes |
-| POST | `/api/admin/complexes` | Admin | Create a complex |
-| POST | `/api/admin/fields` | Admin | Create a field |
-| PUT | `/api/admin/fields/:id` | Admin | Update a field |
-| DELETE | `/api/admin/fields/:id` | Admin | Delete a field |
-
-All protected endpoints require:
+```bash
+npm run dev --prefix client/web
 ```
+
+Use this frontend env value with Docker:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+## Mock Frontend Mode
+
+To work on UI without a running backend, set:
+
+```env
+NEXT_PUBLIC_USE_MOCK=true
+```
+
+Mock mode uses local data from `client/web/src/lib/mock`.
+
+## Common Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start API and web app together from the repository root. |
+| `npm run dev --prefix server` | Start the Express API with nodemon. |
+| `npm run dev --prefix client/web` | Start the Next.js dev server. |
+| `npm run build --prefix client/web` | Build the frontend. |
+| `npx prisma studio --schema=src/prisma/schema.prisma` | Browse the database from `server/`. |
+| `npx prisma db push --schema=src/prisma/schema.prisma` | Sync the Prisma schema from `server/`. |
+
+## API Overview
+
+Base URL: `http://localhost:5000`
+
+Protected routes require:
+
+```http
 Authorization: Bearer <jwt-token>
 ```
 
----
+Primary route groups:
+
+| Group | Purpose |
+| --- | --- |
+| `/api/auth` | Register, login, current user |
+| `/api/fields` | Field browsing and nearby search |
+| `/api/bookings` | User bookings and occupied slots |
+| `/api/teams` | Team creation and roster management |
+| `/api/match-posts` | Team-vs-team opponent requests |
+| `/api/lobbies` | Pickup lobby browsing, creation, joining, leaving |
+| `/api/matches` | Match details, user matches, cancellation |
+| `/api/friends` | Friend requests and friend list |
+| `/api/messages` | Conversation history and direct messages |
+| `/api/invites` | Team invites |
+| `/api/venues` | Venue-owner complexes, fields, schedules, manual bookings |
+| `/api/admin` | Admin complex, field, schedule, and match-result management |
+
+See [docs/API.md](docs/API.md) for the detailed endpoint reference.
+
+## Core Flows
+
+### Team Match
+
+1. Register and log in.
+2. Create a team.
+3. Add or invite members.
+4. Pick a field and time.
+5. Create a public or private match post.
+6. Another team accepts it.
+7. The backend creates a confirmed match and bookings for both teams.
+
+### Pickup Lobby
+
+1. Pick a field and time.
+2. Create a lobby with a target team size and optional initial group size.
+3. Other players join until the lobby is full.
+4. When another compatible full lobby exists, the backend pairs them.
+5. The backend creates a confirmed match and bookings for all participants.
+
+### Venue Management
+
+1. A venue owner creates or manages complexes under `/my-venues`.
+2. Fields are attached to complexes with operating hours and pricing.
+3. Owners inspect schedule grids and can create manual bookings.
+4. Admins can manage the global catalogue under `/admin`.
 
 ## Notes
 
-- **Mock data mode** — Set `NEXT_PUBLIC_USE_MOCK=true` to run the frontend with local mock data when the backend is offline. Useful for UI-only development.
-- **Auto-cleanup** — The backend runs a cleanup job every 5 minutes to expire stale lobbies, open match posts, and dangling pending bookings.
-- **Currency** — All prices are in Vietnamese Dong (VND).
-- **JWT expiry** — Auth tokens expire after 1 hour. Expired sessions redirect automatically to `/login`.
-- **Roles** — Two roles: `player` (default on registration) and `admin` (assigned via seed or manually in the database).
+- Currency is Vietnamese Dong (`VND`).
+- JWT tokens expire after 1 hour.
+- The cleanup job runs every 5 minutes to expire stale lobbies, match posts, and pending bookings.
+- Current roles are `player` and `admin`; venue ownership is represented by complex/field ownership.
+- `docs/API.md` and a few source comments still contain older encoding artifacts. The runtime code and data model are unaffected, but those files are good candidates for a documentation cleanup pass.
+
