@@ -26,13 +26,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
 
-# 3. Minimal runtime image — only the standalone server + static assets
 FROM node:20-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-# Listen on all interfaces so the container is reachable from outside.
 ENV HOSTNAME=0.0.0.0
 
 COPY --from=builder /app/public ./public
