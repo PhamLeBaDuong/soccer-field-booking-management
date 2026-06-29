@@ -3,20 +3,16 @@
 # extra build tooling.
 FROM node:20-slim
 
-# Prisma needs OpenSSL present at runtime
 RUN apt-get update -y && apt-get install -y openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install deps first (better layer caching)
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# App source
 COPY . .
 
-# Generate the Prisma client (schema lives under src/prisma)
 RUN npx prisma generate --schema=src/prisma/schema.prisma
 
 ENV NODE_ENV=production
