@@ -17,7 +17,7 @@ RUN npx prisma generate --schema=src/prisma/schema.prisma
 
 ENV NODE_ENV=production
 EXPOSE 5000
-
+ks
 # On boot: sync the schema to the database, then start the server.
 # `db push` is used instead of `migrate deploy` because the committed
 # migrations are behind the current schema (social tables added later).
