@@ -63,6 +63,12 @@ services:
       CLEANUP_ENABLED: "false"  # Cleanup runs in its own `worker` container.
     # No host port — reachable only through the gateway on :8080.
     depends_on: *db-dep
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     restart: unless-stopped
 
   # ── Worker ────────────────────────────────────────────────────────────────────
@@ -89,7 +95,11 @@ services:
       <<: *service-env
       SERVICE: catalog
       PORT: "5000"
-    depends_on: *db-dep
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Auth service ──────────────────────────────────────────────────────────────
@@ -103,7 +113,11 @@ services:
       <<: *service-env
       SERVICE: auth
       PORT: "5000"
-    depends_on: *db-dep
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Booking service ───────────────────────────────────────────────────────────
@@ -136,7 +150,11 @@ services:
       ZALOPAY_APP_ID:         ${ZALOPAY_APP_ID:-}
       ZALOPAY_KEY1:           ${ZALOPAY_KEY1:-}
       ZALOPAY_KEY2:           ${ZALOPAY_KEY2:-}
-    depends_on: *db-dep
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Social service ────────────────────────────────────────────────────────────
@@ -151,7 +169,11 @@ services:
       <<: *service-env
       SERVICE: social
       PORT: "5000"
-    depends_on: *db-dep
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── Match service ─────────────────────────────────────────────────────────────
@@ -166,7 +188,11 @@ services:
       <<: *service-env
       SERVICE: match
       PORT: "5000"
-    depends_on: *db-dep
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
   # ── API Gateway ───────────────────────────────────────────────────────────────
