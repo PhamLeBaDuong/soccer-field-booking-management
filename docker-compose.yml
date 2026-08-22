@@ -1,8 +1,38 @@
-# Full self-hosted stack: Postgres + API + web in one command.
-#   docker compose up --build -d
-# Reachable on localhost via the ports below.
-# Config values live in a local .env file — see .env.example.
+# Service-oriented stack: each bounded context runs as its own container.
+# Spin up the full platform with:   docker compose up --build -d
+# All services share one Postgres instance for now (distributed compute,
+# shared data). The gateway (nginx:8080) is the single public entry point.
+# Config values live in .env — see .env.example.
+#
+# Service map:
+#   db       – Postgres 16 (shared data store)
+#   server   – Monolith shell: Socket.io + root health check only
+#   worker   – Background cleanup sweep (extracted from the monolith)
+#   catalog  – /api/fields  /api/venues
+#   auth     – /api/auth  /api/users  /api/admin
+#   booking  – /api/bookings  /api/webhooks
+#   social   – /api/friends  /api/messages  /api/invites
+#   match    – /api/matches  /api/match-posts  /api/lobbies  /api/teams
+#   gateway  – nginx reverse-proxy (port 8080 → all upstreams above)
+#   web      – Next.js frontend (port 3000, calls the gateway)
+
+# ── Reusable fragments ─────────────────────────────────────────────────────────
+
+# All service containers share these env vars.
+x-service-env: &service-env
+  DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/soccer_booking?schema=public"
+  JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+  CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+  NODE_ENV: dev
+
+# All service containers depend on the DB being healthy before they start.
+x-db-dep: &db-dep
+  db:
+    condition: service_healthy
+
 services:
+
+  # ── Database ──────────────────────────────────────────────────────────────────
   db:
     image: postgres:16
     environment:
@@ -20,26 +50,24 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # ── Monolith shell ─────────────────────────────────────────────────────────────
+  # Hosts Socket.io (real-time chat & notifications) and the root health check.
+  # All REST paths have been extracted to dedicated services below; the gateway
+  # falls back here only for unmatched locations (/ and /socket.io/).
   server:
     build: ./server
     image: soccer-server
     environment:
-      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/soccer_booking?schema=public"
-      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+      <<: *service-env
       PORT: "5000"
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
-      # Cleanup is now handled by the separate `worker` service below.
-      CLEANUP_ENABLED: "false"
-    ports:
-      - "5000:5000"
-    depends_on:
-      db:
-        condition: service_healthy
+      CLEANUP_ENABLED: "false"  # Cleanup runs in its own `worker` container.
+    # No host port — reachable only through the gateway on :8080.
+    depends_on: *db-dep
     restart: unless-stopped
 
-  # Background cleanup sweep — same image as `server`, but runs only the worker
-  # entrypoint (node src/worker.js). One codebase, two cooperating containers:
-  # your first step out of the monolith toward a distributed setup.
+  # ── Worker ────────────────────────────────────────────────────────────────────
+  # Background cleanup sweep — same image as `server`, different entrypoint.
+  # Decoupled from the API so a slow sweep never blocks a request.
   worker:
     build: ./server
     image: soccer-server
@@ -47,32 +75,103 @@ services:
     environment:
       DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/soccer_booking?schema=public"
       CLEANUP_INTERVAL_MIN: ${CLEANUP_INTERVAL_MIN:-30}
-    depends_on:
-      db:
-        condition: service_healthy
+    depends_on: *db-dep
     restart: unless-stopped
 
-  # ── Catalog service ── fields + venues, extracted from the monolith. Same
-  # image, different entrypoint (node src/service.js, SERVICE=catalog). No host
-  # port — it's an internal service, reachable only through the gateway.
+  # ── Catalog service ───────────────────────────────────────────────────────────
+  # Owns: /api/fields  /api/venues
+  # Responsibility: field & venue inventory (search, availability, metadata).
   catalog:
     build: ./server
     image: soccer-server
     command: ["node", "src/service.js"]
     environment:
+      <<: *service-env
       SERVICE: catalog
       PORT: "5000"
-      DATABASE_URL: "postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/soccer_booking?schema=public"
-      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
-      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
-    depends_on:
-      db:
-        condition: service_healthy
+    depends_on: *db-dep
     restart: unless-stopped
 
-  # ── API Gateway ── single entry point. Routes /api/fields + /api/venues to
-  # catalog, everything else to the monolith. Makes extraction invisible to the
-  # frontend (the strangler-fig pattern).
+  # ── Auth service ──────────────────────────────────────────────────────────────
+  # Owns: /api/auth  /api/users  /api/admin
+  # Responsibility: registration, login, JWT issuance, user profiles, admin ops.
+  auth:
+    build: ./server
+    image: soccer-server
+    command: ["node", "src/service.js"]
+    environment:
+      <<: *service-env
+      SERVICE: auth
+      PORT: "5000"
+    depends_on: *db-dep
+    restart: unless-stopped
+
+  # ── Booking service ───────────────────────────────────────────────────────────
+  # Owns: /api/bookings  /api/webhooks
+  # Responsibility: field reservations, slot management, payment processing
+  # (Stripe, PayPal, MoMo, VNPay, ZaloPay) and their inbound webhook callbacks.
+  # Payment provider env vars are optional — only needed when that provider is used.
+  booking:
+    build: ./server
+    image: soccer-server
+    command: ["node", "src/service.js"]
+    environment:
+      <<: *service-env
+      SERVICE: booking
+      PORT: "5000"
+      # ── Stripe ──────────────────────────────────────────────────────────────
+      STRIPE_SECRET_KEY:      ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET:  ${STRIPE_WEBHOOK_SECRET:-}
+      # ── PayPal ──────────────────────────────────────────────────────────────
+      PAYPAL_CLIENT_ID:       ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET:   ${PAYPAL_CLIENT_SECRET:-}
+      # ── MoMo ────────────────────────────────────────────────────────────────
+      MOMO_PARTNER_CODE:      ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY:        ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY:        ${MOMO_SECRET_KEY:-}
+      # ── VNPay ───────────────────────────────────────────────────────────────
+      VNPAY_TMN_CODE:         ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET:      ${VNPAY_HASH_SECRET:-}
+      # ── ZaloPay ─────────────────────────────────────────────────────────────
+      ZALOPAY_APP_ID:         ${ZALOPAY_APP_ID:-}
+      ZALOPAY_KEY1:           ${ZALOPAY_KEY1:-}
+      ZALOPAY_KEY2:           ${ZALOPAY_KEY2:-}
+    depends_on: *db-dep
+    restart: unless-stopped
+
+  # ── Social service ────────────────────────────────────────────────────────────
+  # Owns: /api/friends  /api/messages  /api/invites
+  # Responsibility: friend graph, REST chat history, team invitations.
+  # Real-time delivery still goes through Socket.io on the monolith shell.
+  social:
+    build: ./server
+    image: soccer-server
+    command: ["node", "src/service.js"]
+    environment:
+      <<: *service-env
+      SERVICE: social
+      PORT: "5000"
+    depends_on: *db-dep
+    restart: unless-stopped
+
+  # ── Match service ─────────────────────────────────────────────────────────────
+  # Owns: /api/matches  /api/match-posts  /api/lobbies  /api/teams
+  # Responsibility: match lifecycle, public match-post board, open lobbies,
+  # and team management.
+  match:
+    build: ./server
+    image: soccer-server
+    command: ["node", "src/service.js"]
+    environment:
+      <<: *service-env
+      SERVICE: match
+      PORT: "5000"
+    depends_on: *db-dep
+    restart: unless-stopped
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  # Single public entry point on :8080. Routes every /api/* path to the correct
+  # upstream service; falls back to the monolith shell for /socket.io/ and /.
   gateway:
     image: nginx:1.27-alpine
     volumes:
@@ -82,13 +181,18 @@ services:
     depends_on:
       - server
       - catalog
+      - auth
+      - booking
+      - social
+      - match
     restart: unless-stopped
 
+  # ── Web (Next.js frontend) ────────────────────────────────────────────────────
+  # Browser talks to the gateway (:8080), never directly to a service container.
   web:
     build:
       context: ./client
       args:
-        # Browser now talks to the GATEWAY, not the monolith directly.
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:
       - "3000:3000"
