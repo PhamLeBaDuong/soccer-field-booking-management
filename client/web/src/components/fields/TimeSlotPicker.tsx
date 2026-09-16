@@ -9,6 +9,8 @@ type Slot = {
   end: number;
 };
 
+const SLOT_INTERVAL_MINUTES = 30;
+
 function overlaps(slot: Slot, occupied: Slot): boolean {
   return slot.start < occupied.end && slot.end > occupied.start;
 }
@@ -45,8 +47,8 @@ export function TimeSlotPicker({
     // Handle overnight fields where closing time wraps past midnight
     if (end <= start) end += 24 * 60;
     const next: Slot[] = [];
-    for (let value = start; value < end; value += 60) {
-      next.push({ start: value, end: Math.min(value + 60, end) });
+    for (let value = start; value < end; value += SLOT_INTERVAL_MINUTES) {
+      next.push({ start: value, end: Math.min(value + SLOT_INTERVAL_MINUTES, end) });
     }
     return next;
   }, [endTime, startTime]);
@@ -91,7 +93,7 @@ export function TimeSlotPicker({
         const selected =
           selectedStart !== null &&
           slot.start >= selectedStart &&
-          slot.end <= (selectedEnd ?? selectedStart + 60);
+          slot.end <= (selectedEnd ?? selectedStart + SLOT_INTERVAL_MINUTES);
         const startSelected = selectedStart === slot.start;
 
         return (

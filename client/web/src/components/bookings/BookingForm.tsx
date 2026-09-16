@@ -114,9 +114,10 @@ export function BookingForm({ field }: { field: Field }) {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-neutral-900">Time slot</span>
-          <span className="text-xs font-medium text-stone-500">1-hour slots</span>
+          <span className="text-xs font-medium text-stone-500">30-minute slots</span>
         </div>
         <TimeSlotPicker
+          key={`${field.id}:${date}`}
           startTime={field.startTime}
           endTime={field.endTime}
           occupiedSlots={field.occupiedTimes ?? []}
@@ -166,7 +167,7 @@ export function BookingForm({ field }: { field: Field }) {
           <span className="font-mono">{hours || 0} hr</span>
         </div>
         <div className="mt-2 flex justify-between text-sm text-stone-600">
-          <span>Rate</span>
+          <span>Hourly rate</span>
           <span className="font-mono">{formatCurrency(field.metadata.price, field.metadata.currency)}</span>
         </div>
         <div className="mt-3 flex justify-between border-t border-stone-200 pt-3 font-semibold text-neutral-950">

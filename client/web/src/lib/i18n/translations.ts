@@ -146,7 +146,7 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "field.backToFields":   { en: "Back to fields",  vi: "Quay lại danh sách sân" },
   "field.bookThis":       { en: "Book this field", vi: "Đặt sân này" },
   "field.timeSlot":       { en: "Time slot",       vi: "Khung giờ" },
-  "field.hourSlots":      { en: "1-hour slots",    vi: "Khung 1 giờ" },
+  "field.hourSlots":      { en: "30-minute slots", vi: "Khung 30 phút" },
   "field.initialPlayers": { en: "Initial number of players", vi: "Số người chơi ban đầu" },
   "field.openLobby":      { en: "Open lobby for others to join", vi: "Mở phòng cho người khác tham gia" },
   "field.openLobbyDesc":  { en: "Other players can fill the remaining slots. A match forms when both sides are full.", vi: "Người chơi khác có thể lấp đầy các chỗ trống. Trận đấu hình thành khi đủ cả hai bên." },
