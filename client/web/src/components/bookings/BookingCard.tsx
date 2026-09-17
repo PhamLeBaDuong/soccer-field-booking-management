@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils/cn";
 
 const statusBorder: Record<Booking["status"], string> = {
   confirmed: "border-l-[3px] border-l-emerald-400",
+  completed: "border-l-[3px] border-l-stone-400",
   pending:   "border-l-[3px] border-l-amber-400",
   canceled:  "border-l-[3px] border-l-red-400",
   matching:  "border-l-[3px] border-l-sky-400",
@@ -72,10 +73,13 @@ export function BookingCard({
               <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
               {formatDateRange(booking.startTime, booking.endTime)}
             </p>
+            {/* Legacy: player count was shown for every booking, including unknown counts. */}
+            {booking.teamSize > 0 && (
             <p className="mt-1.5 flex items-center gap-1.5 text-sm text-stone-500">
               <UsersRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               {t("bookings.teamSize")}: {booking.teamSize}
             </p>
+            )}
           </div>
 
           <div className="flex flex-col items-start gap-3 md:items-end">

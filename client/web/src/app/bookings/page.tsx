@@ -30,6 +30,7 @@ const tabs: { tkey: string; value: BookingTab }[] = [
   { tkey: "status.upcoming",  value: "upcoming" },
   { tkey: "status.pending",   value: "pending" },
   { tkey: "status.confirmed", value: "confirmed" },
+  { tkey: "status.completed", value: "completed" },
   { tkey: "status.canceled",  value: "canceled" },
 ];
 
@@ -38,6 +39,7 @@ const tabIcons = {
   upcoming:  Clock3,
   pending:   Search,
   confirmed: CheckCircle2,
+  completed: CheckCircle2,
   canceled:  XCircle,
   matching:  UsersRound,
 } as const;

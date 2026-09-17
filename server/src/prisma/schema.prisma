@@ -139,6 +139,7 @@ model Lobby {
   field       Field       @relation(fields: [fieldId], references: [id])
   match       Match?      @relation("lobby_matches", fields: [matchId], references: [id])
   slots       LobbySlot[]
+  bookings    Booking[]
 
   @@index([fieldId, startTime])
   @@index([status])
@@ -184,7 +185,10 @@ model Booking {
   id            String   @id @default(uuid())
   userId        String
   fieldId       String
-  matchId       String
+  // matchId       String // Legacy: all bookings required a match.
+  matchId       String?
+  lobbyId       String?
+  note          String?
   startTime     DateTime
   endTime       DateTime
   totalPrice    Float    @default(0)
@@ -194,9 +198,12 @@ model Booking {
   paymentStatus String   @default("unpaid")
   createdAt     DateTime @default(now())
   field         Field    @relation(fields: [fieldId], references: [id])
-  match         Match    @relation(fields: [matchId], references: [id])
+  // match         Match @relation(fields: [matchId], references: [id])
+  match         Match?   @relation(fields: [matchId], references: [id])
+  lobby         Lobby?   @relation(fields: [lobbyId], references: [id])
   user          User     @relation(fields: [userId], references: [id])
 
+  @@unique([lobbyId, userId])
   @@index([userId])
   @@index([fieldId, startTime, endTime])
   @@index([matchId])

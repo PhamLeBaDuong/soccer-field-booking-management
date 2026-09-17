@@ -27,7 +27,8 @@ function normalizeLobby(raw: Record<string, unknown>): Lobby {
     joinedCount: slots.length + Number(raw.initialSize ?? 1),
     creatorId:   String(raw.creatorId ?? ""),
     creatorName,
-    status:      String(raw.status ?? "open") as LobbyStatus,
+    // Legacy "matched" lobbies remain readable without creating new matches.
+    status:      (raw.status === "matched" ? "confirmed" : String(raw.status ?? "open")) as LobbyStatus,
     visibility:  String(raw.visibility ?? "public") as MatchRequestVisibility,
     code:        raw.code ? String(raw.code) : undefined,
   };
@@ -82,79 +83,97 @@ export async function getMyLobbies(): Promise<Lobby[]> {
   }
 }
 
-export async function joinLobby(lobbyId: string): Promise<{ lobby: Lobby; match: unknown }> {
-  if (shouldUseMockData()) {
-    warnMockData("Join lobby");
-    const lobby = mockLobbies.find((l) => l.id === lobbyId);
-    if (!lobby) throw new Error("Lobby not found");
-    return { lobby, match: null };
-  }
-
-  try {
-    const result = await apiFetch<{ lobby: Record<string, unknown>; match: unknown }>(
-      `/api/lobbies/${lobbyId}/join`,
-      { method: "POST" },
-    );
-    return { lobby: normalizeLobby(result.lobby), match: result.match };
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Join lobby");
-      const lobby = mockLobbies.find((l) => l.id === lobbyId);
-      if (!lobby) throw error;
-      return { lobby, match: null };
-    }
-    throw error;
-  }
+// Legacy implementation retained for review; no longer executed.
+// export async function joinLobby(lobbyId: string): Promise<{ lobby: Lobby; match: unknown }> {
+//   if (shouldUseMockData()) {
+//     warnMockData("Join lobby");
+//     const lobby = mockLobbies.find((l) => l.id === lobbyId);
+//     if (!lobby) throw new Error("Lobby not found");
+//     return { lobby, match: null };
+//   }
+//
+//   try {
+//     const result = await apiFetch<{ lobby: Record<string, unknown>; match: unknown }>(
+//       `/api/lobbies/${lobbyId}/join`,
+//       { method: "POST" },
+//     );
+//     return { lobby: normalizeLobby(result.lobby), match: result.match };
+//   } catch (error) {
+//     if (canFallBackToMock(error)) {
+//       warnMockData("Join lobby");
+//       const lobby = mockLobbies.find((l) => l.id === lobbyId);
+//       if (!lobby) throw error;
+//       return { lobby, match: null };
+//     }
+//     throw error;
+//   }
+// }
+//
+export async function joinLobby(lobbyId: string): Promise<{ lobby: Lobby }> {
+  const result = await apiFetch<{ lobby: Record<string, unknown> }>(
+    "/api/lobbies/" + lobbyId + "/join", { method: "POST" });
+  return { lobby: normalizeLobby(result.lobby) };
 }
 
+// Legacy implementation retained for review; no longer executed.
+// export async function createLobby(payload: {
+//   fieldId: string;
+//   startTime: string;
+//   endTime: string;
+//   teamSize: number;
+//   initialSize: number;
+//   visibility: MatchRequestVisibility;
+// }): Promise<{ lobby: Lobby; match: unknown }> {
+//   if (shouldUseMockData()) {
+//     warnMockData("Create lobby");
+//     const fakeLobby: Lobby = {
+//       id:          `lobby-${Date.now()}`,
+//       fieldId:     payload.fieldId,
+//       startTime:   payload.startTime,
+//       endTime:     payload.endTime,
+//       teamSize:    payload.teamSize,
+//       initialSize: payload.initialSize,
+//       joinedCount: payload.initialSize,
+//       creatorName: "You",
+//       status:      payload.initialSize >= payload.teamSize ? "full" : "open",
+//       visibility:  payload.visibility,
+//     };
+//     return { lobby: fakeLobby, match: null };
+//   }
+//
+//   try {
+//     const result = await apiFetch<{ lobby: Record<string, unknown>; match: unknown }>(
+//       "/api/lobbies",
+//       { method: "POST", body: JSON.stringify(payload) },
+//     );
+//     return { lobby: normalizeLobby(result.lobby), match: result.match };
+//   } catch (error) {
+//     if (canFallBackToMock(error)) {
+//       warnMockData("Create lobby");
+//       const fakeLobby: Lobby = {
+//         id:          `lobby-${Date.now()}`,
+//         fieldId:     payload.fieldId,
+//         startTime:   payload.startTime,
+//         endTime:     payload.endTime,
+//         teamSize:    payload.teamSize,
+//         initialSize: payload.initialSize,
+//         joinedCount: payload.initialSize,
+//         creatorName: "You",
+//         status:      payload.initialSize >= payload.teamSize ? "full" : "open",
+//         visibility:  payload.visibility,
+//       };
+//       return { lobby: fakeLobby, match: null };
+//     }
+//     throw error;
+//   }
+// }
+//
 export async function createLobby(payload: {
-  fieldId: string;
-  startTime: string;
-  endTime: string;
-  teamSize: number;
-  initialSize: number;
-  visibility: MatchRequestVisibility;
-}): Promise<{ lobby: Lobby; match: unknown }> {
-  if (shouldUseMockData()) {
-    warnMockData("Create lobby");
-    const fakeLobby: Lobby = {
-      id:          `lobby-${Date.now()}`,
-      fieldId:     payload.fieldId,
-      startTime:   payload.startTime,
-      endTime:     payload.endTime,
-      teamSize:    payload.teamSize,
-      initialSize: payload.initialSize,
-      joinedCount: payload.initialSize,
-      creatorName: "You",
-      status:      payload.initialSize >= payload.teamSize ? "full" : "open",
-      visibility:  payload.visibility,
-    };
-    return { lobby: fakeLobby, match: null };
-  }
-
-  try {
-    const result = await apiFetch<{ lobby: Record<string, unknown>; match: unknown }>(
-      "/api/lobbies",
-      { method: "POST", body: JSON.stringify(payload) },
-    );
-    return { lobby: normalizeLobby(result.lobby), match: result.match };
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Create lobby");
-      const fakeLobby: Lobby = {
-        id:          `lobby-${Date.now()}`,
-        fieldId:     payload.fieldId,
-        startTime:   payload.startTime,
-        endTime:     payload.endTime,
-        teamSize:    payload.teamSize,
-        initialSize: payload.initialSize,
-        joinedCount: payload.initialSize,
-        creatorName: "You",
-        status:      payload.initialSize >= payload.teamSize ? "full" : "open",
-        visibility:  payload.visibility,
-      };
-      return { lobby: fakeLobby, match: null };
-    }
-    throw error;
-  }
+  fieldId: string; startTime: string; endTime: string;
+  teamSize: number; initialSize: number; visibility: MatchRequestVisibility;
+}): Promise<{ lobby: Lobby }> {
+  const result = await apiFetch<{ lobby: Record<string, unknown> }>("/api/lobbies", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  return { lobby: normalizeLobby(result.lobby) };
 }

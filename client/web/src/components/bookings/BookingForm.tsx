@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Check, DoorOpen, UsersRound } from "lucide-react";
+import { CalendarDays, Check, DoorOpen } from "lucide-react";
 import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import { createBooking } from "@/lib/api/bookings";
 import { createLobby } from "@/lib/api/lobbies";
 import { useAuth } from "@/lib/auth/hooks";
 import { ROUTES } from "@/lib/constants";
@@ -32,7 +33,7 @@ export function BookingForm({ field }: { field: Field }) {
   const [date, setDate] = useState(todayInputValue());
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [numPlayers, setNumPlayers] = useState("1");
+  // const [numPlayers, setNumPlayers] = useState("1"); // Legacy player-count input.
   const [openLobby, setOpenLobby] = useState(false);
   const [dateError, setDateError] = useState("");
   const [timeError, setTimeError] = useState("");
@@ -41,7 +42,7 @@ export function BookingForm({ field }: { field: Field }) {
 
   // If the selected end time wraps past midnight (overnight field), use the next calendar day
   const endDate  = start && end && timeToMinutes(end) < timeToMinutes(start)
-    ? (() => { const d = new Date(`${date}T00:00:00`); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })()
+    ? (() => { const d = new Date(`${date}T00:00:00`); d.setDate(d.getDate() + 1); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); })()
     : date;
   const startIso = start ? combineDateAndTime(date, start) : "";
   const endIso   = end   ? combineDateAndTime(endDate, end) : "";
@@ -61,7 +62,8 @@ export function BookingForm({ field }: { field: Field }) {
   function handleRangeSelect(s: string, e: string) {
     setStart(s);
     setEnd(e);
-    if (s && e && timeToMinutes(e) <= timeToMinutes(s) && timeToMinutes(e) !== 0) {
+    // Legacy rejected legitimate overnight ranges from the slot picker.
+    if (s && e && s === e) {
       setTimeError("End time must be after start time.");
     } else {
       setTimeError("");
@@ -74,26 +76,39 @@ export function BookingForm({ field }: { field: Field }) {
     if (!start || !end) { setError("Choose a time slot."); return; }
     if (timeError) { setError(timeError); return; }
 
-    const n = Number(numPlayers);
-    if (n < 1 || n > teamSize) {
-      setError(`Number of players must be between 1 and ${teamSize}.`); return;
-    }
-
+// Legacy implementation retained for review; no longer executed.
+//     const n = Number(numPlayers);
+//     if (n < 1 || n > teamSize) {
+//       setError(`Number of players must be between 1 and ${teamSize}.`); return;
+//     }
+//
+//
     setLoading(true);
     setError("");
     try {
-      await createLobby({
-        fieldId:     field.id,
-        startTime:   startIso,
-        endTime:     endIso,
-        teamSize,
-        initialSize: n,
-        visibility:  openLobby ? "public" : "private",
-      });
-      showToast(openLobby ? "Lobby created — others can join!" : "Slot reserved.");
-      router.push(ROUTES.lobbies);
+// Legacy implementation retained for review; no longer executed.
+//       await createLobby({
+//         fieldId:     field.id,
+//         startTime:   startIso,
+//         endTime:     endIso,
+//         teamSize,
+//         initialSize: n,
+//         visibility:  openLobby ? "public" : "private",
+//       });
+//       showToast(openLobby ? "Lobby created — others can join!" : "Slot reserved.");
+//       router.push(ROUTES.lobbies);
+      if (openLobby) {
+        await createLobby({ fieldId: field.id, startTime: startIso, endTime: endIso,
+          teamSize, initialSize: 1, visibility: "public" });
+        showToast("Lobby created ? your booking confirms when it fills.");
+        router.push(ROUTES.lobbies);
+      } else {
+        const booking = await createBooking({ fieldId: field.id, startTime: startIso, endTime: endIso });
+        showToast("Booking confirmed.");
+        router.push("/bookings/" + booking.id);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create lobby.");
+      setError(err instanceof Error ? err.message : "Unable to reserve this slot.");
     } finally {
       setLoading(false);
     }
@@ -133,6 +148,7 @@ export function BookingForm({ field }: { field: Field }) {
         )}
       </div>
 
+      {/* Legacy player-count input, retained for review:
       <Input
         label="Initial number of players"
         type="number"
@@ -142,6 +158,7 @@ export function BookingForm({ field }: { field: Field }) {
         value={numPlayers}
         onChange={(e) => setNumPlayers(e.target.value)}
       />
+      */}
 
       <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-stone-200 bg-white/72 p-3 transition-colors hover:bg-stone-50">
         <input
@@ -156,7 +173,8 @@ export function BookingForm({ field }: { field: Field }) {
             Open lobby for others to join
           </span>
           <span className="text-xs text-stone-500">
-            Other players can fill the remaining slots. A match forms when both sides are full.
+            {/* Legacy: A match forms when both sides are full. */}
+            Other players can join. Everyone receives a booking when the lobby is full.
           </span>
         </span>
       </label>
@@ -182,7 +200,7 @@ export function BookingForm({ field }: { field: Field }) {
 
       <Button className="w-full" loading={loading} onClick={submit}>
         <Check className="h-4 w-4" aria-hidden="true" />
-        {openLobby ? "Create lobby & reserve slot" : "Reserve slot"}
+        {openLobby ? "Create lobby" : "Book field"}
       </Button>
     </div>
   );

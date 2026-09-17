@@ -8,6 +8,7 @@ import * as zalopayService from "../services/zalopayService.js";
 function handleError(res, error) {
     const clientPhrases = [
         "required", "not found", "invalid", "not authorized", "already paid",
+        "must be", "already booked",
     ];
     const msg = error.message?.toLowerCase() ?? "";
     const isClient = clientPhrases.some(p => msg.includes(p));
@@ -160,5 +161,13 @@ export async function verifyZalopayOrder(req, res) {
     const userId = req.user?.id;
     try {
         res.json(await zalopayService.verifyOrder(bookingId, userId));
+    } catch (error) { handleError(res, error); }
+}
+
+export async function createBooking(req, res) {
+    try {
+        const { fieldId, startTime, endTime } = req.body;
+        const booking = await bookingService.createBooking({ userId: req.user.id, fieldId, startTime, endTime });
+        res.status(201).json(booking);
     } catch (error) { handleError(res, error); }
 }

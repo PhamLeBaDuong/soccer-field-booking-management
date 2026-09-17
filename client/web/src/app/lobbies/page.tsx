@@ -18,7 +18,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
-import { useBookingsContext } from "@/lib/bookings/context";
+// import { useBookingsContext } from "@/lib/bookings/context"; // Legacy synthetic bookings.
 import { joinLobby as apiJoinLobby } from "@/lib/api/lobbies";
 import { useLobbies } from "@/hooks/useLobbies";
 import { useJoinedLobbies } from "@/hooks/useJoinedLobbies";
@@ -41,7 +41,7 @@ export default function LobbiesPage() {
   const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
-  const { addBookings } = useBookingsContext();
+  // const { addBookings } = useBookingsContext();
 
   const { lobbies, setLobbies, loading: lobbiesLoading, error: lobbiesError, refresh: refreshLobbies } = useLobbies();
   const { joinedIds, markJoined } = useJoinedLobbies();
@@ -72,24 +72,26 @@ export default function LobbiesPage() {
 
   if (authLoading || !user) return <LobbiesSkeleton />;
 
-  function buildBooking(lobby: Lobby, field: Field): Booking {
-    const hrs = (new Date(lobby.endTime).getTime() - new Date(lobby.startTime).getTime()) / 3_600_000;
-    return {
-      id:         `booking-lobby-${lobby.id}-${Date.now()}`,
-      userId:     user!.id,
-      fieldId:    field.id,
-      startTime:  lobby.startTime,
-      endTime:    lobby.endTime,
-      needMatching: false,
-      teamSize:   lobby.teamSize,
-      status:        "confirmed",
-      totalPrice:    field.metadata.price * Math.max(0, hrs),
-      currency:      field.metadata.currency ?? "VND",
-      paymentStatus: "unpaid",
-      field,
-    };
-  }
-
+// Legacy implementation retained for review; no longer executed.
+//   function buildBooking(lobby: Lobby, field: Field): Booking {
+//     const hrs = (new Date(lobby.endTime).getTime() - new Date(lobby.startTime).getTime()) / 3_600_000;
+//     return {
+//       id:         `booking-lobby-${lobby.id}-${Date.now()}`,
+//       userId:     user!.id,
+//       fieldId:    field.id,
+//       startTime:  lobby.startTime,
+//       endTime:    lobby.endTime,
+//       needMatching: false,
+//       teamSize:   lobby.teamSize,
+//       status:        "confirmed",
+//       totalPrice:    field.metadata.price * Math.max(0, hrs),
+//       currency:      field.metadata.currency ?? "VND",
+//       paymentStatus: "unpaid",
+//       field,
+//     };
+//   }
+//
+//
   async function handleJoin(lobby: Lobby) {
     if (joinedIds.includes(lobby.id)) {
       showToast("You have already joined this lobby.", "error"); return;
@@ -98,29 +100,32 @@ export default function LobbiesPage() {
       showToast("You created this lobby — already counted in initial size.", "error"); return;
     }
 
-    const prevCount = lobby.joinedCount;
-    const newCount  = prevCount + 1;
-    const hitCapacity = prevCount < lobby.teamSize && newCount >= lobby.teamSize;
+    // Legacy: the browser predicted confirmation instead of using the server result.
+    // const prevCount = lobby.joinedCount;
+    // const newCount  = prevCount + 1;
+    // const hitCapacity = prevCount < lobby.teamSize && newCount >= lobby.teamSize;
 
     try {
-      await apiJoinLobby(lobby.id);
+      const result = await apiJoinLobby(lobby.id);
       markJoined(lobby.id);
       await refreshLobbies();
 
-      if (lobby.field) addBookings([buildBooking({ ...lobby, joinedCount: newCount }, lobby.field)]);
+      // Legacy: if (lobby.field) addBookings([buildBooking({ ...lobby, joinedCount: newCount }, lobby.field)]);
+      // Actual participant bookings are read from the bookings API after confirmation.
 
-      if (hitCapacity) {
+      // Legacy: if (hitCapacity) {
+      if (result.lobby.status === "confirmed") {
         setConfirmation({
           fieldName:    lobby.field?.name ?? "Field",
           dateRange:    formatDateRange(lobby.startTime, lobby.endTime),
           teamSize:     lobby.teamSize,
-          playerCount:  newCount,
+          playerCount:  result.lobby.joinedCount,
           pricePerHour: lobby.field?.metadata.price ?? 0,
           currency:     lobby.field?.metadata.currency,
         });
         showToast("Lobby full — booking confirmed!");
-      } else if (lobby.status === "full") {
-        showToast("Added to confirmed booking.");
+      } else if (result.lobby.status === "canceled") {
+        showToast("This slot is no longer available. No booking was created.", "error");
       } else {
         showToast("Joined lobby.");
       }

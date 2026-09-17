@@ -6,7 +6,7 @@ function handleError(res, error) {
         "required", "not found", "already", "only the lobby creator",
         "cannot leave", "cannot cancel", "is in the past", "must be in the future",
         "must be after starttime", "no remaining slots", "cannot exceed",
-        "must be a positive integer", "slot is already", "matched",
+        "must be a positive integer", "slot is already", "matched", "invalid booking", "already booked",
     ];
     const msg = error.message?.toLowerCase() ?? "";
     const isClient = clientPhrases.some(p => msg.includes(p));
@@ -69,7 +69,8 @@ export async function joinLobby(req, res) {
                 status:      lobby.status,
             };
             io.emit("lobby:updated", update);
-            if (lobby.status === "full" || lobby.status === "matched") {
+            // Legacy: if (lobby.status === "full" || lobby.status === "matched") {
+            if (lobby.status === "confirmed") {
                 io.to(lobby.creatorId).emit("notify", { type: "lobby_full", lobbyId: lobby.id });
             }
         }

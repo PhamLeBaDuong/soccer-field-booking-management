@@ -39,7 +39,7 @@ export interface Field {
   complex?: Complex;
 }
 
-export type BookingStatus = "pending" | "confirmed" | "canceled" | "matching";
+export type BookingStatus = "pending" | "confirmed" | "completed" | "canceled" | "matching";
 export type PaymentStatus = "unpaid" | "paid" | "refunded";
 export type PaymentMethod = "cash" | "bank_transfer" | "stripe" | "paypal" | "momo" | "vnpay" | "zalopay";
 
@@ -52,6 +52,9 @@ export interface PaymentOption {
 }
 
 export interface Booking {
+  matchId?: string | null;
+  lobbyId?: string | null;
+  note?: string | null;
   id: string;
   userId: string;
   fieldId: string;

@@ -2,7 +2,10 @@ import { apiFetch } from "@/lib/api/client";
 
 export interface ScheduleBooking {
   id: string;
-  matchId: string;
+  // matchId: string; // Legacy required relation.
+  matchId: string | null;
+  lobbyId?: string | null;
+  note?: string | null;
   startTime: string;
   endTime: string;
   status: string;
@@ -20,7 +23,7 @@ export interface ScheduleBooking {
       team: { id: string; name: string; size: number };
     } | null;
     lobbies?: { id: string; teamSize: number }[];
-  };
+  } | null;
 }
 
 export async function getFieldSchedule(fieldId: string, date: string): Promise<ScheduleBooking[]> {

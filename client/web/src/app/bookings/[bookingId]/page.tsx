@@ -219,7 +219,8 @@ function BookingDetailContent() {
             <h2 className="text-lg font-semibold text-neutral-950">Booking details</h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Detail icon={Hash} label="Booking ID" value={booking.id} />
-              <Detail icon={UsersRound} label="Team size" value={String(booking.teamSize)} />
+              {/* Legacy: always displayed a default team size, even for direct bookings. */}
+              {booking.teamSize > 0 && <Detail icon={UsersRound} label="Team size" value={String(booking.teamSize)} />}
               <Detail
                 icon={CalendarCheck}
                 label="Total"

@@ -25,6 +25,7 @@ export const ROUTES = {
 export const BOOKING_STATUSES = [
   "pending",
   "confirmed",
+  "completed",
   "canceled",
   "matching",
 ] as const;

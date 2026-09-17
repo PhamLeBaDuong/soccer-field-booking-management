@@ -1,5 +1,6 @@
 import express from "express";
 import {
+    createBooking,
     getBookingById,
     getBookingsByUserId,
     getOccupiedSlots,
@@ -25,6 +26,7 @@ router.get("/occupied", getOccupiedSlots);
 
 // Authenticated routes
 router.use(authenticate);
+router.post("/", createBooking);
 
 router.get("/user/:userId",                          getBookingsByUserId);
 router.get("/:bookingId/payment-options",            getPaymentOptions);

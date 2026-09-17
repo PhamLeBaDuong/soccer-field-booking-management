@@ -82,11 +82,11 @@ export function ComplexScheduleGrid({
   }
 
   const slotLabel = (b: ScheduleBooking) =>
-    b.match.source === "manual"
-      ? (b.match.resultNote || t("schedule.walkIn"))
-      : (b.match.matchPost?.team.name ?? b.user?.name ?? "Lobby");
+    b.match?.source === "manual"
+      ? (b.match?.resultNote || t("schedule.walkIn"))
+      : (b.match?.matchPost?.team.name ?? b.note ?? b.user?.name ?? (b.lobbyId ? "Lobby" : "Field booking"));
 
-  const hasResult = (b: ScheduleBooking) => b.match.homeScore !== null && b.match.awayScore !== null;
+  const hasResult = (b: ScheduleBooking) => b.match?.homeScore != null && b.match?.awayScore != null;
   const isPast    = (b: ScheduleBooking) => new Date(b.endTime) < new Date();
 
   // ── Date navigation ─────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ export function ComplexScheduleGrid({
                   {/* bookings */}
                   {field.bookings.map((b) => {
                     const { top, height } = bookingGeometry(b);
-                    const manual = b.match.source === "manual";
+                    const manual = b.match?.source === "manual";
                     const res = hasResult(b);
                     const past = isPast(b);
                     return (
@@ -206,7 +206,7 @@ export function ComplexScheduleGrid({
                         </span>
                         {res && (
                           <span className="block font-mono text-[10px]">
-                            {b.match.homeScore}–{b.match.awayScore}
+                            {b.match?.homeScore}–{b.match?.awayScore}
                           </span>
                         )}
                       </button>
@@ -316,15 +316,16 @@ function BookingDetail({
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const has = booking.match.homeScore !== null && booking.match.awayScore !== null;
-  const [home, setHome] = useState(has ? String(booking.match.homeScore) : "");
-  const [away, setAway] = useState(has ? String(booking.match.awayScore) : "");
-  const [note, setNote] = useState(booking.match.resultNote ?? "");
+  const has = booking.match?.homeScore != null && booking.match?.awayScore != null;
+  const [home, setHome] = useState(has ? String(booking.match?.homeScore) : "");
+  const [away, setAway] = useState(has ? String(booking.match?.awayScore) : "");
+  const [note, setNote] = useState(booking.match?.resultNote ?? "");
   const [saving, setSaving] = useState(false);
 
-  const isManual = booking.match.source === "manual";
+  const isManual = booking.match?.source === "manual";
 
   async function save() {
+    if (!booking.matchId || booking.match?.source !== "post") return;
     const h = Number(home), a = Number(away);
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) { showToast(t("schedule.homeScore"), "error"); return; }
     setSaving(true);
@@ -342,7 +343,7 @@ function BookingDetail({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-bold text-neutral-950">
-            {field.name} · {isManual ? (booking.match.resultNote || t("schedule.walkIn")) : (booking.match.matchPost?.team.name ?? "Lobby")}
+            {field.name} · {isManual ? (booking.match?.resultNote || t("schedule.walkIn")) : (booking.match?.matchPost?.team.name ?? booking.note ?? (booking.lobbyId ? "Lobby" : "Field booking"))}
           </p>
           <p className="mt-0.5 font-mono text-xs text-stone-500">{timeRange(booking)}</p>
           <p className="mt-0.5 text-xs text-stone-500">
@@ -354,7 +355,7 @@ function BookingDetail({
         </button>
       </div>
 
-      {canEditResult && !isManual && (
+      {canEditResult && booking.matchId && booking.match?.source === "post" && (
         <div className="mt-4 border-t border-stone-200 pt-4">
           <p className="mb-3 text-xs font-semibold uppercase text-stone-500">
             {has ? t("schedule.updateResult") : t("schedule.recordResult")}

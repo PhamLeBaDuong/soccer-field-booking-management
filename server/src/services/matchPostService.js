@@ -1,3 +1,4 @@
+import { withFieldReservation, validateReservationTime, assertReservationAvailable } from "./reservationService.js";
 import { randomBytes } from "crypto";
 import prisma from "../db.cjs";
 import { isSlotFree } from "./bookingService.js";
@@ -265,7 +266,12 @@ export async function acceptMatchPost(postId, {
         (new Date(resolvedEnd).getTime() - new Date(resolvedStart).getTime()) / 3_600_000;
     const totalPrice = field.pricePerHour * Math.max(0, durationHours);
 
-    const match = await prisma.$transaction(async (tx) => {
+    // Legacy: const match = await prisma.$transaction(async (tx) => {
+    const match = await withFieldReservation(prisma, resolvedFieldId, async (tx, lockedField) => {
+        const times = validateReservationTime(lockedField, resolvedStart, resolvedEnd);
+        await assertReservationAvailable(tx, resolvedFieldId, times.start, times.end);
+        const claimed = await tx.matchPost.updateMany({ where: { id: postId, status: "open" }, data: { status: "matched" } });
+        if (claimed.count !== 1) throw new Error("Match post is already matched or canceled");
         const newMatch = await tx.match.create({
             data: {
                 source:      "post",
@@ -280,7 +286,8 @@ export async function acceptMatchPost(postId, {
                         fieldId:    resolvedFieldId,
                         startTime:  new Date(resolvedStart),
                         endTime:    new Date(resolvedEnd),
-                        totalPrice,
+                        // totalPrice, // Legacy: price read before acquiring the reservation lock.
+                        totalPrice: times.totalPrice,
                         currency:   field.currency ?? "VND",
                         status:     "confirmed",
                     })),

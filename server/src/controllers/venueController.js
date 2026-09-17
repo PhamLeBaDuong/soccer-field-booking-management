@@ -1,8 +1,9 @@
+import { withFieldReservation, validateReservationTime, assertReservationAvailable, groupReservations } from "../services/reservationService.js";
 import prisma from "../db.cjs";
 
 function handleError(res, error) {
     const msg = error.message?.toLowerCase() ?? "";
-    if (msg.includes("not found") || msg.includes("required") || msg.includes("forbidden")) {
+    if (["not found", "required", "forbidden", "not authorized", "invalid", "must be", "already booked"].some(text => msg.includes(text))) {
         return res.status(msg.includes("forbidden") ? 403 : 400).json({ error: error.message });
     }
     console.error(error);
@@ -196,6 +197,7 @@ export async function getVenueFieldSchedule(req, res) {
             },
             include: {
                 user:  { select: { id: true, name: true, username: true } },
+                lobby: { select: { id: true, teamSize: true } },
                 match: {
                     include: {
                         matchPost: {
@@ -206,10 +208,10 @@ export async function getVenueFieldSchedule(req, res) {
                 },
             },
             orderBy: { startTime: "asc" },
-            distinct: ["matchId"],
+            // distinct: ["matchId"], // Legacy: collapses unrelated bookings with null match IDs.
         });
 
-        res.json(bookings);
+        res.json(groupReservations(bookings));
     } catch (error) { handleError(res, error); }
 }
 
@@ -242,6 +244,7 @@ export async function getComplexSchedule(req, res) {
                     },
                     include: {
                         user:  { select: { id: true, name: true, username: true } },
+                lobby: { select: { id: true, teamSize: true } },
                         match: {
                             include: {
                                 matchPost: { include: { team: { select: { id: true, name: true, size: true } } } },
@@ -250,12 +253,13 @@ export async function getComplexSchedule(req, res) {
                         },
                     },
                     orderBy:  { startTime: "asc" },
-                    distinct: ["matchId"],
+                    // distinct: ["matchId"], // Legacy: collapses unrelated bookings with null match IDs.
                 },
             },
         });
 
-        res.json({ complex: { id: complex.id, name: complex.name }, fields });
+        res.json({ complex: { id: complex.id, name: complex.name },
+            fields: fields.map(field => ({ ...field, bookings: groupReservations(field.bookings) })) });
     } catch (error) { handleError(res, error); }
 }
 
@@ -267,63 +271,84 @@ export async function getComplexSchedule(req, res) {
 //   date      – "YYYY-MM-DD"
 //   startTime – "HH:MM"
 //   endTime   – "HH:MM"
+// Legacy implementation retained for review; no longer executed.
+// export async function createManualBooking(req, res) {
+//     const { id: fieldId } = req.params;
+//     const { date, startTime, endTime, customerName, note } = req.body;
+//
+//     if (!date || !startTime || !endTime) {
+//         return res.status(400).json({ error: "date, startTime, and endTime are required" });
+//     }
+//
+//     try {
+//         const field = await prisma.field.findUnique({ where: { id: fieldId } });
+//         if (!field) return res.status(404).json({ error: "Field not found" });
+//         if (field.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+//
+//         const start = new Date(`${date}T${startTime}:00.000Z`);
+//         const end   = new Date(`${date}T${endTime}:00.000Z`);
+//         if (end <= start) return res.status(400).json({ error: "endTime must be after startTime" });
+//
+//         // Check for conflicts
+//         const conflict = await prisma.booking.findFirst({
+//             where: {
+//                 fieldId,
+//                 status: "confirmed",
+//                 AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
+//             },
+//         });
+//         if (conflict) return res.status(400).json({ error: "That slot is already booked" });
+//
+//         const hours      = (end - start) / 3_600_000;
+//         const totalPrice = hours * (field.pricePerHour ?? 0);
+//         const label      = [customerName, note].filter(Boolean).join(" — ") || "Manual booking";
+//
+//         // Create a synthetic match to satisfy the FK constraint
+//         const match = await prisma.match.create({
+//             data: {
+//                 source:     "manual",
+//                 status:     "confirmed",
+//                 fieldId,
+//                 startTime:  start,
+//                 endTime:    end,
+//                 resultNote: label,
+//             },
+//         });
+//
+//         const booking = await prisma.booking.create({
+//             data: {
+//                 userId:     req.user.id,
+//                 fieldId,
+//                 matchId:    match.id,
+//                 startTime:  start,
+//                 endTime:    end,
+//                 totalPrice,
+//                 currency:   "VND",
+//                 status:     "confirmed",
+//             },
+//             include: { user: { select: { id: true, name: true } } },
+//         });
+//
+//         res.status(201).json({ message: "Manual booking created", booking, match });
+//     } catch (error) { handleError(res, error); }
+// }
+//
+
 export async function createManualBooking(req, res) {
     const { id: fieldId } = req.params;
     const { date, startTime, endTime, customerName, note } = req.body;
-
-    if (!date || !startTime || !endTime) {
-        return res.status(400).json({ error: "date, startTime, and endTime are required" });
-    }
-
+    if (!date || !startTime || !endTime) return res.status(400).json({ error: "date, startTime, and endTime are required" });
     try {
-        const field = await prisma.field.findUnique({ where: { id: fieldId } });
-        if (!field) return res.status(404).json({ error: "Field not found" });
-        if (field.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
-
-        const start = new Date(`${date}T${startTime}:00.000Z`);
-        const end   = new Date(`${date}T${endTime}:00.000Z`);
-        if (end <= start) return res.status(400).json({ error: "endTime must be after startTime" });
-
-        // Check for conflicts
-        const conflict = await prisma.booking.findFirst({
-            where: {
-                fieldId,
-                status: "confirmed",
-                AND: [{ startTime: { lt: end } }, { endTime: { gt: start } }],
-            },
+        const booking = await withFieldReservation(prisma, fieldId, async (tx, field) => {
+            if (field.ownerId !== req.user.id) throw new Error("Not authorized to book this venue");
+            const times = validateReservationTime(field, new Date(date + "T" + startTime + ":00.000Z"), new Date(date + "T" + endTime + ":00.000Z"));
+            await assertReservationAvailable(tx, fieldId, times.start, times.end);
+            return tx.booking.create({ data: { userId: req.user.id, fieldId,
+                matchId: null, lobbyId: null, startTime: times.start, endTime: times.end,
+                totalPrice: times.totalPrice, currency: field.metadata?.currency ?? "VND", status: "confirmed",
+                note: [customerName, note].filter(Boolean).join(" ? ") || "Manual booking" },
+                include: { user: { select: { id: true, name: true } } } });
         });
-        if (conflict) return res.status(400).json({ error: "That slot is already booked" });
-
-        const hours      = (end - start) / 3_600_000;
-        const totalPrice = hours * (field.pricePerHour ?? 0);
-        const label      = [customerName, note].filter(Boolean).join(" — ") || "Manual booking";
-
-        // Create a synthetic match to satisfy the FK constraint
-        const match = await prisma.match.create({
-            data: {
-                source:     "manual",
-                status:     "confirmed",
-                fieldId,
-                startTime:  start,
-                endTime:    end,
-                resultNote: label,
-            },
-        });
-
-        const booking = await prisma.booking.create({
-            data: {
-                userId:     req.user.id,
-                fieldId,
-                matchId:    match.id,
-                startTime:  start,
-                endTime:    end,
-                totalPrice,
-                currency:   "VND",
-                status:     "confirmed",
-            },
-            include: { user: { select: { id: true, name: true } } },
-        });
-
-        res.status(201).json({ message: "Manual booking created", booking, match });
+        res.status(201).json({ message: "Manual booking created", booking });
     } catch (error) { handleError(res, error); }
 }

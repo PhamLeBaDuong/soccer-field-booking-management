@@ -1,3 +1,4 @@
+import { groupReservations } from "../services/reservationService.js";
 import prisma from "../db.cjs";
 import dotenv from "dotenv";
 dotenv.config();
@@ -233,10 +234,10 @@ export async function getFieldSchedule(req, res) {
                 },
             },
             orderBy: { startTime: "asc" },
-            distinct: ["matchId"],
+            // distinct: ["matchId"], // Legacy: null IDs collapsed independent reservations.
         });
 
-        res.json(bookings);
+        res.json(groupReservations(bookings));
     } catch (error) {
         console.error("Error fetching field schedule:", error);
         res.status(500).json({ error: "Internal server error" });

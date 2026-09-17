@@ -95,12 +95,21 @@ export async function cleanupCompletedMatches() {
 /**
  * Run all cleanup tasks and log a summary.
  */
+export async function cleanupCompletedReservations() {
+    const { count } = await prisma.booking.updateMany({
+        where: { matchId: null, endTime: { lt: new Date() }, status: "confirmed" },
+        data: { status: "completed" },
+    });
+    return { bookingsCompleted: count };
+}
+
 export async function runCleanup() {
     try {
-        const [lobbies, posts, matches] = await Promise.all([
+        const [lobbies, posts, matches, reservations] = await Promise.all([
             cleanupExpiredLobbies(),
             cleanupExpiredMatchPosts(),
             cleanupCompletedMatches(),
+            cleanupCompletedReservations(),
         ]);
 
         const total =
@@ -108,7 +117,7 @@ export async function runCleanup() {
             lobbies.slotDeleted +
             posts.matchPostsCanceled +
             matches.matchesCompleted +
-            matches.bookingsCompleted;
+            matches.bookingsCompleted + reservations.bookingsCompleted;
 
         if (total > 0) {
             console.log(
@@ -116,7 +125,7 @@ export async function runCleanup() {
                 `slots removed: ${lobbies.slotDeleted}, ` +
                 `posts canceled: ${posts.matchPostsCanceled}, ` +
                 `matches completed: ${matches.matchesCompleted}, ` +
-                `bookings completed: ${matches.bookingsCompleted}`
+                `bookings completed: ${matches.bookingsCompleted + reservations.bookingsCompleted}`
             );
         }
     } catch (err) {

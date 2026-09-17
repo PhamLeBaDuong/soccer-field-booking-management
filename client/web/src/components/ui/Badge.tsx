@@ -4,6 +4,7 @@ import type { BookingStatus } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 
 const statusClasses: Record<BookingStatus, string> = {
+  completed: "bg-stone-100 text-stone-700 ring-stone-300/80",
   confirmed: "bg-emerald-50 text-emerald-800 ring-emerald-300/80",
   pending:   "bg-amber-50 text-amber-800 ring-amber-300/80",
   canceled:  "bg-red-50 text-red-700 ring-red-300/80",
@@ -11,6 +12,7 @@ const statusClasses: Record<BookingStatus, string> = {
 };
 
 const statusIcons: Record<BookingStatus, ReactNode> = {
+  completed: <CheckCircle2 className="h-3 w-3" aria-hidden="true" />,
   confirmed: <CheckCircle2 className="h-3 w-3" aria-hidden="true" />,
   pending:   <Clock className="h-3 w-3" aria-hidden="true" />,
   canceled:  <XCircle className="h-3 w-3" aria-hidden="true" />,

@@ -10,31 +10,33 @@ import { mockBookings, mockMatchingBookings } from "@/lib/mock/bookings";
 import { mockFields } from "@/lib/mock/fields";
 import type { Booking, BookingPayload, MatchingSearch, PaymentMethod, PaymentOption } from "@/lib/types";
 
-function createMockBooking(payload: BookingPayload): Booking {
-  const field = mockFields.find((item) => item.id === payload.fieldId);
-
-  return {
-    id: `booking-${Date.now()}`,
-    userId: payload.userId,
-    fieldId: payload.fieldId,
-    startTime: payload.startTime,
-    endTime: payload.endTime,
-    needMatching: payload.needMatching,
-    teamSize: payload.teamSize,
-    status: payload.needMatching ? "matching" : "pending",
-    totalPrice:
-      payload.fieldPrice *
-      Math.max(
-        1,
-        (new Date(payload.endTime).getTime() -
-          new Date(payload.startTime).getTime()) /
-          3_600_000,
-      ),
-    currency: payload.currency,
-    paymentStatus: "unpaid",
-    field,
-  };
-}
+// Legacy mock booking generator retained for review; real reservations require a server response.
+// function createMockBooking(payload: BookingPayload): Booking {
+//   const field = mockFields.find((item) => item.id === payload.fieldId);
+//
+//   return {
+//     id: `booking-${Date.now()}`,
+//     userId: payload.userId,
+//     fieldId: payload.fieldId,
+//     startTime: payload.startTime,
+//     endTime: payload.endTime,
+//     needMatching: payload.needMatching,
+//     teamSize: payload.teamSize,
+//     status: payload.needMatching ? "matching" : "pending",
+//     totalPrice:
+//       payload.fieldPrice *
+//       Math.max(
+//         1,
+//         (new Date(payload.endTime).getTime() -
+//           new Date(payload.startTime).getTime()) /
+//           3_600_000,
+//       ),
+//     currency: payload.currency,
+//     paymentStatus: "unpaid",
+//     field,
+//   };
+// }
+//
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {
   if (shouldUseMockData()) {
@@ -69,11 +71,13 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
   }
 
   try {
-    const booking = normalizeBooking(await apiFetch<unknown>(`/api/bookings/${bookingId}`));
-    const field = normalizeField(
-      await apiFetch<unknown>(`/api/bookings/${bookingId}/field`),
-    );
-    return { ...booking, field };
+// Legacy implementation retained for review; no longer executed.
+//     const booking = normalizeBooking(await apiFetch<unknown>(`/api/bookings/${bookingId}`));
+//     const field = normalizeField(
+//       await apiFetch<unknown>(`/api/bookings/${bookingId}/field`),
+//     );
+//     return { ...booking, field };
+    return normalizeBooking(await apiFetch<unknown>("/api/bookings/" + bookingId));
   } catch (error) {
     if (canFallBackToMock(error)) {
       warnMockData("Booking detail");
@@ -90,27 +94,36 @@ export async function getBookingById(bookingId: string): Promise<Booking> {
   }
 }
 
-export async function createBooking(payload: BookingPayload): Promise<Booking> {
-  if (shouldUseMockData()) {
-    warnMockData("Create booking");
-    return createMockBooking(payload);
-  }
-
-  try {
-    const fields = await getFields();
-    const response = await apiFetch<unknown>("/api/bookings", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    return normalizeBooking(response, fields);
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Create booking");
-      return createMockBooking(payload);
-    }
-
-    throw error;
-  }
+// Legacy implementation retained for review; no longer executed.
+// export async function createBooking(payload: BookingPayload): Promise<Booking> {
+//   if (shouldUseMockData()) {
+//     warnMockData("Create booking");
+//     return createMockBooking(payload);
+//   }
+//
+//   try {
+//     const fields = await getFields();
+//     const response = await apiFetch<unknown>("/api/bookings", {
+//       method: "POST",
+//       body: JSON.stringify(payload),
+//     });
+//     return normalizeBooking(response, fields);
+//   } catch (error) {
+//     if (canFallBackToMock(error)) {
+//       warnMockData("Create booking");
+//       return createMockBooking(payload);
+//     }
+//
+//     throw error;
+//   }
+// }
+//
+export async function createBooking(payload: Pick<BookingPayload, "fieldId" | "startTime" | "endTime">): Promise<Booking> {
+  // Reservation failures must be visible; never replace a failed POST with a fake success.
+  const response = await apiFetch<unknown>("/api/bookings", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  return normalizeBooking(response);
 }
 
 export async function cancelBooking(bookingId: string): Promise<Booking> {

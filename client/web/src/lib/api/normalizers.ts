@@ -164,12 +164,16 @@ export function normalizeBooking(value: unknown, fields: Field[] = []): Booking 
 
   return {
     id: readString(record, "id"),
+    matchId: readString(record, "matchId") || null,
+    lobbyId: readString(record, "lobbyId") || null,
+    note: readString(record, "note") || null,
     userId: readString(record, "userId"),
     fieldId: readString(record, "fieldId", field?.id ?? ""),
     startTime: readString(record, "startTime"),
     endTime: readString(record, "endTime"),
     needMatching: readBoolean(record, "needMatching"),
-    teamSize: readNumber(record, "teamSize", 5),
+    // Legacy: teamSize: readNumber(record, "teamSize", 5),
+    teamSize: isRecord(record.lobby) ? readNumber(record.lobby, "teamSize") : readNumber(record, "teamSize", 0),
     status: normalizeStatus(readString(record, "status", "pending")),
     totalPrice: readNumber(record, "totalPrice"),
     currency: readString(record, "currency", DEFAULT_CURRENCY),

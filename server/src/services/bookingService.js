@@ -1,7 +1,9 @@
+import { withFieldReservation, validateReservationTime, assertReservationAvailable } from "./reservationService.js";
 import prisma from "../db.cjs";
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  NOTE: Bookings are system-created only.
+// Current: direct bookings and full-lobby bookings do not require a match.
+// Legacy design (retained for reference): bookings were system-created only.
 //  They are generated automatically when a Match is formed (via MatchPost accept
 //  or Lobby auto-match).  Users cannot create bookings directly.
 //
@@ -36,6 +38,7 @@ export async function isSlotFree(fieldId, startTime, endTime, excludeBookingIds 
 // ─── Reads ────────────────────────────────────────────────────────────────────
 
 export const BOOKING_INCLUDE = {
+    lobby: { select: { id: true, teamSize: true, initialSize: true } },
     field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
     match: {
         include: {
@@ -157,4 +160,19 @@ export function haversineKm(loc1, loc2) {
         Math.cos(loc2.lat * Math.PI / 180) *
         Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Direct booking: authenticated user, server price, no match or player count.
+export async function createBooking({ userId, fieldId, startTime, endTime }) {
+    if (!userId) throw new Error("userId is required");
+    return withFieldReservation(prisma, fieldId, async (tx, field) => {
+        const { start, end, totalPrice } = validateReservationTime(field, startTime, endTime);
+        await assertReservationAvailable(tx, fieldId, start, end);
+        return tx.booking.create({
+            data: { userId, fieldId, startTime: start, endTime: end,
+                matchId: null, lobbyId: null, totalPrice,
+                currency: field.metadata?.currency ?? "VND", status: "confirmed", paymentStatus: "unpaid" },
+            include: BOOKING_INCLUDE,
+        });
+    });
 }

@@ -63,13 +63,14 @@ export function FieldSchedulePanel({
     if (selected?.id === b.id) { setSelected(null); return; }
     setSelected(b);
     setShowManual(false);
-    setHomeScore(b.match.homeScore !== null ? String(b.match.homeScore) : "");
-    setAwayScore(b.match.awayScore !== null ? String(b.match.awayScore) : "");
-    setResultNote(b.match.resultNote ?? "");
+    setHomeScore(b.match?.homeScore != null ? String(b.match.homeScore) : "");
+    setAwayScore(b.match?.awayScore != null ? String(b.match.awayScore) : "");
+    setResultNote(b.match?.resultNote ?? "");
   }
 
   async function handleSaveResult() {
-    if (!selected || !saveResult) return;
+    // Legacy: if (!selected || !saveResult) return;
+    if (!selected?.matchId || !saveResult || selected.match?.source !== "post") return;
     const h = Number(homeScore), a = Number(awayScore);
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
       showToast("Enter valid scores.", "error"); return;
@@ -126,12 +127,12 @@ export function FieldSchedulePanel({
   }
 
   const isPast    = (b: ScheduleBooking) => new Date(b.endTime) < new Date();
-  const hasResult = (b: ScheduleBooking) => b.match.homeScore !== null && b.match.awayScore !== null;
+  const hasResult = (b: ScheduleBooking) => b.match?.homeScore != null && b.match?.awayScore != null;
 
   const slotLabel = (b: ScheduleBooking) =>
-    b.match.source === "manual"
-      ? (b.match.resultNote || "Walk-in")
-      : (b.match.matchPost?.team.name ?? `Lobby`);
+    b.match?.source === "manual"
+      ? (b.match?.resultNote || "Walk-in")
+      : (b.match?.matchPost?.team.name ?? b.note ?? (b.lobbyId ? "Lobby" : b.user?.name ?? "Field booking"));
 
   return (
     <div className="space-y-4">
@@ -187,7 +188,7 @@ export function FieldSchedulePanel({
             const { left, width } = slotGeometry(b);
             const done = isPast(b);
             const hasRes = hasResult(b);
-            const isManual = b.match.source === "manual";
+            const isManual = b.match?.source === "manual";
 
             return (
               <button
@@ -210,7 +211,7 @@ export function FieldSchedulePanel({
                 <span className="block truncate leading-tight">{slotLabel(b)}</span>
                 {hasRes && (
                   <span className="block font-mono text-[10px] text-white/80">
-                    {b.match.homeScore}–{b.match.awayScore}
+                    {b.match?.homeScore}–{b.match?.awayScore}
                   </span>
                 )}
               </button>
@@ -276,7 +277,7 @@ export function FieldSchedulePanel({
           </div>
 
           {/* Result form (only for non-manual matches) */}
-          {saveResult && selected.match.source !== "manual" && (
+          {saveResult && selected.matchId && selected.match?.source === "post" && (
             <div className="mt-4 border-t border-stone-200 pt-4">
               <p className="mb-3 text-xs font-semibold uppercase text-stone-500">
                 {hasResult(selected) ? "Update result" : "Record match result"}
