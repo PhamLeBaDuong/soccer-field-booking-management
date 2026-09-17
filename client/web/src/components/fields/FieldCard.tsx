@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n/context";
 import type { Field } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/format";
 
-export function FieldCard({ field }: { field: Field }) {
+export function FieldCard({ field, distanceKm }: { field: Field; distanceKm?: number | null }) {
   const { t } = useI18n();
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-stone-200/75 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_14px_44px_rgba(12,12,12,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.10),0_24px_64px_rgba(12,12,12,0.12)]">
@@ -28,6 +28,12 @@ export function FieldCard({ field }: { field: Field }) {
         <h2 className="text-lg font-semibold tracking-[-0.01em] text-neutral-950">
           {field.name}
         </h2>
+        {distanceKm !== undefined && (
+          <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-green-800">
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {distanceKm === null ? t("fields.distanceUnavailable") : `${distanceKm.toFixed(1)} ${t("fields.kmAway")}`}
+          </p>
+        )}
         {field.complex?.address && (
           <p className="mt-1 flex items-center gap-1 text-xs text-stone-500">
             <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />

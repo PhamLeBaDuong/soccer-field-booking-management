@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { CalendarDays, ChevronDown, MapPinned, Search, SlidersHorizontal } from "lucide-react";
 import { FieldGrid } from "@/components/fields/FieldGrid";
+import { LocationPicker } from "@/components/fields/LocationPicker";
+import { compareFieldDistances, distanceKm, fieldCoordinates, type SortLocation } from "@/lib/utils/location";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Input } from "@/components/ui/Input";
@@ -15,7 +17,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils/cn";
 
 type SurfaceFilter = "all" | "indoor" | "outdoor";
-type SortOption = "name" | "price";
+type SortOption = "name" | "price" | "nearby";
 
 export default function FieldsPage() {
   const router = useRouter();
@@ -27,6 +29,18 @@ export default function FieldsPage() {
   const [date, setDate] = useState(todayInputValue());
   const [sort, setSort] = useState<SortOption>("price");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [location, setLocation] = useState<SortLocation | null>(null);
+  const [locationPicker, setLocationPicker] = useState<"sort" | "change" | null>(null);
+  const distances = useMemo(() => new Map(fields.map((field) => {
+    const coordinates = fieldCoordinates(field);
+    return [field.id, location && coordinates ? distanceKm(location, coordinates) : null] as const;
+  })), [fields, location]);
+  const mapCenter = fields.map(fieldCoordinates).find((point) => point !== null) ?? { lat: 10.7769, lng: 106.7009 };
+
+  function changeSort(next: SortOption) {
+    if (next === "nearby" && !location) setLocationPicker("sort");
+    else setSort(next);
+  }
 
   const activeFilterCount = [
     type !== "all",
@@ -50,11 +64,13 @@ export default function FieldsPage() {
         return matchesSearch && matchesType && matchesSurface;
       })
       .sort((a, b) =>
-        sort === "price"
+        sort === "nearby"
+          ? compareFieldDistances(a, b, distances)
+          : sort === "price"
           ? a.metadata.price - b.metadata.price
           : a.name.localeCompare(b.name),
       );
-  }, [fields, search, sort, surface, type]);
+  }, [fields, search, sort, surface, type, distances]);
 
   return (
     <div className="min-h-screen">
@@ -147,9 +163,10 @@ export default function FieldsPage() {
                   />
                   <label className="block space-y-1.5">
                     <span className="text-sm font-semibold text-neutral-900">{t("fields.sort")}</span>
-                    <select className="select-control" value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
+                    <select className="select-control" value={sort} onChange={(e) => changeSort(e.target.value as SortOption)}>
                       <option value="price">{t("common.price")}</option>
                       <option value="name">{t("fields.sortName")}</option>
+                      <option value="nearby">{t("fields.sortNearby")}</option>
                     </select>
                   </label>
                 </div>
@@ -190,9 +207,10 @@ export default function FieldsPage() {
             />
             <label className="block space-y-1.5">
               <span className="text-sm font-semibold text-neutral-900">{t("fields.sort")}</span>
-              <select className="select-control" value={sort} onChange={(e) => setSort(e.target.value as SortOption)}>
+              <select className="select-control" value={sort} onChange={(e) => changeSort(e.target.value as SortOption)}>
                 <option value="price">{t("common.price")}</option>
                 <option value="name">{t("fields.sortName")}</option>
+                <option value="nearby">{t("fields.sortNearby")}</option>
               </select>
             </label>
           </div>
@@ -201,20 +219,29 @@ export default function FieldsPage() {
 
       {/* Results */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {location && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm">
+            <div role="status">
+              <p className="flex items-center gap-2 font-medium text-green-900"><MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />{t("fields.nearLocation")}: {location.label ?? t(location.source === "current" ? "fields.currentLocation" : "fields.mapPin")}</p>
+              <p className="mt-1 text-green-800">{t("fields.distanceHelp")}</p>
+            </div>
+            <button type="button" className="rounded px-2 py-1 font-semibold text-green-900 underline focus-visible:outline-2" onClick={() => setLocationPicker("change")}>{t("fields.changeLocation")}</button>
+          </div>
+        )}
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase text-stone-500">{t("fields.catalog")}</p>
             <h2 className="mt-1 text-2xl font-semibold text-neutral-950">{t("fields.heading")}</h2>
           </div>
           <p className="hidden text-sm font-medium text-stone-500 sm:block">
-            {t("fields.sortedBy")} {sort === "price" ? t("common.price") : t("fields.sortName")}
+            {t("fields.sortedBy")} {sort === "nearby" ? t("fields.sortNearby") : sort === "price" ? t("common.price") : t("fields.sortName")}
           </p>
         </div>
 
         {error ? (
           <ErrorState message={error} onRetry={refresh} />
         ) : filteredFields.length || loading ? (
-          <FieldGrid fields={filteredFields} loading={loading} />
+          <FieldGrid fields={filteredFields} loading={loading} distances={location ? distances : undefined} />
         ) : (
           <EmptyState
             icon={<span className="text-lg">?</span>}
@@ -224,6 +251,11 @@ export default function FieldsPage() {
           />
         )}
       </div>
+      {locationPicker && <LocationPicker location={location} center={mapCenter} onClose={() => setLocationPicker(null)} onSelect={(selected) => {
+        setLocation(selected);
+        if (locationPicker === "sort") setSort("nearby");
+        setLocationPicker(null);
+      }} />}
     </div>
   );
 }

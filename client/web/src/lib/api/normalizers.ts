@@ -113,8 +113,9 @@ export function normalizeComplex(value: unknown): Complex {
     name: readString(record, "name", "Unnamed Complex"),
     description: readString(record, "description", readString(record, "desc")),
     address: readString(record, "address", "Ho Chi Minh City"),
-    lat: readNumber(record, "lat"),
-    lng: readNumber(record, "lng"),
+    // Preserve the unknown-location sentinel when either coordinate is missing.
+    lat: typeof record.lat === "number" && typeof record.lng === "number" ? record.lat : 0,
+    lng: typeof record.lat === "number" && typeof record.lng === "number" ? record.lng : 0,
     owner: readOwner(record.owner, readString(record, "ownerId", "PitchBook Admin")),
     fieldsCount: Array.isArray(fields) ? fields.length : undefined,
   };
@@ -183,4 +184,3 @@ export function normalizeBooking(value: unknown, fields: Field[] = []): Booking 
     user: isRecord(record.user) ? normalizeUser(record.user) : undefined,
   };
 }
-

@@ -110,6 +110,13 @@ NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_USE_MOCK=false
 ```
 
+Address search uses the Photon geocoder through the web app's `/api/locations`
+route. Users submit an address and choose a result before distances update.
+The default public endpoint is suitable for light usage and has no availability
+guarantee. Set `PHOTON_API_URL` in `client/web/.env.local` to a private or hosted
+Photon-compatible search endpoint for higher traffic. See the
+[Photon service documentation](https://github.com/komoot/photon#demo-server).
+
 ### 3. Create and sync the database
 
 Create the database in PostgreSQL:

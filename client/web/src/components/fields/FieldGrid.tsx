@@ -5,9 +5,11 @@ import type { Field } from "@/lib/types";
 export function FieldGrid({
   fields,
   loading,
+  distances,
 }: {
   fields: Field[];
   loading?: boolean;
+  distances?: ReadonlyMap<string, number | null>;
 }) {
   if (loading) {
     return (
@@ -22,7 +24,7 @@ export function FieldGrid({
   return (
     <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
       {fields.map((field) => (
-        <FieldCard key={field.id} field={field} />
+        <FieldCard key={field.id} field={field} distanceKm={distances ? distances.get(field.id) ?? null : undefined} />
       ))}
     </div>
   );

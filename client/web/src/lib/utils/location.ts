@@ -1,5 +1,33 @@
 import type { Field } from "@/lib/types";
 
+export type Coordinates = { lat: number; lng: number };
+export type SortLocation = Coordinates & { source: "current" | "selected"; label?: string };
+
+export function validCoordinates(point: Coordinates): boolean {
+  return Number.isFinite(point.lat) && Number.isFinite(point.lng)
+    && Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180;
+}
+
+export function fieldCoordinates(field: Field): Coordinates | null {
+  const point = field.complex;
+  return point && validCoordinates(point) && (point.lat !== 0 || point.lng !== 0)
+    ? { lat: point.lat, lng: point.lng } : null;
+}
+
+export function distanceKm(origin: Coordinates, destination: Coordinates): number {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const a = Math.sin(radians(destination.lat - origin.lat) / 2) ** 2
+    + Math.cos(radians(origin.lat)) * Math.cos(radians(destination.lat))
+    * Math.sin(radians(destination.lng - origin.lng) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(Math.max(0, Math.min(1, a))));
+}
+
+export function compareFieldDistances(a: Field, b: Field, distances: ReadonlyMap<string, number | null>): number {
+  const first = distances.get(a.id) ?? Infinity;
+  const second = distances.get(b.id) ?? Infinity;
+  return (first === second ? 0 : first - second) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+}
+
 /**
  * Build a Google Maps directions URL pointing at a field's location.
  *
