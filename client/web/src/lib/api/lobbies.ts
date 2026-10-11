@@ -115,6 +115,13 @@ export async function joinLobby(lobbyId: string): Promise<{ lobby: Lobby }> {
   return { lobby: normalizeLobby(result.lobby) };
 }
 
+export async function cancelLobby(lobbyId: string): Promise<Lobby> {
+  const result = await apiFetch<Record<string, unknown>>(
+    `/api/lobbies/${encodeURIComponent(lobbyId)}`, { method: "DELETE" },
+  );
+  return normalizeLobby(result);
+}
+
 // Legacy implementation retained for review; no longer executed.
 // export async function createLobby(payload: {
 //   fieldId: string;

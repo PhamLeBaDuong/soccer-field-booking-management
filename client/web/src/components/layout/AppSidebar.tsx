@@ -52,7 +52,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-stone-200/70 bg-white/90 shadow-[12px_0_48px_rgba(23,23,23,0.04)] backdrop-blur-xl transition-transform duration-200",
+          "app-sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r border-stone-200/70 bg-white/90 shadow-[12px_0_48px_rgba(23,23,23,0.04)] backdrop-blur-xl transition-[width,transform] duration-200 motion-reduce:transition-none",
           "lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
@@ -60,33 +60,36 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
         {/* Logo */}
         <Link
           href={ROUTES.dashboard}
+          aria-label={APP_NAME}
           onClick={onClose}
           className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-200/70 px-5"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-[8px] bg-neutral-950 text-white shadow-[0_12px_24px_rgba(23,23,23,0.18)]">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] bg-neutral-950 text-white shadow-[0_12px_24px_rgba(23,23,23,0.18)]">
             <Trophy className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span className="text-base font-semibold text-neutral-950">{APP_NAME}</span>
+          <span className="app-sidebar-label whitespace-nowrap text-base font-semibold text-neutral-950">{APP_NAME}</span>
         </Link>
 
         {/* Nav links */}
-        <nav className="grid flex-1 gap-1 overflow-y-auto p-3">
+        <nav className="grid flex-1 gap-1 overflow-x-hidden overflow-y-auto p-3">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.href) && item.href !== ROUTES.home;
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-semibold transition-colors",
+                  "flex min-w-0 items-center gap-3 rounded-[8px] px-4 py-2.5 text-sm font-semibold transition-colors",
                   active
                     ? "bg-neutral-950 text-white hover:bg-neutral-900"
                     : "text-stone-600 hover:bg-stone-100 hover:text-neutral-950",
                 )}
               >
                 <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {item.label}
+                <span className="app-sidebar-label whitespace-nowrap">{item.label}</span>
               </Link>
             );
           })}

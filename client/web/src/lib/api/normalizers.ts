@@ -133,6 +133,7 @@ export function normalizeField(value: unknown, complexes: Complex[] = []): Field
   return {
     id: readString(record, "id"),
     complexId: readString(record, "complexId", complex?.id ?? ""),
+    ownerId: readString(record, "ownerId") || undefined,
     name: readString(record, "name", "Unnamed Field"),
     description: readString(record, "description", readString(record, "desc")),
     address: readString(record, "address", complex?.address ?? "Ho Chi Minh City"),

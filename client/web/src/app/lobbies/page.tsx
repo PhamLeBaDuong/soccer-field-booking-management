@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
 // import { useBookingsContext } from "@/lib/bookings/context"; // Legacy synthetic bookings.
-import { joinLobby as apiJoinLobby } from "@/lib/api/lobbies";
+import { joinLobby as apiJoinLobby, cancelLobby as apiCancelLobby } from "@/lib/api/lobbies";
 import { useLobbies } from "@/hooks/useLobbies";
 import { useJoinedLobbies } from "@/hooks/useJoinedLobbies";
 import type { Booking, Field, Lobby, LobbyStatus } from "@/lib/types";
@@ -48,6 +48,8 @@ export default function LobbiesPage() {
 
   const [filterStatus, setFilterStatus] = useState<LobbyStatus | "all">("all");
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Lobby | null>(null);
+  const [canceling, setCanceling] = useState(false);
 
   // Real-time lobby updates via WebSocket
   useEffect(() => {
@@ -134,6 +136,21 @@ export default function LobbiesPage() {
     }
   }
 
+  async function handleCancel() {
+    if (!cancelTarget || canceling) return;
+    setCanceling(true);
+    try {
+      const canceled = await apiCancelLobby(cancelTarget.id);
+      setLobbies((prev) => prev.map((lobby) => lobby.id === canceled.id ? canceled : lobby));
+      setCancelTarget(null);
+      showToast(t("lobby.cancelSuccess"));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t("lobby.cancelFailed"), "error");
+    } finally {
+      setCanceling(false);
+    }
+  }
+
   function copyText(text: string) {
     navigator.clipboard.writeText(text).then(() => showToast("Copied."));
   }
@@ -150,6 +167,25 @@ export default function LobbiesPage() {
           {t("lobby.subtitle")}
         </p>
       </section>
+
+      <Modal
+        open={!!cancelTarget}
+        size="sm"
+        title={t("lobby.cancel")}
+        onClose={() => { if (!canceling) setCancelTarget(null); }}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={canceling} onClick={() => setCancelTarget(null)}>
+              {t("common.close")}
+            </Button>
+            <Button variant="danger" loading={canceling} onClick={handleCancel}>
+              {t("lobby.cancel")}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-stone-600">{t("lobby.cancelConfirm")}</p>
+      </Modal>
 
       <Modal
         open={!!confirmation}
@@ -229,7 +265,10 @@ export default function LobbiesPage() {
                 <LobbyCard
                   lobby={lobby}
                   hasJoined={joinedIds.includes(lobby.id)}
-                  isOwner={!!user && (lobby.creatorId === user.id || lobby.creatorName === user.name)}
+                  isOwner={lobby.creatorId === user.id}
+                  canCancel={(lobby.creatorId === user.id || lobby.field?.ownerId === user.id)
+                    && lobby.status === "open" && lobby.joinedCount < lobby.teamSize}
+                  onCancel={setCancelTarget}
                   onJoin={handleJoin}
                   onCopy={copyText}
                 />
@@ -245,14 +284,17 @@ export default function LobbiesPage() {
 // ─── Lobby Card ───────────────────────────────────────────────────────────────
 
 function LobbyCard({
-  lobby, hasJoined, isOwner, onJoin, onCopy,
+  lobby, hasJoined, isOwner, canCancel, onJoin, onCopy, onCancel,
 }: {
   lobby: Lobby;
   hasJoined: boolean;
   isOwner: boolean;
+  canCancel: boolean;
+  onCancel: (l: Lobby) => void;
   onJoin: (l: Lobby) => void;
   onCopy: (text: string) => void;
 }) {
+  const { t } = useI18n();
   const filledPct = Math.min(100, (lobby.joinedCount / lobby.teamSize) * 100);
   const isFull    = lobby.status === "full";
   const remaining = Math.max(0, lobby.teamSize - lobby.joinedCount);
@@ -330,7 +372,7 @@ function LobbyCard({
               <p className="text-xs text-stone-500">per hour</p>
             </div>
             <Button
-              disabled={hasJoined || isOwner}
+              disabled={hasJoined || isOwner || lobby.status !== "open"}
               onClick={() => onJoin(lobby)}
               variant={hasJoined ? "secondary" : "primary"}
               title={hasJoined ? "Already joined" : isOwner ? "You created this lobby" : undefined}
@@ -341,6 +383,11 @@ function LobbyCard({
                   ? <><Users className="h-4 w-4" aria-hidden="true" />Join anyway</>
                   : <><Users className="h-4 w-4" aria-hidden="true" />Join</>}
             </Button>
+            {canCancel && (
+              <Button variant="danger" onClick={() => onCancel(lobby)}>
+                {t("lobby.cancel")}
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

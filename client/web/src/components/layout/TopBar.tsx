@@ -24,7 +24,7 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 h-14 border-b border-stone-200/70 bg-white/76 shadow-[0_8px_30px_rgba(23,23,23,0.05)] backdrop-blur-xl lg:pl-64">
+    <header className="fixed inset-x-0 top-0 z-30 h-14 border-b border-stone-200/70 bg-white/76 shadow-[0_8px_30px_rgba(23,23,23,0.05)] backdrop-blur-xl lg:pl-[var(--sidebar-width)]">
       <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6">
         {/* Hamburger (mobile only) */}
         <button

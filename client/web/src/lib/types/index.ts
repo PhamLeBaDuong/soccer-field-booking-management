@@ -22,6 +22,7 @@ export interface Complex {
 
 export interface Field {
   id: string;
+  ownerId?: string;
   complexId: string;
   name: string;
   description: string;

@@ -426,7 +426,7 @@ export async function leaveLobby(lobbyId, userId) {
 
 /**
  * DELETE /api/lobbies/:lobbyId
- * Only the lobby creator can cancel.
+ * The lobby creator or related field owner can cancel an open, unfilled lobby.
  */
 // Legacy implementation retained for review; no longer executed.
 // export async function cancelLobby(lobbyId, requesterId) {
@@ -448,23 +448,26 @@ export async function leaveLobby(lobbyId, userId) {
 
 export async function cancelLobby(lobbyId, requesterId) {
     if (!lobbyId) throw new Error("lobbyId is required");
+    if (!requesterId) throw new Error("requesterId is required");
     const reference = await prisma.lobby.findUnique({ where: { id: lobbyId } });
     if (!reference) throw new Error("Lobby not found");
-    return withFieldReservation(prisma, reference.fieldId, async (tx) => {
-        if (!lobbyId)     throw new Error("lobbyId is required");
-        if (!requesterId) throw new Error("requesterId is required");
-
-        const lobby = await tx.lobby.findUnique({ where: { id: lobbyId } });
+    return withFieldReservation(prisma, reference.fieldId, async (tx, field) => {
+        const lobby = await tx.lobby.findUnique({ where: { id: lobbyId }, include: { slots: true } });
         if (!lobby) throw new Error("Lobby not found");
-        if (lobby.creatorId !== requesterId) throw new Error("Only the lobby creator can cancel this lobby");
-        if (["matched", "confirmed"].includes(lobby.status))  throw new Error("Cannot cancel a lobby that has already been matched");
+        if (lobby.creatorId !== requesterId && field.ownerId !== requesterId) {
+            const error = new Error("Only the lobby creator or field owner can cancel this lobby");
+            error.status = 403;
+            throw error;
+        }
         if (lobby.status === "canceled") throw new Error("Lobby is already canceled");
+        if (lobby.status !== "open" || isLobbyFull(lobby)) {
+            throw new Error("Cannot cancel a lobby that is already full or confirmed");
+        }
 
         return tx.lobby.update({
             where:   { id: lobbyId },
             data:    { status: "canceled" },
             include: LOBBY_INCLUDE,
-    });
-
+        });
     });
 }

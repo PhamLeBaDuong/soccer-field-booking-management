@@ -26,10 +26,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="app-background min-h-screen">
+    <div className="app-shell app-background min-h-screen">
       <AppSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
       <TopBar onMenuClick={() => setDrawerOpen(true)} />
-      <main id="main-content" className="pt-14 lg:pl-64">{children}</main>
+      <main id="main-content" className="pt-14 lg:pl-[var(--sidebar-width)]">{children}</main>
     </div>
   );
 }

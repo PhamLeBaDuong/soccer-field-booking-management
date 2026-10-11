@@ -67,6 +67,41 @@ input:-webkit-autofill:active {
   background: var(--background);
 }
 
+.app-shell {
+  --sidebar-width: 16rem;
+}
+
+@media (min-width: 64rem) and (hover: hover) and (pointer: fine) {
+  .app-shell {
+    --sidebar-width: 5rem;
+  }
+
+  .app-sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .app-sidebar-label {
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .app-sidebar:hover,
+  .app-sidebar:has(:focus-visible) {
+    width: 16rem;
+  }
+
+  .app-sidebar:hover .app-sidebar-label,
+  .app-sidebar:has(:focus-visible) .app-sidebar-label {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar-label {
+    transition: none;
+  }
+}
+
 .pitch-hero-bg {
   background-image:
     linear-gradient(135deg, rgba(4, 8, 6, 0.94) 0%, rgba(6, 11, 8, 0.76) 45%, rgba(8, 13, 10, 0.38) 100%),

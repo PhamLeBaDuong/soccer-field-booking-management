@@ -105,6 +105,62 @@ async function services() {
     return { booking, lobby, post, db, state: () => state };
 }
 
+test("lobby creator and related field owner can cancel an unfilled lobby", async () => {
+    for (const requesterId of ["creator", "host"]) {
+        const app = await services();
+        const { lobby } = await app.lobby.createLobby({ creatorId: "creator", fieldId: "field",
+            startTime, endTime, teamSize: 4 });
+        await app.lobby.joinLobby(lobby.id, "player");
+        const canceled = await app.lobby.cancelLobby(lobby.id, requesterId);
+        assert.equal(canceled.status, "canceled");
+        assert.equal(app.state().bookings.length, 0);
+        await assert.rejects(app.lobby.joinLobby(lobby.id, "new-player"), /already/);
+        await assert.rejects(app.lobby.cancelLobby(lobby.id, requesterId), /already canceled/);
+    }
+});
+
+test("participants and unrelated users cannot cancel a lobby", async () => {
+    const app = await services();
+    const { lobby } = await app.lobby.createLobby({ creatorId: "creator", fieldId: "field",
+        startTime, endTime, teamSize: 4 });
+    await app.lobby.joinLobby(lobby.id, "player");
+    for (const requesterId of ["player", "unrelated-owner"]) {
+        await assert.rejects(app.lobby.cancelLobby(lobby.id, requesterId), error => error.status === 403);
+        assert.equal(app.state().lobbies[0].status, "open");
+    }
+    await assert.rejects(app.lobby.cancelLobby(lobby.id, ""), /requesterId is required/);
+});
+
+test("neither owner can cancel full or confirmed lobbies, including stale open status", async () => {
+    for (const status of ["full", "confirmed", "matched", "open"]) {
+        for (const requesterId of ["creator", "host"]) {
+            const app = await services();
+            const { lobby } = await app.lobby.createLobby({ creatorId: "creator", fieldId: "field",
+                startTime, endTime, teamSize: 2 });
+            app.state().lobbies[0].status = status;
+            app.state().slots.push({ lobbyId: lobby.id, userId: "player" });
+            await assert.rejects(app.lobby.cancelLobby(lobby.id, requesterId), /Cannot cancel/);
+            assert.equal(app.state().lobbies[0].status, status);
+        }
+    }
+});
+
+test("cancellation cannot race a final join into a confirmed lobby", async () => {
+    for (const cancelFirst of [true, false]) {
+        const app = await services();
+        const { lobby } = await app.lobby.createLobby({ creatorId: "creator", fieldId: "field",
+            startTime, endTime, teamSize: 2 });
+        const actions = cancelFirst
+            ? [() => app.lobby.cancelLobby(lobby.id, "host"), () => app.lobby.joinLobby(lobby.id, "player")]
+            : [() => app.lobby.joinLobby(lobby.id, "player"), () => app.lobby.cancelLobby(lobby.id, "host")];
+        const results = await Promise.allSettled(actions.map(action => action()));
+        assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+        const status = app.state().lobbies[0].status;
+        assert.ok(["canceled", "confirmed"].includes(status));
+        assert.equal(app.state().bookings.length, status === "confirmed" ? 2 : 0);
+    }
+});
+
 test("half-hour pricing and overnight operating hours", () => {
     for (const [end, expected] of [["18:30", 100000], ["19:00", 200000], ["19:30", 300000]]) {
         assert.equal(validateReservationTime(field, startTime, "2099-01-01T" + end + ":00Z").totalPrice, expected);

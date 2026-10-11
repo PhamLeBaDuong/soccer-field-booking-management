@@ -2,6 +2,7 @@ import * as lobbyService from "../services/lobbyService.js";
 import { getIO } from "../socket.js";
 
 function handleError(res, error) {
+    if (error.status === 403) return res.status(403).json({ error: error.message });
     const clientPhrases = [
         "required", "not found", "already", "only the lobby creator",
         "cannot leave", "cannot cancel", "is in the past", "must be in the future",
@@ -87,6 +88,15 @@ export async function leaveLobby(req, res) {
 // DELETE /api/lobbies/:lobbyId
 export async function cancelLobby(req, res) {
     try {
-        res.json(await lobbyService.cancelLobby(req.params.lobbyId, req.user.id));
+        const lobby = await lobbyService.cancelLobby(req.params.lobbyId, req.user.id);
+        const io = getIO();
+        if (io) {
+            io.emit("lobby:updated", {
+                id: lobby.id,
+                joinedCount: (lobby.initialSize ?? 1) + (lobby.slots?.length ?? 0),
+                status: lobby.status,
+            });
+        }
+        res.json(lobby);
     } catch (error) { handleError(res, error); }
 }
