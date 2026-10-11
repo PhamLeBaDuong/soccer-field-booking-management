@@ -16,6 +16,7 @@ import {
   combineDateAndTime,
   durationHours,
   formatCurrency,
+  nextCalendarDate,
   timeToMinutes,
   todayInputValue,
 } from "@/lib/utils/format";
@@ -42,7 +43,7 @@ export function BookingForm({ field }: { field: Field }) {
 
   // If the selected end time wraps past midnight (overnight field), use the next calendar day
   const endDate  = start && end && timeToMinutes(end) < timeToMinutes(start)
-    ? (() => { const d = new Date(`${date}T00:00:00`); d.setDate(d.getDate() + 1); return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"), String(d.getDate()).padStart(2, "0")].join("-"); })()
+    ? nextCalendarDate(date)
     : date;
   const startIso = start ? combineDateAndTime(date, start) : "";
   const endIso   = end   ? combineDateAndTime(endDate, end) : "";

@@ -13,6 +13,7 @@ export function formatDateTime(value: string): string {
   }
 
   return new Intl.DateTimeFormat("en", {
+    timeZone: "UTC",
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -30,16 +31,19 @@ export function formatDateRange(startTime: string, endTime: string): string {
   }
 
   const date = new Intl.DateTimeFormat("en", {
+    timeZone: "UTC",
     weekday: "short",
     month: "short",
     day: "numeric",
   }).format(start);
   const startLabel = new Intl.DateTimeFormat("en", {
+    timeZone: "UTC",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(start);
   const endLabel = new Intl.DateTimeFormat("en", {
+    timeZone: "UTC",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -90,7 +94,15 @@ export function minutesToTime(value: number): string {
 }
 
 export function combineDateAndTime(date: string, time: string): string {
-  return new Date(`${date}T${time}:00`).toISOString();
+  // Match field operating hours and manual bookings: UTC stores the selected
+  // field clock value without applying the browser's timezone offset.
+  return new Date(`${date}T${time}:00.000Z`).toISOString();
+}
+
+export function nextCalendarDate(date: string): string {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
 }
 
 export function durationHours(startTime: string, endTime: string): number {

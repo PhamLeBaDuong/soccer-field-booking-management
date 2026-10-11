@@ -37,6 +37,7 @@ import {
   combineDateAndTime,
   formatCurrency,
   formatDateRange,
+  nextCalendarDate,
   timeToMinutes,
   todayInputValue,
 } from "@/lib/utils/format";
@@ -146,7 +147,7 @@ function MatchingContent() {
     // Handle overnight fields: if end time < start time, booking ends next calendar day
     const endDate =
       timeToMinutes(form.end) < timeToMinutes(form.start)
-        ? (() => { const d = new Date(`${form.date}T00:00:00`); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })()
+        ? nextCalendarDate(form.date)
         : form.date;
 
     try {
