@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Crown, Mail, Plus, Search, Trash2, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { TeamInvitationLink } from "@/components/invitations/TeamInvitationLink";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -20,6 +21,7 @@ import { useTeams } from "@/hooks/useTeams";
 import { useI18n } from "@/lib/i18n/context";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
+import { getInitials } from "@/lib/utils/format";
 
 type CreateForm = { name: string; size: string };
 
@@ -288,6 +290,9 @@ export default function TeamsPage() {
                 </div>
 
                 {/* Stats */}
+                <div className="mt-4">
+                  <TeamInvitationLink key={activeTeam.id} teamId={activeTeam.id} />
+                </div>
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   {[
                     { label: t("teams.format"),  value: `${activeTeam.size}v${activeTeam.size}` },
@@ -299,12 +304,6 @@ export default function TeamsPage() {
                       <p className="mt-1 text-lg font-semibold text-neutral-950">{s.value}</p>
                     </div>
                   ))}
-                </div>
-
-                {/* Team ID */}
-                <div className="mt-4 rounded-[8px] bg-stone-50 px-3 py-2 ring-1 ring-stone-200">
-                  <p className="text-xs font-semibold text-stone-500">{t("teams.teamId")}</p>
-                  <p className="mt-0.5 break-all font-mono text-xs text-neutral-700">{activeTeam.id}</p>
                 </div>
 
                 {/* Members */}
@@ -382,29 +381,28 @@ function MemberList({ team, currentUserId, onRemove, t }: {
 
   return (
     <div className="mt-3 grid gap-2">
-      <div className="flex items-center justify-between rounded-[8px] border border-stone-200 bg-white/80 px-3 py-2">
+      {(team.members ?? []).map(member => <div key={member.userId} className="flex items-center justify-between rounded-[8px] border border-stone-200 bg-white/80 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-full bg-stone-950 text-xs font-semibold text-white">
-            {currentUserId === team.leaderId ? "Y" : "?"}
+            {getInitials(member.name)}
           </span>
           <span className="text-sm font-medium text-neutral-950">
-            {currentUserId === team.leaderId ? t("teams.youLeader") : t("teams.teamLeader")}
+            {member.name}
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+          {member.userId === team.leaderId && <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
             <Crown className="h-3 w-3" aria-hidden="true" />{t("teams.leader")}
-          </span>
+          </span>}
         </div>
-      </div>
-
-      {memberCount > 1 && (
-        <p className="rounded-[8px] bg-stone-50 px-3 py-2 text-xs text-stone-500 ring-1 ring-stone-100">
-          +{memberCount - 1} {t("teams.otherMembers")} · {t("teams.shareIdHint")}
-        </p>
-      )}
+        {member.userId !== team.leaderId && (currentUserId === team.leaderId || member.userId === currentUserId) && (
+          <Button size="sm" variant="ghost" onClick={() => onRemove(member.userId)} aria-label={`${t("teams.removeMember")} ${member.name}`}>
+            <UserMinus className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
+      </div>)}
 
       {memberCount < team.size && (
         <p className="rounded-[8px] bg-blue-50 px-3 py-2 text-xs text-blue-700 ring-1 ring-blue-100">
-          {team.size - memberCount} {t("teams.openSlots")} — {t("teams.shareIdToAdd")} ({team.id}) {t("teams.withPlayers")}
+          {team.size - memberCount} {t("teams.openSlots")}
         </p>
       )}
     </div>

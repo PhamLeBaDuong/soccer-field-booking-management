@@ -198,13 +198,13 @@ export async function acceptMatchPost(postId, {
     endTime: overrideEnd,
     code,
     requesterId,
-}) {
+}, db = prisma) {
     if (!postId)         throw new Error("postId is required");
     if (!acceptingTeamId) throw new Error("acceptingTeamId is required");
     if (!requesterId)    throw new Error("requesterId is required");
 
     // ── Fetch post ──────────────────────────────────────────────────────────
-    const post = await prisma.matchPost.findUnique({
+    const post = await db.matchPost.findUnique({
         where:   { id: postId },
         include: {
             team: { include: { members: { include: { user: { select: { id: true } } } } } },
@@ -221,7 +221,7 @@ export async function acceptMatchPost(postId, {
     }
 
     // ── Fetch accepting team ────────────────────────────────────────────────
-    const acceptingTeam = await prisma.team.findUnique({
+    const acceptingTeam = await db.team.findUnique({
         where:   { id: acceptingTeamId },
         include: { members: { include: { user: { select: { id: true } } } } },
     });
@@ -251,7 +251,7 @@ export async function acceptMatchPost(postId, {
     if (!free) throw new Error("The requested time slot is already booked on this field");
 
     // ── Fetch field for price ───────────────────────────────────────────────
-    const field = await prisma.field.findUnique({ where: { id: resolvedFieldId } });
+    const field = await db.field.findUnique({ where: { id: resolvedFieldId } });
     if (!field) throw new Error("Field not found");
 
     // ── Build user lists ────────────────────────────────────────────────────
@@ -267,7 +267,7 @@ export async function acceptMatchPost(postId, {
     const totalPrice = field.pricePerHour * Math.max(0, durationHours);
 
     // Legacy: const match = await prisma.$transaction(async (tx) => {
-    const match = await withFieldReservation(prisma, resolvedFieldId, async (tx, lockedField) => {
+    const match = await withFieldReservation(db, resolvedFieldId, async (tx, lockedField) => {
         const times = validateReservationTime(lockedField, resolvedStart, resolvedEnd);
         await assertReservationAvailable(tx, resolvedFieldId, times.start, times.end);
         const claimed = await tx.matchPost.updateMany({ where: { id: postId, status: "open" }, data: { status: "matched" } });
@@ -304,7 +304,7 @@ export async function acceptMatchPost(postId, {
         return newMatch;
     });
 
-    return prisma.match.findUnique({
+    return db.match.findUnique({
         where:   { id: match.id },
         include: {
             matchPost: { include: POST_INCLUDE },

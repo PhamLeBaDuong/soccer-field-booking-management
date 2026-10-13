@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { AtSign, LockKeyhole, Phone, Trophy, UserRound, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { DemoAccountNotice } from "@/components/auth/DemoAccountNotice";
 import { useAuth } from "@/lib/auth/hooks";
 import { APP_NAME, ROUTES } from "@/lib/constants";
+import { authDestination, getAuthReturnTo } from "@/lib/auth/returnTo";
 import { cn } from "@/lib/utils/cn";
 import type { RegisterPayload } from "@/lib/types";
 
@@ -43,6 +45,7 @@ const strengthMeta: { label: string; color: string }[] = [
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [returnTo, setReturnTo] = useState<string>(ROUTES.dashboard);
   const { user, loading, register } = useAuth();
   const [form, setForm] = useState<RegisterForm>(initialForm);
   const [errors, setErrors] = useState<RegisterErrors>({});
@@ -53,8 +56,10 @@ export default function RegisterPage() {
   const strength = passwordStrength(form.password);
 
   useEffect(() => {
+    const destination = getAuthReturnTo();
+    setReturnTo(destination);
     if (!loading && user) {
-      router.replace(ROUTES.dashboard);
+      router.replace(destination);
     }
   }, [loading, router, user]);
 
@@ -116,7 +121,7 @@ export default function RegisterPage() {
         phone: form.phone,
         password: form.password,
       });
-      router.push(ROUTES.dashboard);
+      router.replace(getAuthReturnTo());
     } catch (caught) {
       setApiError(caught instanceof Error ? caught.message : "Registration failed.");
     } finally {
@@ -165,6 +170,7 @@ export default function RegisterPage() {
               Join PitchBook and start booking in seconds.
             </p>
 
+            <DemoAccountNotice />
             {apiError ? (
               <div className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {apiError}
@@ -265,7 +271,7 @@ export default function RegisterPage() {
               Already have an account?{" "}
               <Link
                 className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
-                href={ROUTES.login}
+                href={authDestination(ROUTES.login, returnTo)}
               >
                 Sign in
               </Link>

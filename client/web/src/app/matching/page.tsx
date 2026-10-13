@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
+import { InvitationLink } from "@/components/invitations/TeamInvitationLink";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -412,6 +413,7 @@ function MatchingContent() {
                 activeTeam={activeTeam}
                 isOwner={post.teamId === activeTeamId}
                 hasAccepted={acceptedIds.includes(post.id)}
+                canInvite={teams.some(team => team.id === post.teamId && team.leaderId === user.id)}
                 onAccept={handleAccept}
                 onCopy={copyText}
               />
@@ -426,12 +428,13 @@ function MatchingContent() {
 // ─── Match Post Card ──────────────────────────────────────────────────────────
 
 function MatchPostCard({
-  post, activeTeam, isOwner, hasAccepted, onAccept, onCopy,
+  post, activeTeam, isOwner, hasAccepted, canInvite, onAccept, onCopy,
 }: {
   post: MatchRequest;
   activeTeam?: Team;
   isOwner: boolean;
   hasAccepted: boolean;
+  canInvite: boolean;
   onAccept: (p: MatchRequest) => void;
   onCopy: (text: string) => void;
 }) {
@@ -506,6 +509,7 @@ function MatchPostCard({
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               {hasAccepted ? "Accepted" : post.status === "matched" ? "Matched" : "Accept"}
             </Button>
+            {canInvite && <div className="w-full min-w-0 md:max-w-sm"><InvitationLink kind="match" targetId={post.id} /></div>}
           </div>
         </div>
       </CardContent>

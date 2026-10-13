@@ -1,5 +1,6 @@
 import { API_BASE_URL, ROUTES } from "@/lib/constants";
 import type { ApiError } from "@/lib/types";
+import { authDestination } from "@/lib/auth/returnTo";
 
 type ErrorBody = {
   error?: string;
@@ -40,7 +41,7 @@ function handleUnauthorized(): void {
 
   localStorage.removeItem("token");
   if (!window.location.pathname.startsWith(ROUTES.login)) {
-    window.location.assign(ROUTES.login);
+    window.location.assign(authDestination(ROUTES.login, window.location.pathname + window.location.search));
   }
 }
 

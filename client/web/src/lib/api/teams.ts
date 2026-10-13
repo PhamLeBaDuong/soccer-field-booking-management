@@ -13,6 +13,12 @@ export function normalizeTeam(raw: Record<string, unknown>): Team {
     rating:       Number(raw.rating ?? 0),
     leaderId:     String(raw.leaderId ?? ""),
     membersCount: members.length,
+    members: members.map((value: unknown) => {
+      const member = value as Record<string, unknown>;
+      const user = (member.user ?? {}) as Record<string, unknown>;
+      return { userId: String(member.userId ?? user.id ?? ""),
+        name: String(user.name ?? user.username ?? "Player"), username: String(user.username ?? "") };
+    }),
   };
 }
 

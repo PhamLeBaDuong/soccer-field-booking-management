@@ -336,11 +336,11 @@ export async function listLobbies({ fieldId, status, teamSize } = {}) {
 //     return { lobby: updatedLobby, match };
 // }
 
-export async function joinLobby(lobbyId, userId) {
+export async function joinLobby(lobbyId, userId, db = prisma) {
     if (!lobbyId || !userId) throw new Error("lobbyId and userId are required");
-    const reference = await prisma.lobby.findUnique({ where: { id: lobbyId } });
+    const reference = await db.lobby.findUnique({ where: { id: lobbyId } });
     if (!reference) throw new Error("Lobby not found");
-    return withFieldReservation(prisma, reference.fieldId, async (tx, field) => {
+    return withFieldReservation(db, reference.fieldId, async (tx, field) => {
         const lobby = await tx.lobby.findUnique({ where: { id: lobbyId }, include: LOBBY_INCLUDE });
         if (!lobby) throw new Error("Lobby not found");
         if (lobby.status !== "open") throw new Error("This lobby is already " + lobby.status);

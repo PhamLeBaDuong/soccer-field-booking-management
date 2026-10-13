@@ -1,0 +1,61 @@
+{
+  "screenshots": [
+    {
+      "name": "01-guest",
+      "caption": "A signed-out visitor sees the team invitation and login/register choices."
+    },
+    {
+      "name": "02-after-registration",
+      "caption": "Registration signs the visitor in and returns directly to Accept or Decline."
+    },
+    {
+      "name": "03-team-accepted",
+      "caption": "An explicit acceptance adds the new account to the team."
+    },
+    {
+      "name": "03a-team-management",
+      "caption": "Team details show the single permanent invitation link with a Copy button."
+    },
+    {
+      "name": "03b-new-team",
+      "caption": "A new user without a team creates one within the match invitation, then can accept."
+    },
+    {
+      "name": "04-match-choice",
+      "caption": "An existing user logs in, returns to the match request, and chooses a team they lead."
+    },
+    {
+      "name": "05-match-accepted",
+      "caption": "Accepting the request creates the match and participant bookings."
+    },
+    {
+      "name": "06-lobby-joined",
+      "caption": "The lobby link joins the signed-in player using the normal capacity checks."
+    },
+    {
+      "name": "07-declined",
+      "caption": "Declining records the response without creating a membership or booking."
+    },
+    {
+      "name": "08-closed",
+      "caption": "Links keep their URL but a canceled match request blocks acceptance."
+    },
+    {
+      "name": "09-mobile",
+      "caption": "The invitation is usable on a narrow mobile screen."
+    },
+    {
+      "name": "10-owner-link",
+      "caption": "The owner sees the same permanent team URL; there is no invitation management dialog."
+    },
+    {
+      "name": "11-lobby-link",
+      "caption": "The lobby creator sees one stable join URL with a Copy button."
+    },
+    {
+      "name": "12-match-link",
+      "caption": "The posting team's leader sees one stable match-request URL with a Copy button."
+    }
+  ],
+  "passed": true
+}

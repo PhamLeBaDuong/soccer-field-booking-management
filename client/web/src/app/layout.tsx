@@ -27,7 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${appFont.variable} antialiased`}>
+      {/* Writing extensions can inject attributes directly onto body before hydration. */}
+      <body className={`${appFont.variable} antialiased`} suppressHydrationWarning>
         <I18nProvider>
           <AuthProvider>
             <BookingsProvider>

@@ -1,0 +1,17 @@
+{
+  "screenshots": [
+    {
+      "name": "01-account-explanation",
+      "caption": "A non-demo account is rejected with an explanation and sample sign-in details."
+    },
+    {
+      "name": "02-player-signed-in",
+      "caption": "player / demo123 signs in successfully and opens My teams."
+    },
+    {
+      "name": "02-owner-signed-in",
+      "caption": "owner / demo123 signs in successfully and opens My teams."
+    }
+  ],
+  "passed": true
+}

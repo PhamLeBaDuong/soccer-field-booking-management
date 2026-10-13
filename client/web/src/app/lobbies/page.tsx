@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { InvitationLink } from "@/components/invitations/TeamInvitationLink";
 import { Card, CardContent } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -388,6 +389,7 @@ function LobbyCard({
                 {t("lobby.cancel")}
               </Button>
             )}
+            {isOwner && <div className="w-full min-w-0 md:max-w-sm"><InvitationLink kind="lobby" targetId={lobby.id} /></div>}
           </div>
         </div>
       </CardContent>

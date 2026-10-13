@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { LockKeyhole, LogIn, Trophy, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { DemoAccountNotice } from "@/components/auth/DemoAccountNotice";
 import { useAuth } from "@/lib/auth/hooks";
 import { APP_NAME, ROUTES } from "@/lib/constants";
+import { authDestination, getAuthReturnTo } from "@/lib/auth/returnTo";
 
 type LoginErrors = {
   identifier?: string;
@@ -16,6 +18,7 @@ type LoginErrors = {
 
 export default function LoginPage() {
   const router = useRouter();
+  const [returnTo, setReturnTo] = useState<string>(ROUTES.dashboard);
   const { user, loading, login } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -25,8 +28,10 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    const destination = getAuthReturnTo();
+    setReturnTo(destination);
     if (!loading && user) {
-      router.replace(ROUTES.dashboard);
+      router.replace(destination);
     }
   }, [loading, router, user]);
 
@@ -68,7 +73,7 @@ export default function LoginPage() {
     setApiError("");
     try {
       await login(identifier, password);
-      router.push(ROUTES.dashboard);
+      router.replace(getAuthReturnTo());
     } catch (caught) {
       setApiError(caught instanceof Error ? caught.message : "Login failed.");
     } finally {
@@ -117,6 +122,7 @@ export default function LoginPage() {
               Welcome back — enter your credentials below.
             </p>
 
+            <DemoAccountNotice />
             {apiError ? (
               <div className="mt-5 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
                 {apiError}
@@ -155,7 +161,7 @@ export default function LoginPage() {
               Don&apos;t have an account?{" "}
               <Link
                 className="font-semibold text-neutral-950 underline-offset-4 hover:underline"
-                href={ROUTES.register}
+                href={authDestination(ROUTES.register, returnTo)}
               >
                 Create one
               </Link>

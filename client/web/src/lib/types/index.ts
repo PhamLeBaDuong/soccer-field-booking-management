@@ -145,6 +145,7 @@ export interface Team {
   rating: number;
   leaderId: string;
   membersCount: number;
+  members?: { userId: string; name: string; username: string }[];
 }
 
 export interface MatchRequest {

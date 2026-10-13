@@ -2,6 +2,35 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Each target has a stable URL. Match requests still allow only one opponent.
+model ShareInvitation {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  teamKey    String?  @unique
+  token      String?
+  kind       String
+  targetId   String
+  createdById String
+  status     String   @default("pending")
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  responses  ShareInvitationResponse[]
+
+  @@index([kind, targetId])
+}
+
+model ShareInvitationResponse {
+  id           String @id @default(uuid())
+  invitationId String
+  invitation   ShareInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  userId       String
+  decision     String
+  resultId     String?
+  createdAt    DateTime @default(now())
+
+  @@unique([invitationId, userId])
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

@@ -4,6 +4,7 @@
   "description": "Full-stack soccer field booking and match coordination app.",
   "main": "index.js",
   "scripts": {
+    "demo:invitations": "node --experimental-vm-modules server/demo/invitations.js",
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client/web\" --names \"api,web\" --prefix-colors \"green,blue\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

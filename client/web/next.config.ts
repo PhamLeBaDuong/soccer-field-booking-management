@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.INVITATION_DEMO_DIST_DIR ?? ".next",
   output: "standalone",
   async rewrites() {
     return [
