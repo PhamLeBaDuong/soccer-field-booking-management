@@ -7,7 +7,7 @@ Every team, lobby and match request has one stable invitation URL displayed dire
 - Lobby links allow multiple joins until capacity is reached, the lobby starts, or it is canceled.
 - Links have no expiry and are retained so their URL can be displayed again. A lobby or match that has started, filled, matched or been canceled still blocks further acceptance. Tokens contain 256 bits of randomness; their SHA-256 hashes support lookup.
 - Acceptance and its response record share a database transaction. Invitation rows serialize repeated acceptance; team rows serialize capacity across different links. Existing field locks and match/lobby checks handle reservation conflicts.
-- Already-joined users and expired/revoked/used links receive clear status messages. Match acceptance requires a compatible team led by the recipient; team creation is available within the invitation page.
+- Already-joined users and expired/revoked/used links receive clear status messages. Posting and accepting a match require full rosters using existing Team size and TeamMember records. The leader counts once. Both teams are rechecked under team locks at acceptance, and incomplete teams create no match, booking, or acceptance response. The invitation shows player counts and directs users to recruit on the team page. Its URL remains usable after the roster fills again.
 - Existing direct team invitations still work.
 - Match requests remain open after creation. Matches and participant bookings are created only by explicit acceptance. The posting team's leader can cancel an open request from its card, with confirmation. Canceling a request disables acceptance through its stable link; matched requests cannot be canceled through this action.
 

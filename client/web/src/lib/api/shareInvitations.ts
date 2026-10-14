@@ -5,7 +5,7 @@ export type Invitation = {
   id: string; kind: InvitationKind; status: string; expiresAt: string | null; permanent?: boolean;
   alreadyJoined: boolean;
   response: { decision: "accepted" | "declined"; resultId: string | null } | null;
-  detail: { ownerId: string; title: string; size: number; count?: number;
+  detail: { ownerId: string; title: string; size: number; count?: number; membersCount?: number;
     teamId?: string; status: string; fieldId?: string; fieldName?: string; startTime?: string; endTime?: string; timeZone?: string };
 };
 export const getPermanentResourceLink = (kind: InvitationKind, targetId: string) =>

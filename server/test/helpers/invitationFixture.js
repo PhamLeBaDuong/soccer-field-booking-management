@@ -3,7 +3,7 @@ import vm from "node:vm";
 import { createHash, randomBytes } from "node:crypto";
 
 // Actual services with isolated sample data. Never imports db.cjs or reads .env.
-export async function invitationFixture() {
+export async function invitationFixture({ fullTeams = false } = {}) {
     let state = { invitations: [], responses: [], teams: [
         { id: "team", name: "PitchBook United", leaderId: "owner", size: 5, members: [{ userId: "owner", user: { id: "owner" } }] },
         { id: "opponent", name: "Riverside FC", leaderId: "player", size: 5, members: [{ userId: "player", user: { id: "player" } }] },
@@ -13,6 +13,14 @@ export async function invitationFixture() {
         preferredStartTime: new Date("2099-10-13T15:30Z"), preferredEndTime: new Date("2099-10-13T17:00Z") }], matches: [] };
     const field = { id: "field", name: "Central Pitch", ownerId: "owner", pricePerHour: 100,
         startTime: new Date("2000-01-01T06:00Z"), endTime: new Date("2000-01-01T22:00Z") };
+    if (fullTeams) {
+        for (const team of state.teams) {
+            for (let index = 1; index < team.size; index++) {
+                const userId = `${team.id}-player-${index}`;
+                team.members.push({ userId, user: { id: userId } });
+            }
+        }
+    }
     let queue = Promise.resolve(), sequence = 0;
     const matches = (row, where = {}) => Object.entries(where).every(([key, value]) => {
         if (key === "OR") return value.some(part => matches(row, part));

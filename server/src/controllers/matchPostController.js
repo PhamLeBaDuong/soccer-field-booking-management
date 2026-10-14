@@ -2,6 +2,7 @@ import * as matchPostService from "../services/matchPostService.js";
 import { getIO } from "../socket.js";
 
 function handleError(res, error) {
+    if (error.status === 400) return res.status(400).json({ error: error.message });
     if (error.status === 403) return res.status(403).json({ error: error.message });
     const clientPhrases = [
         "required", "not found", "already", "only the", "mismatch",

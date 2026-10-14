@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth/hooks";
 import { authDestination } from "@/lib/auth/returnTo";
 import { getInvitation, respondInvitation, type Invitation } from "@/lib/api/shareInvitations";
 import { apiFetch } from "@/lib/api/client";
-import { normalizeTeam, createTeam } from "@/lib/api/teams";
+import { normalizeTeam } from "@/lib/api/teams";
 import { normalizeField } from "@/lib/api/normalizers";
 import { formatDateRange, combineDateAndTime, nextCalendarDate, todayInputValue } from "@/lib/utils/format";
 import { Button } from "@/components/ui/Button";
@@ -19,7 +19,6 @@ export default function InvitationPage() {
   const [invite, setInvite] = useState<Invitation | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamId, setTeamId] = useState("");
-  const [teamName, setTeamName] = useState("");
   const [fields, setFields] = useState<Field[]>([]);
   const [fieldId, setFieldId] = useState("");
   const [date, setDate] = useState("");
@@ -70,16 +69,10 @@ export default function InvitationPage() {
     } catch (err) { setError(err instanceof Error ? err.message : "Unable to respond."); }
     finally { setBusy(false); }
   }
-  async function makeTeam() {
-    if (!invite || busy) return;
-    setBusy(true); setTeamError("");
-    try {
-      const team = await createTeam({ name: teamName.trim(), size: invite.detail.size });
-      await loadTeams(); setTeamId(team.id); setTeamName("");
-    } catch (err) { setTeamError(err instanceof Error ? err.message : "Unable to create team."); }
-    finally { setBusy(false); }
-  }
   const eligibleTeams = teams.filter(team => team.id !== invite?.detail.teamId && team.size === invite?.detail.size);
+  const selectedTeam = eligibleTeams.find(team => team.id === teamId);
+  const teamReady = !!selectedTeam && selectedTeam.membersCount >= selectedTeam.size;
+  const postingTeamReady = (invite?.detail.membersCount ?? 0) >= (invite?.detail.size ?? 1);
   const labels = invite?.kind === "team" ? { title: "Team invitation", accept: "Accept invitation", destination: "/teams" }
     : invite?.kind === "match" ? { title: "Match invitation", accept: "Accept match", destination: "/bookings" }
     : { title: "Lobby invitation", accept: "Join lobby", destination: "/lobbies" };
@@ -89,7 +82,7 @@ export default function InvitationPage() {
       <h1 className="mt-4 text-2xl font-semibold">{labels.title}</h1>
       {(loading || authLoading) ? <p className="mt-4" role="status">Loading invitation…</p> : invite && <>
         <h2 className="mt-4 text-xl font-semibold">{invite.detail.title}</h2>
-        <p className="mt-2 text-sm text-stone-600">{invite.kind === "lobby" ? `${invite.detail.count}/${invite.detail.size} players` : `${invite.detail.size}v${invite.detail.size} team`}</p>
+        <p className="mt-2 text-sm text-stone-600">{invite.kind === "lobby" ? `${invite.detail.count}/${invite.detail.size} players` : invite.kind === "match" ? `${invite.detail.size}v${invite.detail.size} · ${invite.detail.membersCount ?? 0}/${invite.detail.size} players` : `${invite.detail.size}v${invite.detail.size} team`}</p>
         {invite.detail.fieldName && <p className="mt-1 text-sm">{invite.detail.fieldName}</p>}
         {invite.detail.startTime && invite.detail.endTime && <p className="mt-2 text-sm">{formatDateRange(invite.detail.startTime, invite.detail.endTime, invite.detail.timeZone)}</p>}
         {response ? <div className="mt-6" role="status">
@@ -110,16 +103,17 @@ export default function InvitationPage() {
             </div>
           </div> : <div className="mt-6 space-y-4">
             {invite.kind === "match" && <>
+              {!postingTeamReady && <p role="status" className="text-sm text-amber-700">The posting team needs {invite.detail.size} players ({invite.detail.membersCount ?? 0}/{invite.detail.size} joined).</p>}
               {eligibleTeams.length > 0 ? <label className="block text-sm font-semibold">Accept with your team
                 <select className="mt-2 w-full rounded-lg border p-2" value={teamId} onChange={e => setTeamId(e.target.value)}>
                   <option value="">Choose a team you lead</option>
-                  {eligibleTeams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                  {eligibleTeams.map(team => <option key={team.id} value={team.id} disabled={team.membersCount < team.size}>{team.name} · {team.membersCount}/{team.size} players</option>)}
                 </select>
               </label> : <div className="space-y-3">
-                <p className="text-sm text-stone-600">You need a {invite.detail.size}v{invite.detail.size} team that you lead. Create one here, then accept the match.</p>
-                <Input label="Team name" value={teamName} onChange={e => setTeamName(e.target.value)} />
-                <Button variant="secondary" loading={busy} disabled={!teamName.trim()} onClick={makeTeam}>Create team</Button>
+                <p className="text-sm text-stone-600">You need a team you lead with {invite.detail.size} players.</p>
               </div>}
+              {!eligibleTeams.some(team => team.membersCount >= team.size) && <Link className="inline-block text-sm font-semibold underline" href="/teams">Recruit players</Link>}
+              <Button variant="secondary" disabled={busy} onClick={() => { void loadTeams(); void refresh(); }}>Refresh teams</Button>
               {teamError && <div><p role="alert" className="text-sm text-red-700">{teamError}</p><Button variant="secondary" onClick={loadTeams}>Retry teams</Button></div>}
               {!invite.detail.fieldId && <label className="block text-sm font-semibold">Field
                 <select className="mt-2 w-full rounded-lg border p-2" value={fieldId} onChange={e => setFieldId(e.target.value)}>
@@ -133,7 +127,7 @@ export default function InvitationPage() {
               </div>}
             </>}
             <div className="flex flex-wrap gap-3">
-              <Button loading={busy} disabled={invite.kind === "match" && (!eligibleTeams.some(team => team.id === teamId)
+              <Button loading={busy} disabled={invite.kind === "match" && (!teamReady || !postingTeamReady
                 || (!invite.detail.fieldId && !fieldId) || (!invite.detail.startTime && !(date && start))
                 || (!invite.detail.endTime && !(date && end)))} onClick={() => respond("accepted")}>{labels.accept}</Button>
               <Button variant="secondary" disabled={busy} onClick={() => respond("declined")}>Decline invitation</Button>

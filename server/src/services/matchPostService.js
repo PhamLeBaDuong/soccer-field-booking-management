@@ -21,6 +21,17 @@ function generateCode() {
     return randomBytes(4).toString("hex").toUpperCase(); // e.g. "A3F9C2B1"
 }
 
+function teamPlayerIds(team) {
+    return [...new Set(team.members.map(member => member.userId ?? member.user?.id).filter(Boolean))];
+}
+
+function assertTeamReady(team, role) {
+    const count = teamPlayerIds(team).length;
+    if (count < team.size) {
+        throw Object.assign(new Error(`${role} team needs ${team.size} players (${count}/${team.size} joined)`), { status: 400 });
+    }
+}
+
 /**
  * Validates that a given slot (field + start/end) is in the future.
  * Throws if the slot has already passed.
@@ -82,6 +93,7 @@ export async function createMatchPost({
         });
         if (!team) throw new Error("Team not found");
         if (team.leaderId !== requesterId) throw new Error("Only the team leader can post a match request");
+        assertTeamReady(team, "Posting");
 
         // Validate field exists if provided
         if (fieldId) {
@@ -271,20 +283,24 @@ export async function acceptMatchPost(postId, {
     const field = await db.field.findUnique({ where: { id: resolvedFieldId } });
     if (!field) throw new Error("Field not found");
 
-    // ── Build user lists ────────────────────────────────────────────────────
-    const postTeamUserIds      = post.team.members.map(m => m.user.id);
-    const acceptingTeamUserIds = acceptingTeam.members.map(m => m.user.id);
-
-    // Deduplicate (edge case: same user in both teams)
-    const allUserIds = [...new Set([...postTeamUserIds, ...acceptingTeamUserIds])];
-
     // ── Create Match + Bookings in one transaction ──────────────────────────
     const match = await withFieldReservation(db, resolvedFieldId, async (tx, lockedField) => {
         const times = validateReservationTime(lockedField, resolvedStart, resolvedEnd);
         for (const teamId of [post.teamId, acceptingTeamId].sort()) {
             await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+        }
+        // Recheck current rosters under the locks used by membership changes.
+        const postingTeam = await tx.team.findUnique({ where: { id: post.teamId }, include: { members: true } });
+        const currentAcceptingTeam = await tx.team.findUnique({ where: { id: acceptingTeamId }, include: { members: true } });
+        if (!postingTeam || !currentAcceptingTeam) throw new Error("Team not found");
+        if (currentAcceptingTeam.leaderId !== requesterId) throw new Error("Only the accepting team's leader can accept a match post");
+        if (postingTeam.size !== currentAcceptingTeam.size) throw new Error("Team size mismatch");
+        assertTeamReady(postingTeam, "Posting");
+        assertTeamReady(currentAcceptingTeam, "Accepting");
+        for (const teamId of [post.teamId, acceptingTeamId].sort()) {
             await assertTeamSlotAvailable(tx, teamId, times.start, times.end, postId);
         }
+        const allUserIds = [...new Set([...teamPlayerIds(postingTeam), ...teamPlayerIds(currentAcceptingTeam)])];
         await assertReservationAvailable(tx, resolvedFieldId, times.start, times.end);
         const claimed = await tx.matchPost.updateMany({ where: { id: postId, status: "open" }, data: { status: "matched" } });
         if (claimed.count !== 1) throw new Error("Match post is already matched or canceled");

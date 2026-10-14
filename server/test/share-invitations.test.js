@@ -90,14 +90,14 @@ test("lobby link is reusable and the last join confirms bookings exactly once", 
     assert.equal(app.state().slots.length, 2);
 });
 test("private match invitation reuses match acceptance and creates one match", async () => {
-    const app = await invitationFixture();
+    const app = await invitationFixture({ fullTeams: true });
     const link = await app.service.create("match", "post", "owner");
     await assert.rejects(app.service.respond(link.token, "other", "accepted", { acceptingTeamId: "opponent" }), /leader/);
     assert.equal(app.state().responses.length, 0);
     const result = await app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" });
     assert.ok(result.resultId);
     assert.equal(app.state().matches.length, 1);
-    assert.equal(app.state().bookings.length, 2);
+    assert.equal(app.state().bookings.length, 10);
     await app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" });
     assert.equal(app.state().matches.length, 1);
 });
@@ -116,8 +116,11 @@ test("permanent links ignore expiry but block started, canceled and unauthentica
     assert.equal(app.state().slots.length, 0);
 });
 test("one stable match link only creates one match across concurrent accepting teams", async () => {
-    const app = await invitationFixture();
-    app.state().teams.push({ id: "another-opponent", leaderId: "other", size: 5, members: [{ userId: "other", user: { id: "other" } }] });
+    const app = await invitationFixture({ fullTeams: true });
+    app.state().teams.push({ id: "another-opponent", leaderId: "other", size: 5, members: Array.from({ length: 5 }, (_, index) => {
+        const userId = index === 0 ? "other" : `other-player-${index}`;
+        return { userId, user: { id: userId } };
+    }) });
     const link = await app.service.resourceLink("match", "post", "owner");
     const results = await Promise.allSettled([
         app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" }),
@@ -131,12 +134,12 @@ test("one stable match link only creates one match across concurrent accepting t
 
 test("failure saving a response rolls back membership, acceptance and booking changes", async () => {
     for (const [kind, targetId] of [["team", "team"], ["match", "post"], ["lobby", "lobby"]]) {
-        const app = await invitationFixture();
+        const app = await invitationFixture({ fullTeams: kind === "match" });
         const link = await app.service.create(kind, targetId, "owner");
         app.db.shareInvitationResponse.create = async () => { throw new Error("Response storage failed"); };
         await assert.rejects(app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" }), /Response storage failed/);
         assert.equal(app.state().invitations[0].status, "pending");
-        assert.equal(app.state().teams[0].members.length, 1);
+        assert.equal(app.state().teams[0].members.length, kind === "match" ? 5 : 1);
         assert.equal(app.state().slots.length, 0);
         assert.equal(app.state().matches.length, 0);
         assert.equal(app.state().bookings.length, 0);

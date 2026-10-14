@@ -96,6 +96,7 @@ try {
     await wait("document.body.innerText.includes('Username or email')");
     await fill("Username or email", "owner"); await fill("Password", "demo123"); await click("Sign in");
     await wait("location.pathname === '/matching' && document.body.innerText.includes('Central Pitch')");
+    await click("PitchBook United · 5/5 players");
     await wait("!!document.querySelector('select option[value=field]') && !!document.querySelector('input[readonly]') && document.querySelector('input[readonly]').value.includes('/invite/')");
     await pause(300);
     await evaluate(`(() => {const el = document.querySelector('input[type=date]');
@@ -183,13 +184,9 @@ try {
   await evaluate("Object.defineProperty(navigator, 'clipboard', { configurable: true, value: window.demoClipboard })");
   assert.equal(await evaluate("document.body.innerText.includes('Create invitation link')"), false);
   await navigate(links.newTeamMatch);
-  await wait("document.body.innerText.includes('Team name')");
-  await fill("Team name", "New Player FC");
-  await click("Create team");
-  await wait("document.body.innerText.includes('New Player FC') && !!document.querySelector('select')");
-  await screenshot("03b-new-team", "A new user without a team creates one within the match invitation, then can accept.");
-  await click("Accept match");
-  await wait("document.body.innerText.includes('Match accepted.')");
+  await wait("document.body.innerText.includes('Recruit players')");
+  assert.equal(await evaluate("[...document.querySelectorAll('button')].find(button => button.textContent.includes('Accept match')).disabled"), true);
+  await screenshot("03b-new-team", "A new user must recruit a full roster before accepting a match.");
   await clearAuth();
   await navigate(links.match);
   await wait("document.body.innerText.includes('Log in')");

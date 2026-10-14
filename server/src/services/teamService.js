@@ -1,5 +1,12 @@
 import prisma from "../db.cjs";
 
+async function withTeamLock(teamId, action) {
+    return prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+        return action(tx);
+    });
+}
+
 // ─── Includes ─────────────────────────────────────────────────────────────────
 
 const TEAM_INCLUDE = {
@@ -64,24 +71,25 @@ export async function getTeamsByUser(userId) {
  */
 export async function addMember(teamId, userId, requesterId) {
     if (!teamId || !userId) throw new Error("teamId and userId are required");
+    return withTeamLock(teamId, async tx => {
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team) throw new Error("Team not found");
+        if (team.leaderId !== requesterId) throw new Error("Only the team leader can add members");
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) throw new Error("Team not found");
-    if (team.leaderId !== requesterId) throw new Error("Only the team leader can add members");
+        // Count current members; must not exceed team.size
+        const memberCount = await tx.teamMember.count({ where: { teamId } });
+        if (memberCount >= team.size) throw new Error("Team is already at full capacity");
 
-    // Count current members; must not exceed team.size
-    const memberCount = await prisma.teamMember.count({ where: { teamId } });
-    if (memberCount >= team.size) throw new Error("Team is already at full capacity");
+        const existing = await tx.teamMember.findUnique({
+            where: { teamId_userId: { teamId, userId } },
+        });
+        if (existing) throw new Error("User is already a member of this team");
 
-    const existing = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId, userId } },
-    });
-    if (existing) throw new Error("User is already a member of this team");
-
-    return prisma.team.update({
-        where: { id: teamId },
-        data: { members: { create: { userId } } },
-        include: TEAM_INCLUDE,
+        return tx.team.update({
+            where: { id: teamId },
+            data: { members: { create: { userId } } },
+            include: TEAM_INCLUDE,
+        });
     });
 }
 
@@ -92,23 +100,24 @@ export async function addMember(teamId, userId, requesterId) {
  */
 export async function removeMember(teamId, targetUserId, requesterId) {
     if (!teamId || !targetUserId) throw new Error("teamId and userId are required");
+    return withTeamLock(teamId, async tx => {
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team) throw new Error("Team not found");
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) throw new Error("Team not found");
+        const isLeader    = team.leaderId === requesterId;
+        const isSelf      = requesterId === targetUserId;
 
-    const isLeader    = team.leaderId === requesterId;
-    const isSelf      = requesterId === targetUserId;
+        if (!isLeader && !isSelf) throw new Error("Not authorized to remove this member");
+        if (targetUserId === team.leaderId) throw new Error("Cannot remove the team leader — disband the team instead");
 
-    if (!isLeader && !isSelf) throw new Error("Not authorized to remove this member");
-    if (targetUserId === team.leaderId) throw new Error("Cannot remove the team leader — disband the team instead");
+        const membership = await tx.teamMember.findUnique({
+            where: { teamId_userId: { teamId, userId: targetUserId } },
+        });
+        if (!membership) throw new Error("User is not a member of this team");
 
-    const membership = await prisma.teamMember.findUnique({
-        where: { teamId_userId: { teamId, userId: targetUserId } },
+        await tx.teamMember.delete({ where: { id: membership.id } });
+        return tx.team.findUnique({ where: { id: teamId }, include: TEAM_INCLUDE });
     });
-    if (!membership) throw new Error("User is not a member of this team");
-
-    await prisma.teamMember.delete({ where: { id: membership.id } });
-    return prisma.team.findUnique({ where: { id: teamId }, include: TEAM_INCLUDE });
 }
 
 // ─── Update ───────────────────────────────────────────────────────────────────
@@ -119,25 +128,26 @@ export async function removeMember(teamId, targetUserId, requesterId) {
  */
 export async function updateTeam(teamId, updates, requesterId) {
     if (!teamId) throw new Error("teamId is required");
+    return withTeamLock(teamId, async tx => {
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team) throw new Error("Team not found");
+        if (team.leaderId !== requesterId) throw new Error("Only the team leader can update the team");
 
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
-    if (!team) throw new Error("Team not found");
-    if (team.leaderId !== requesterId) throw new Error("Only the team leader can update the team");
+        const data = {};
+        if (updates.name !== undefined) {
+            if (!updates.name) throw new Error("name cannot be empty");
+            data.name = updates.name;
+        }
+        if (updates.size !== undefined) {
+            const s = parseInt(updates.size, 10);
+            if (isNaN(s) || s < 1) throw new Error("size must be a positive integer");
+            const memberCount = await tx.teamMember.count({ where: { teamId } });
+            if (s < memberCount) throw new Error(`Cannot shrink size below current member count (${memberCount})`);
+            data.size = s;
+        }
 
-    const data = {};
-    if (updates.name !== undefined) {
-        if (!updates.name) throw new Error("name cannot be empty");
-        data.name = updates.name;
-    }
-    if (updates.size !== undefined) {
-        const s = parseInt(updates.size, 10);
-        if (isNaN(s) || s < 1) throw new Error("size must be a positive integer");
-        const memberCount = await prisma.teamMember.count({ where: { teamId } });
-        if (s < memberCount) throw new Error(`Cannot shrink size below current member count (${memberCount})`);
-        data.size = s;
-    }
-
-    return prisma.team.update({ where: { id: teamId }, data, include: TEAM_INCLUDE });
+        return tx.team.update({ where: { id: teamId }, data, include: TEAM_INCLUDE });
+    });
 }
 
 // ─── Disband ──────────────────────────────────────────────────────────────────

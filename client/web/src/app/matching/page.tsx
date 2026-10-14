@@ -187,6 +187,7 @@ function MatchingContent() {
   async function handleAccept(post: MatchRequest) {
     if (accepting) return;
     if (!activeTeam) { showToast("Select a team first.", "error"); return; }
+    if (activeTeam.membersCount < activeTeam.size) { showToast(`Your team needs ${activeTeam.size} players (${activeTeam.membersCount}/${activeTeam.size} joined).`, "error"); return; }
     if (activeTeam.id === post.teamId) { showToast("Cannot accept your own request.", "error"); return; }
     if (activeTeam.size !== post.teamSize) {
       showToast(`Need a ${post.teamSize}v${post.teamSize} team to accept this.`, "error"); return;
@@ -322,7 +323,7 @@ function MatchingContent() {
                           ? "border-neutral-950 bg-neutral-950 text-white"
                           : "border-stone-200 bg-white/80 text-stone-600 hover:bg-stone-50",
                       )}>
-                      {team.name} · {team.size}v{team.size}
+                      {team.name} · {team.membersCount}/{team.size} players
                     </button>
                   ))}
                 </div>
@@ -330,6 +331,7 @@ function MatchingContent() {
             </div>
 
             <form className="mt-4 grid gap-3" onSubmit={handlePost}>
+              {activeTeam && activeTeam.membersCount < activeTeam.size && <p className="text-sm text-amber-700">Your team needs {activeTeam.size} players ({activeTeam.membersCount}/{activeTeam.size} joined). <a href="/teams" className="font-semibold underline">Recruit players</a></p>}
               {fieldsError && <ErrorState message={fieldsError} onRetry={refreshFields} />}
               {/* Field selector */}
               <label className="block space-y-1.5">
@@ -393,7 +395,7 @@ function MatchingContent() {
                   value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
               </div>
 
-              <Button className="w-full" type="submit" loading={posting} disabled={teams.length === 0 || fieldsLoading}>
+              <Button className="w-full" type="submit" loading={posting} disabled={!activeTeam || activeTeam.membersCount < activeTeam.size || fieldsLoading}>
                 <Send className="h-4 w-4" aria-hidden="true" />
                 {t("match.post")}
               </Button>
@@ -481,7 +483,7 @@ function MatchPostCard({
     !isOwner &&
     isTeamLeader &&
     !!activeTeam &&
-    activeTeam.size === post.teamSize;
+    activeTeam.size === post.teamSize && activeTeam.membersCount >= activeTeam.size;
 
   return (
     <Card>

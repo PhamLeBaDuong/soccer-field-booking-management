@@ -6,6 +6,16 @@ import { fileURLToPath } from "node:url";
 import { invitationFixture } from "../test/helpers/invitationFixture.js";
 
 const app = await invitationFixture();
+// Keep the recruiting team open while match examples use full, separate rosters.
+const matchTeam = { ...app.state().teams[0], id: "match-team", members: [] };
+for (const team of [matchTeam, app.state().teams[1]]) {
+    team.members = Array.from({ length: team.size }, (_, index) => {
+        const userId = index === 0 ? team.leaderId : `${team.id}-player-${index}`;
+        return { userId, user: { id: userId } };
+    });
+}
+app.state().teams.push(matchTeam);
+app.state().posts[0].teamId = matchTeam.id;
 const users = [
     { id: "owner", username: "owner", name: "Team Owner", email: "owner@example.test", password: "demo123", role: "player" },
     { id: "player", username: "player", name: "Demo Player", email: "player@example.test", password: "demo123", role: "player" },

@@ -64,8 +64,11 @@ async function services() {
             },
         },
         lobbySlot: { create: async ({ data }) => { state.slots.push({ id: "slot-" + ++sequence, ...data }); } },
-        team: { findUnique: async ({ where }) => ({ id: where.id, leaderId: "opponent", size: 5,
-            members: [{ user: { id: "opponent" } }] }) },
+        team: { findUnique: async ({ where }) => ({ id: where.id, leaderId: where.id === "home" ? "host" : "opponent", size: 5,
+            members: Array.from({ length: 5 }, (_, index) => {
+                const userId = `${where.id}-player-${index}`;
+                return { userId, user: { id: userId } };
+            }) }) },
         matchPost: {
             findFirst: async ({ where }) => state.posts.find(row => matches(row, where)) ?? null,
             findUnique: async () => state.posts[0],
@@ -245,7 +248,7 @@ test("opponent acceptance still creates a match and linked participant bookings"
         team: { size: 5, members: [{ user: { id: "host" } }] } });
     const match = await app.post.acceptMatchPost("post", { acceptingTeamId: "away", requesterId: "opponent" });
     assert.equal(match.source, "post"); assert.equal(app.state().matches.length, 1);
-    assert.equal(app.state().bookings.length, 2);
+    assert.equal(app.state().bookings.length, 10);
     assert.ok(app.state().bookings.every(row => row.matchId === match.id));
 });
 

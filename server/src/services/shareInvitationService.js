@@ -19,10 +19,11 @@ export function createInvitationService(db = prisma, actions = { joinLobby, acce
                 count: team.members.length, status: "open", teamId: team.id, resource: team };
         }
         if (kind === "match") {
-            const post = await client.matchPost.findUnique({ where: { id }, include: { team: true, field: true } });
+            const post = await client.matchPost.findUnique({ where: { id }, include: { team: { include: { members: true } }, field: true } });
             if (!post) fail("Match request no longer exists", 404);
             return { ownerId: post.team.leaderId, title: post.team.name, size: post.team.size,
-                teamId: post.teamId, status: post.status, fieldId: post.fieldId, fieldName: post.field?.name,
+                teamId: post.teamId, membersCount: new Set(post.team.members.map(member => member.userId)).size,
+                status: post.status, fieldId: post.fieldId, fieldName: post.field?.name,
                 startTime: post.preferredStartTime, endTime: post.preferredEndTime, timeZone: reservationTimeZone(post.field ?? {}), resource: post };
         }
         if (kind === "lobby") {
