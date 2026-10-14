@@ -31,6 +31,21 @@ function assertFutureSlot(startTime) {
     }
 }
 
+async function assertTeamSlotAvailable(tx, teamId, start, end, excludePostId) {
+    const pending = await tx.matchPost.findFirst({ where: {
+        teamId, status: "open", id: { notIn: excludePostId ? [excludePostId] : [] },
+        preferredStartTime: { lt: end }, preferredEndTime: { gt: start },
+    } });
+    if (pending) throw new Error("Team already has an overlapping match request");
+    const team = await tx.team.findUnique({ where: { id: teamId }, include: { members: true } });
+    const userIds = [...new Set([team.leaderId, ...team.members.map(member => member.userId)])];
+    const confirmed = await tx.match.findFirst({ where: {
+        status: "confirmed", startTime: { lt: end }, endTime: { gt: start },
+        OR: [{ matchPost: { is: { teamId } } }, { bookings: { some: { userId: { in: userIds } } } }],
+    } });
+    if (confirmed) throw new Error("Team already has an overlapping confirmed match");
+}
+
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 /**
@@ -40,14 +55,12 @@ function assertFutureSlot(startTime) {
  * visibility: "public" (default) | "private"
  * If private, a unique access code is auto-generated.
  *
- * preferredStartTime / preferredEndTime may be null for "flexible" timing.
+ * preferredStartTime / preferredEndTime are required to prevent overlapping requests.
  * fieldId may be null for "any field".
  */
 export async function createMatchPost({
     teamId,
     fieldId,
-    lat,
-    lng,
     preferredStartTime,
     preferredEndTime,
     visibility = "public",
@@ -56,47 +69,51 @@ export async function createMatchPost({
     if (!teamId)     throw new Error("teamId is required");
     if (!requesterId) throw new Error("requesterId is required");
 
-    const team = await prisma.team.findUnique({
-        where:   { id: teamId },
-        include: { members: { select: { userId: true } } },
+    if (!preferredStartTime || !preferredEndTime) throw new Error("preferredStartTime and preferredEndTime are required");
+    const start = new Date(preferredStartTime), end = new Date(preferredEndTime);
+    if (!Number.isFinite(+start) || !Number.isFinite(+end)) throw new Error("Match request times must be valid dates");
+    if (end <= start) throw new Error("Match request end time must be after start time");
+    assertFutureSlot(start);
+    return prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+        const team = await tx.team.findUnique({
+            where:   { id: teamId },
+            include: { members: { select: { userId: true } } },
+        });
+        if (!team) throw new Error("Team not found");
+        if (team.leaderId !== requesterId) throw new Error("Only the team leader can post a match request");
+
+        // Validate field exists if provided
+        if (fieldId) {
+            const field = await tx.field.findUnique({ where: { id: fieldId } });
+            if (!field) throw new Error("Field not found");
+            validateReservationTime(field, start, end);
+        }
+
+        if (!["public", "private"].includes(visibility)) {
+            throw new Error('visibility must be "public" or "private"');
+        }
+
+        // Adjacent slots and requests on other dates are allowed, across all fields.
+        await assertTeamSlotAvailable(tx, teamId, start, end);
+
+        const code = visibility === "private" ? generateCode() : null;
+
+        const post = await tx.matchPost.create({
+            data: {
+                teamId,
+                fieldId:            fieldId            || null,
+                preferredStartTime: start,
+                preferredEndTime: end,
+                visibility,
+                code,
+                status: "open",
+            },
+            include: POST_INCLUDE,
+        });
+
+        return post;
     });
-    if (!team) throw new Error("Team not found");
-    if (team.leaderId !== requesterId) throw new Error("Only the team leader can post a match request");
-
-    // Validate field exists if provided
-    if (fieldId) {
-        const field = await prisma.field.findUnique({ where: { id: fieldId } });
-        if (!field) throw new Error("Field not found");
-    }
-
-    if (!["public", "private"].includes(visibility)) {
-        throw new Error('visibility must be "public" or "private"');
-    }
-
-    // Check no open post already exists from this team
-    const existing = await prisma.matchPost.findFirst({
-        where: { teamId, status: "open" },
-    });
-    if (existing) throw new Error("Team already has an open match post — cancel it before creating a new one");
-
-    const code = visibility === "private" ? generateCode() : null;
-
-    const post = await prisma.matchPost.create({
-        data: {
-            teamId,
-            fieldId:            fieldId            || null,
-            lat:                lat                ?? null,
-            lng:                lng                ?? null,
-            preferredStartTime: preferredStartTime ? new Date(preferredStartTime) : null,
-            preferredEndTime:   preferredEndTime   ? new Date(preferredEndTime)   : null,
-            visibility,
-            code,
-            status: "open",
-        },
-        include: POST_INCLUDE,
-    });
-
-    return post;
 }
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
@@ -262,13 +279,12 @@ export async function acceptMatchPost(postId, {
     const allUserIds = [...new Set([...postTeamUserIds, ...acceptingTeamUserIds])];
 
     // ── Create Match + Bookings in one transaction ──────────────────────────
-    const durationHours =
-        (new Date(resolvedEnd).getTime() - new Date(resolvedStart).getTime()) / 3_600_000;
-    const totalPrice = field.pricePerHour * Math.max(0, durationHours);
-
-    // Legacy: const match = await prisma.$transaction(async (tx) => {
     const match = await withFieldReservation(db, resolvedFieldId, async (tx, lockedField) => {
         const times = validateReservationTime(lockedField, resolvedStart, resolvedEnd);
+        for (const teamId of [post.teamId, acceptingTeamId].sort()) {
+            await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
+            await assertTeamSlotAvailable(tx, teamId, times.start, times.end, postId);
+        }
         await assertReservationAvailable(tx, resolvedFieldId, times.start, times.end);
         const claimed = await tx.matchPost.updateMany({ where: { id: postId, status: "open" }, data: { status: "matched" } });
         if (claimed.count !== 1) throw new Error("Match post is already matched or canceled");
@@ -286,7 +302,6 @@ export async function acceptMatchPost(postId, {
                         fieldId:    resolvedFieldId,
                         startTime:  new Date(resolvedStart),
                         endTime:    new Date(resolvedEnd),
-                        // totalPrice, // Legacy: price read before acquiring the reservation lock.
                         totalPrice: times.totalPrice,
                         currency:   field.currency ?? "VND",
                         status:     "confirmed",
@@ -323,19 +338,17 @@ export async function cancelMatchPost(postId, requesterId) {
     if (!postId)      throw new Error("postId is required");
     if (!requesterId) throw new Error("requesterId is required");
 
-    const post = await prisma.matchPost.findUnique({
-        where:   { id: postId },
-        include: { team: true },
-    });
-    if (!post) throw new Error("Match post not found");
-    if (post.status !== "open") throw new Error(`Match post is already ${post.status}`);
-    if (post.team.leaderId !== requesterId) {
-        throw new Error("Only the posting team's leader can cancel this match post");
-    }
-
-    return prisma.matchPost.update({
-        where:   { id: postId },
-        data:    { status: "canceled" },
-        include: POST_INCLUDE,
+    return prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT "id" FROM "MatchPost" WHERE "id" = ${postId} FOR UPDATE`;
+        const post = await tx.matchPost.findUnique({ where: { id: postId }, include: { team: true } });
+        if (!post) throw new Error("Match post not found");
+        if (post.team.leaderId !== requesterId) {
+            throw Object.assign(new Error("Only the posting team's leader can cancel this match post"), { status: 403 });
+        }
+        if (post.status !== "open") throw new Error(`Match post is already ${post.status}`);
+        // Acceptance and cancellation must claim the same open request atomically.
+        const claimed = await tx.matchPost.updateMany({ where: { id: postId, status: "open" }, data: { status: "canceled" } });
+        if (claimed.count !== 1) throw new Error("Match post is already matched or canceled");
+        return tx.matchPost.findUnique({ where: { id: postId }, include: POST_INCLUDE });
     });
 }

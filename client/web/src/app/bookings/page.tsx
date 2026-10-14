@@ -74,9 +74,6 @@ export default function BookingsPage() {
         <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-neutral-950">
           {t("bookings.title")}
         </h1>
-        <p className="mt-2 text-sm leading-6 text-stone-500">
-          {t("bookings.subtitle")}
-        </p>
       </section>
 
       {/* Tab bar */}

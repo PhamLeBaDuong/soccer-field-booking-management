@@ -9,6 +9,7 @@ Every team, lobby and match request has one stable invitation URL displayed dire
 - Acceptance and its response record share a database transaction. Invitation rows serialize repeated acceptance; team rows serialize capacity across different links. Existing field locks and match/lobby checks handle reservation conflicts.
 - Already-joined users and expired/revoked/used links receive clear status messages. Match acceptance requires a compatible team led by the recipient; team creation is available within the invitation page.
 - Existing direct team invitations still work.
+- Match requests remain open after creation. Matches and participant bookings are created only by explicit acceptance. The posting team's leader can cancel an open request from its card, with confirmation. Canceling a request disables acceptance through its stable link; matched requests cannot be canceled through this action.
 
 ## Local demo
 
@@ -27,7 +28,7 @@ Recorded browser walkthrough: [walkthrough.html](demo/invitations/walkthrough.ht
 ## Validation
 
 ```powershell
-node --experimental-vm-modules --test server/test/share-invitations.test.js server/test/reservations.test.js client/web/test/auth-return.test.mjs
+node --experimental-vm-modules --test server/test/match-requests.test.js server/test/share-invitations.test.js server/test/reservations.test.js client/web/test/auth-return.test.mjs client/web/test/match-post-api.test.mjs
 npx --no-install tsc --noEmit --project client/web/tsconfig.json
 ```
 
@@ -79,3 +80,11 @@ docker exec soccer-field-booking-management-db-1 \
 Direct SQL does not update Prisma's migration history. Use `prisma migrate resolve --applied 20261012000000_share_invitations --schema=src/prisma/schema.prisma` from `server/` with the migration database account if maintaining migration history. Resolve older manually applied migrations before using `migrate deploy`.
 
 Deploy the backend and web images together after the schema update. No deployed endpoints or production data are changed by the local demo.
+
+## Match request schedules and timezones
+
+A team can create multiple requests. Open requests and confirmed matches cannot overlap the team's selected window, across fields or visibility settings. Adjacent windows are allowed. Creation locks the team row; acceptance checks both teams under their locks. Requests remain open until an opposing team explicitly accepts. The posting team's Accept button is disabled.
+
+Selected field times become real UTC instants using the existing Field metadata.timeZone value, with UTC as the consistent fallback for legacy fields. The browser timezone does not change the field schedule. Creation, acceptance, lobby joins, and invitation display derive the timezone from the same field metadata. No MatchPost/Lobby timezone columns or database migration are required. The previous proposed timezone migration has been withdrawn. Already-added unused columns can remain; no destructive cleanup is needed. Rebuild/restart the backend to load the corrected application code. Old canceled requests are not reactivated automatically.
+
+The browser regression demo uses node server/demo/record-invitations.mjs --match-post-only with npm run demo:invitations running. It posts a request, posts an adjacent request, rejects an overlap, opens the fresh link, signs in as the opposing leader, then explicitly accepts. Screenshots are in docs/demo/match-requests/walkthrough.html. This demo uses isolated data and does not modify the remote database.

@@ -209,9 +209,6 @@ export default function MyVenuesPage() {
           {t("venues.management")}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">{t("venues.title")}</h1>
-        <p className="mt-2 text-sm text-stone-500">
-          {t("venues.subtitle")}
-        </p>
       </section>
 
       <div className="mt-6 flex items-center justify-between">

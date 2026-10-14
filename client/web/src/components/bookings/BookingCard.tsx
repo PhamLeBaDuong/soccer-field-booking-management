@@ -71,7 +71,7 @@ export function BookingCard({
             </p>
             <p className="mt-1.5 flex items-center gap-1.5 font-mono text-sm text-neutral-700">
               <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-stone-400" aria-hidden="true" />
-              {formatDateRange(booking.startTime, booking.endTime)}
+              {formatDateRange(booking.startTime, booking.endTime, booking.field?.metadata.timeZone)}
             </p>
             {/* Legacy: player count was shown for every booking, including unknown counts. */}
             {booking.teamSize > 0 && (

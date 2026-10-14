@@ -2,11 +2,12 @@ import * as matchPostService from "../services/matchPostService.js";
 import { getIO } from "../socket.js";
 
 function handleError(res, error) {
+    if (error.status === 403) return res.status(403).json({ error: error.message });
     const clientPhrases = [
         "required", "not found", "already", "only the", "mismatch",
         "no field specified", "no start time", "no end time",
         "is in the past", "already booked", "private match post",
-        "invalid access code", "cannot accept its own", "must be",
+        "invalid access code", "cannot accept its own", "must be", "overlap", "invalid", "operating hours",
     ];
     const msg = error.message?.toLowerCase() ?? "";
     const isClient = clientPhrases.some(p => msg.includes(p));
@@ -18,12 +19,10 @@ function handleError(res, error) {
 // POST /api/match-posts
 export async function createMatchPost(req, res) {
     try {
-        const { teamId, fieldId, lat, lng, preferredStartTime, preferredEndTime, visibility } = req.body;
+        const { teamId, fieldId, preferredStartTime, preferredEndTime, visibility } = req.body;
         const post = await matchPostService.createMatchPost({
             teamId,
             fieldId,
-            lat,
-            lng,
             preferredStartTime,
             preferredEndTime,
             visibility,
@@ -87,6 +86,8 @@ export async function acceptMatchPost(req, res) {
 // DELETE /api/match-posts/:postId
 export async function cancelMatchPost(req, res) {
     try {
-        res.json(await matchPostService.cancelMatchPost(req.params.postId, req.user.id));
+        const post = await matchPostService.cancelMatchPost(req.params.postId, req.user.id);
+        getIO()?.emit("matchpost:updated", { id: post.id, status: post.status });
+        res.json(post);
     } catch (error) { handleError(res, error); }
 }

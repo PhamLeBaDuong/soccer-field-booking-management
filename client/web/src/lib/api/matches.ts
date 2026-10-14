@@ -2,7 +2,7 @@ import { apiFetch } from "@/lib/api/client";
 import { normalizeField } from "@/lib/api/normalizers";
 import type { Match } from "@/lib/types";
 
-function normalizeMatch(raw: unknown): Match {
+export function normalizeMatch(raw: unknown): Match {
   if (typeof raw !== "object" || raw === null) throw new Error("Invalid match data");
   const r = raw as Record<string, unknown>;
   const fieldRaw = r.field

@@ -10,6 +10,13 @@ export async function withFieldReservation(db, fieldId, action) {
     }, { maxWait: 10000, timeout: 20000 });
 }
 
+export function reservationTimeZone(field) {
+    const zone = field.metadata?.timeZone || "UTC";
+    try { new Intl.DateTimeFormat("en", { timeZone: zone }); }
+    catch { throw new Error("Invalid reservation timeZone"); }
+    return zone;
+}
+
 export function validateReservationTime(field, startTime, endTime, now = new Date()) {
     const start = new Date(startTime);
     const end = new Date(endTime);
@@ -19,7 +26,14 @@ export function validateReservationTime(field, startTime, endTime, now = new Dat
     if (start <= now) throw new Error("Booking startTime must be in the future");
     if (end <= start) throw new Error("Booking endTime must be after startTime");
 
-    // Field operating times and reservation timestamps use their UTC clock values.
+    // Operating hours store clock labels; reservations store actual UTC instants.
+    const timeZone = reservationTimeZone(field);
+    const wallMinutes = value => {
+        const parts = new Intl.DateTimeFormat("en", { timeZone, year: "numeric", month: "2-digit",
+            day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(value);
+        const get = type => Number(parts.find(part => part.type === type).value);
+        return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute")) / 60000;
+    };
     const clockMinutes = value => {
         const date = new Date(value);
         return date.getUTCHours() * 60 + date.getUTCMinutes();
@@ -27,12 +41,12 @@ export function validateReservationTime(field, startTime, endTime, now = new Dat
     const open = clockMinutes(field.startTime);
     const close = clockMinutes(field.endTime);
     const windowMinutes = (close - open + 1440) % 1440 || 1440;
-    const offset = (clockMinutes(start) - open + 1440) % 1440;
+    const offset = ((wallMinutes(start) - open) % 1440 + 1440) % 1440;
     const durationMinutes = (end - start) / 60000;
-    if (offset + durationMinutes > windowMinutes) {
+    if (offset + wallMinutes(end) - wallMinutes(start) > windowMinutes || wallMinutes(end) < wallMinutes(start)) {
         throw new Error("Invalid booking time: outside field operating hours");
     }
-    return { start, end, totalPrice: field.pricePerHour * durationMinutes / 60 };
+    return { start, end, timeZone, totalPrice: field.pricePerHour * durationMinutes / 60 };
 }
 
 export async function assertReservationAvailable(tx, fieldId, start, end) {

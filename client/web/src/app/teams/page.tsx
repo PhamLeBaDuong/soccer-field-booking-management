@@ -144,9 +144,6 @@ export default function TeamsPage() {
           {t("teams.management")}
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("teams.title")}</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          {t("teams.subtitle")}
-        </p>
       </section>
 
       {/* ── Pending team invitations ── */}
@@ -225,7 +222,7 @@ export default function TeamsPage() {
                       <span>
                         <span className="block text-sm font-semibold">{team.name}</span>
                         <span className={cn("text-xs", isActive ? "text-white/70" : "text-stone-500")}>
-                          {team.membersCount}/{team.size} {t("common.players")} · {t("teams.rating")} {team.rating.toFixed(1)}
+                          {team.membersCount}/{team.size} {t("common.players")}
                         </span>
                       </span>
                       <span className="font-mono text-sm">{team.size}v{team.size}</span>
@@ -296,9 +293,7 @@ export default function TeamsPage() {
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   {[
                     { label: t("teams.format"),  value: `${activeTeam.size}v${activeTeam.size}` },
-                    { label: t("teams.members"), value: `${activeTeam.membersCount}/${activeTeam.size}` },
-                    { label: t("teams.ratingLabel"), value: activeTeam.rating.toFixed(1) },
-                  ].map((s) => (
+                    { label: t("teams.members"), value: `${activeTeam.membersCount}/${activeTeam.size}` },                  ].map((s) => (
                     <div key={s.label} className="rounded-[8px] bg-stone-50 p-3 ring-1 ring-stone-200">
                       <p className="text-xs font-semibold text-stone-500">{s.label}</p>
                       <p className="mt-1 text-lg font-semibold text-neutral-950">{s.value}</p>

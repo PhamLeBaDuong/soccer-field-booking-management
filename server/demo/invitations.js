@@ -12,6 +12,7 @@ const users = [
 ];
 const links = {};
 app.state().posts.push({ ...app.state().posts[0], id: "new-team-post", preferredStartTime: new Date("2099-10-14T15:30Z"), preferredEndTime: new Date("2099-10-14T17:00Z") });
+app.state().posts.push({ ...app.state().posts[0], id: "cancel-post", preferredStartTime: new Date("2099-10-15T15:30Z"), preferredEndTime: new Date("2099-10-15T17:00Z") });
 for (const [kind, targetId] of [["team", "team"], ["match", "post"], ["lobby", "lobby"]]) {
     links[kind] = await app.service.create(kind, targetId, "owner");
 }
@@ -73,7 +74,11 @@ const server = createServer(async (req, res) => {
             app.state().teams.push(team); return send(team, 201);
         }
         if (url.pathname === "/api/lobbies") return send(await app.db.lobby.findMany());
-        if (url.pathname === "/api/match-posts") return send(await app.db.matchPost.findMany());
+        if (url.pathname === "/api/match-posts" && req.method === "POST") return send(await app.matchPosts.createMatchPost({ ...body, requesterId: user.id }), 201);
+        if (url.pathname === "/api/match-posts" && req.method === "GET") return send(await app.db.matchPost.findMany());
+        if (url.pathname.startsWith("/api/fields/") && req.method === "GET") return send(await app.db.field.findUnique({}));
+        const matchRequest = url.pathname.match(/^\/api\/match-posts\/([^/]+)$/);
+        if (matchRequest && req.method === "DELETE") return send(await app.matchPosts.cancelMatchPost(matchRequest[1], user.id));
         if (url.pathname === "/api/bookings") return send(app.state().bookings.filter(booking => booking.userId === user.id));
         if (url.pathname === "/api/fields") return send([await app.db.field.findUnique({})]);
         if (url.pathname.endsWith("/mine") || url.pathname.startsWith("/api/friends")) return send([]);
@@ -89,7 +94,7 @@ if (!process.argv.includes("--api-only")) {
     const webDir = fileURLToPath(new URL("../../client/web/", import.meta.url));
     const nextCli = fileURLToPath(new URL("../../node_modules/next/dist/bin/next", import.meta.url));
     web = spawn(process.execPath, [nextCli, "dev", "--port", "3100"], { cwd: webDir, stdio: "inherit", windowsHide: true,
-        env: { ...process.env, NEXT_PUBLIC_API_URL: "http://localhost:5055", NEXT_PUBLIC_USE_MOCK: "false", NEXT_PUBLIC_INVITATION_DEMO: "true", INVITATION_DEMO_DIST_DIR: ".next-invitation-demo" } });
+        env: { ...process.env, NEXT_PUBLIC_API_URL: "http://localhost:5055", NEXT_PUBLIC_INVITATION_DEMO: "true", INVITATION_DEMO_DIST_DIR: ".next-invitation-demo" } });
     web.on("exit", () => server.close());
 }
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { web?.kill(); server.close(() => process.exit()); });

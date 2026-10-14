@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 
 const links = await (await fetch("http://localhost:5055/demo/links")).json();
 const signInOnly = process.argv.includes("--sign-in-only");
-const output = resolve(signInOnly ? "docs/demo/sign-in" : "docs/demo/invitations");
+const matchPostOnly = process.argv.includes("--match-post-only");
+const output = resolve(matchPostOnly ? "docs/demo/match-requests" : signInOnly ? "docs/demo/sign-in" : "docs/demo/invitations");
 const profile = resolve(".cache/invitation-demo-browser");
 await mkdir(output, { recursive: true });
 await mkdir(profile, { recursive: true });
@@ -29,8 +30,10 @@ try {
   let sequence = 0;
   const pending = new Map();
   const hydrationErrors = [];
+  const requests = [];
   socket.onmessage = event => {
     const message = JSON.parse(event.data);
+    if (message.method === "Network.requestWillBeSent") requests.push(message.params.request);
     if (message.method === "Runtime.consoleAPICalled" && /hydrated|hydration|server rendered/i.test(JSON.stringify(message.params.args))) hydrationErrors.push(message.params.args);
     if (message.id && pending.has(message.id)) {
       const { resolve, reject } = pending.get(message.id); pending.delete(message.id);
@@ -54,7 +57,7 @@ try {
   }
   const navigate = async url => { await command("Page.navigate", { url }); await wait("document.readyState === 'complete'"); };
   const click = async label => {
-    const expression = `Array.from(document.querySelectorAll('button,a')).find(el => el.textContent.trim() === ${JSON.stringify(label)})`;
+    const expression = `Array.from((document.querySelector('[role=dialog]') ?? document).querySelectorAll('button,a')).find(el => el.textContent.trim() === ${JSON.stringify(label)})`;
     await wait(`!!(${expression})`);
     await wait(`!(${expression}).disabled`);
     const point = await evaluate(`(() => {const el = ${expression}; el.scrollIntoView({block:'center'}); const rect = el.getBoundingClientRect(); return {x:rect.x+rect.width/2,y:rect.y+rect.height/2};})()`);
@@ -75,6 +78,7 @@ try {
   const clearAuth = async () => { await evaluate("localStorage.removeItem('token')"); };
   await command("Page.enable");
   await command("Runtime.enable");
+  await command("Network.enable");
   await command("Browser.grantPermissions", { origin: "http://localhost:3100", permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] });
   await command("Emulation.setFocusEmulationEnabled", { enabled: true });
   // Reproduce Grammarly's body-attribute mutation before React hydrates.
@@ -86,7 +90,51 @@ try {
   })();` });
   await command("Storage.clearDataForOrigin", { origin: "http://localhost:3100", storageTypes: "local_storage" });
   await command("Emulation.setDeviceMetricsOverride", { width: 1100, height: 850, deviceScaleFactor: 1, mobile: false });
-  if (signInOnly) {
+  if (matchPostOnly) {
+    await command("Emulation.setTimezoneOverride", { timezoneId: "America/Indiana/Indianapolis" });
+    await navigate("http://localhost:3100/login?next=%2Fmatching");
+    await wait("document.body.innerText.includes('Username or email')");
+    await fill("Username or email", "owner"); await fill("Password", "demo123"); await click("Sign in");
+    await wait("location.pathname === '/matching' && document.body.innerText.includes('Central Pitch')");
+    await wait("!!document.querySelector('select option[value=field]') && !!document.querySelector('input[readonly]') && document.querySelector('input[readonly]').value.includes('/invite/')");
+    await pause(300);
+    await evaluate(`(() => {const el = document.querySelector('input[type=date]');
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'2099-10-20');
+      el.dispatchEvent(new Event('input',{bubbles:true})); el.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+    await pause(200);
+    await click("18:30-19:00"); await click("20:00-20:30");
+    await wait("document.body.innerText.includes('18:30 – 20:30')");
+    await click("Post request");
+    await wait("document.body.innerText.includes('18:30-20:30') && Array.from(document.querySelectorAll('input[readonly]')).some(el => el.value.includes('/invite/'))");
+    await wait("!document.body.innerText.includes('Posting')");
+    const matchingPosts = requests.filter(req => req.method === "POST" && req.url.endsWith('/api/match-posts'));
+    assert.equal(matchingPosts.length, 1);
+    const payload = JSON.parse(matchingPosts[0].postData);
+    assert.equal(payload.preferredStartTime, "2099-10-20T18:30:00.000Z");
+    assert.equal(payload.preferredEndTime, "2099-10-20T20:30:00.000Z");
+    assert.equal(Object.hasOwn(payload, "timeZone"), false);
+    assert.equal(requests.some(req => req.method === "POST" && /\/(accept|respond)$/.test(req.url)), false);
+    assert.equal(await evaluate("!!document.querySelector('[role=dialog]')"), false);
+    await screenshot("01-posted-open", "Posting 18:30–20:30 creates an open request, uses the field timezone without extra database columns, and does not accept it.");
+    const invitationUrl = await evaluate("document.querySelector('input[readonly]').value");
+    await click("20:30-21:00"); await click("21:00-21:30"); await click("Post request");
+    await wait("document.body.innerText.includes('20:30-21:30') && document.body.innerText.includes('18:30-20:30')");
+    await screenshot("02-multiple-requests", "The same team can post a second request immediately next to the first one.");
+    await click("19:00-19:30"); await click("19:30-20:00"); await click("Post request");
+    await wait("document.body.innerText.includes('overlapping match request')");
+    await screenshot("03-overlap-blocked", "An overlapping request is rejected without changing the existing requests.");
+    await clearAuth(); await navigate(invitationUrl);
+    await wait("document.body.innerText.includes('Create account') && document.body.innerText.includes('18:30-20:30')");
+    assert.equal(await evaluate("document.body.innerText.includes('invitation is canceled')"), false);
+    await screenshot("04-fresh-invitation", "The freshly posted request link remains available and offers login or registration.");
+    await click("Log in"); await wait("document.body.innerText.includes('Username or email')");
+    await fill("Username or email", "player"); await fill("Password", "demo123"); await click("Sign in");
+    await wait("location.pathname.startsWith('/invite/') && document.body.innerText.includes('Accept match')");
+    await screenshot("05-waiting-for-acceptance", "The other team must explicitly accept; opening the link and signing in do not confirm a match.");
+    await evaluate("(() => { const select = document.querySelector('select'); select.value = 'opponent'; select.dispatchEvent(new Event('change', {bubbles:true})); })()");
+    await click("Accept match"); await wait("document.body.innerText.includes('Match accepted.')");
+    await screenshot("06-explicitly-accepted", "Only the opposing team's explicit acceptance confirms the match.");
+  } else if (signInOnly) {
     await navigate("http://localhost:3100/login?next=%2Fteams");
     await wait("document.body.innerText.includes('sample accounts only')");
     await fill("Username or email", "not-a-demo-account");
@@ -194,6 +242,12 @@ try {
   await wait("document.body.innerText.includes('Match request link') && !!document.querySelector('input[readonly]') && document.querySelector('input[readonly]').value.length > 0");
   assert.ok(await evaluate(`Array.from(document.querySelectorAll('input[readonly]')).some(input => input.value === ${JSON.stringify(links.match)})`));
   await screenshot("12-match-link", "The posting team's leader sees one stable match-request URL with a Copy button.");
+  await click("Cancel request");
+  await wait("!!document.querySelector('[role=dialog]') && document.body.innerText.includes('Other teams will no longer be able to accept it.')");
+  await screenshot("13-cancel-confirmation", "The posting team's leader can cancel an open request after confirmation.");
+  await click("Cancel request");
+  await wait("!document.querySelector('[role=dialog]') && document.body.innerText.includes('Match request canceled.')");
+  await screenshot("14-request-canceled", "The request becomes canceled and can no longer be accepted.");
   assert.equal(hydrationErrors.length, 0, "Injected Grammarly body attributes must not trigger a hydration warning");
   }
   await writeFile(resolve(output, "walkthrough.html"), `<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invitation walkthrough</title><style>body{font:16px system-ui;margin:30px auto;max-width:1100px;padding:0 20px;background:#f5f5f4;color:#171717}figure{margin:30px 0;background:white;padding:20px;border-radius:12px}img{max-width:100%;height:auto;border:1px solid #ddd}figcaption{font-weight:600;margin-bottom:12px}</style><h1>PitchBook invitation demo</h1><p>Recorded from the actual app with isolated sample data. No remote database changes.</p>${shots.map(({name,caption}) => `<figure><figcaption>${caption}</figcaption><img src="${name}.png" alt="${caption}"></figure>`).join("")}</html>`);

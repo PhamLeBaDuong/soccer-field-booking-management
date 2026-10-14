@@ -7,7 +7,7 @@ function handleError(res, error) {
         "required", "not found", "already", "only the lobby creator",
         "cannot leave", "cannot cancel", "is in the past", "must be in the future",
         "must be after starttime", "no remaining slots", "cannot exceed",
-        "must be a positive integer", "slot is already", "matched", "invalid booking", "already booked",
+        "must be a positive integer", "slot is already", "matched", "invalid booking", "invalid reservation", "already booked",
     ];
     const msg = error.message?.toLowerCase() ?? "";
     const isClient = clientPhrases.some(p => msg.includes(p));

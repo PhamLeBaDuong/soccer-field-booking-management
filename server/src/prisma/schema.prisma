@@ -106,7 +106,6 @@ model Team {
   id         String       @id @default(uuid())
   name       String
   size       Int
-  rating     Float        @default(0)
   leaderId   String
   createdAt  DateTime     @default(now())
   matchPosts MatchPost[]
@@ -134,8 +133,6 @@ model MatchPost {
   id                 String    @id @default(uuid())
   teamId             String
   fieldId            String?
-  lat                Float?
-  lng                Float?
   preferredStartTime DateTime?
   preferredEndTime   DateTime?
   visibility         String    @default("public")
@@ -214,7 +211,6 @@ model Booking {
   id            String   @id @default(uuid())
   userId        String
   fieldId       String
-  // matchId       String // Legacy: all bookings required a match.
   matchId       String?
   lobbyId       String?
   note          String?
@@ -227,7 +223,6 @@ model Booking {
   paymentStatus String   @default("unpaid")
   createdAt     DateTime @default(now())
   field         Field    @relation(fields: [fieldId], references: [id])
-  // match         Match @relation(fields: [matchId], references: [id])
   match         Match?   @relation(fields: [matchId], references: [id])
   lobby         Lobby?   @relation(fields: [lobbyId], references: [id])
   user          User     @relation(fields: [userId], references: [id])

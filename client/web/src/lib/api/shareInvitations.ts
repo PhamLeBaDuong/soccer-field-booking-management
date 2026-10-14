@@ -6,7 +6,7 @@ export type Invitation = {
   alreadyJoined: boolean;
   response: { decision: "accepted" | "declined"; resultId: string | null } | null;
   detail: { ownerId: string; title: string; size: number; count?: number;
-    teamId?: string; status: string; fieldId?: string; fieldName?: string; startTime?: string; endTime?: string };
+    teamId?: string; status: string; fieldId?: string; fieldName?: string; startTime?: string; endTime?: string; timeZone?: string };
 };
 export const getPermanentResourceLink = (kind: InvitationKind, targetId: string) =>
   apiFetch<{ id: string; token: string; expiresAt: null }>(`/api/invites/resource-link/${kind}/${encodeURIComponent(targetId)}`);

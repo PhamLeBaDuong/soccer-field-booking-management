@@ -15,12 +15,15 @@ export async function invitationFixture() {
         startTime: new Date("2000-01-01T06:00Z"), endTime: new Date("2000-01-01T22:00Z") };
     let queue = Promise.resolve(), sequence = 0;
     const matches = (row, where = {}) => Object.entries(where).every(([key, value]) => {
+        if (key === "OR") return value.some(part => matches(row, part));
         if (key === "AND") return value.every(part => matches(row, part));
         if (value && typeof value === "object" && !(value instanceof Date)) {
             if ("lt" in value) return +new Date(row[key]) < +new Date(value.lt);
             if ("gt" in value) return +new Date(row[key]) > +new Date(value.gt);
             if ("in" in value) return value.in.includes(row[key]);
             if ("notIn" in value) return !value.notIn.includes(row[key]);
+            if ("some" in value) return Array.isArray(row[key]) && row[key].some(item => matches(item, value.some));
+            if ("is" in value) return row[key] != null && matches(row[key], value.is);
         }
         return row[key] === value;
     });
@@ -28,13 +31,15 @@ export async function invitationFixture() {
         return {
             findUnique: async ({ where }) => hydrate(state[key].find(row => matches(row,
                 where.invitationId_userId ?? where.teamId_userId ?? where))) ?? null,
-            findFirst: async ({ where }) => hydrate(state[key].find(row => matches(row, where))) ?? null,
+            findFirst: async ({ where }) => state[key].map(hydrate).find(row => matches(row, where)) ?? null,
             findMany: async ({ where = {}, orderBy } = {}) => {
                 const rows = state[key].filter(row => matches(row, where));
                 if (orderBy?.createdAt === "desc") rows.sort((a, b) => +b.createdAt - +a.createdAt);
                 return rows.map(hydrate);
             },
             create: async ({ data }) => {
+                // Match the existing database contract: timezone is field metadata, not a column.
+                if (["posts", "lobbies"].includes(key) && Object.hasOwn(data, "timeZone")) throw new Error("Unknown argument timeZone");
                 const row = { id: `${key}-${++sequence}`, createdAt: new Date(), status: "pending", ...data };
                 state[key].push(row); return hydrate(row);
             },
@@ -69,7 +74,7 @@ export async function invitationFixture() {
         booking: { ...model("bookings"), createMany: async ({ data }) => {
             for (const row of data) await db.booking.create({ data: row }); return { count: data.length };
         } },
-        match: { ...model("matches"), create: async ({ data }) => {
+        match: { ...model("matches", row => row && { ...row, matchPost: state.posts.find(post => post.id === row.matchPostId), bookings: state.bookings.filter(booking => booking.matchId === row.id) }), create: async ({ data }) => {
             const row = { ...data, id: `match-${++sequence}` }; state.matches.push(row);
             for (const booking of data.bookings.create) await db.booking.create({ data: { ...booking, matchId: row.id } });
             return row;
@@ -96,5 +101,6 @@ export async function invitationFixture() {
     }
     const serviceModule = await load(new URL("../../src/services/shareInvitationService.js", import.meta.url).href);
     await serviceModule.evaluate();
-    return { service: serviceModule.namespace.createInvitationService(db), db, state: () => state };
+    const matchModule = modules.get(new URL("../../src/services/matchPostService.js", import.meta.url).href);
+    return { service: serviceModule.namespace.createInvitationService(db), matchPosts: matchModule.namespace, db, state: () => state };
 }

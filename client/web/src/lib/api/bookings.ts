@@ -1,123 +1,18 @@
-import {
-  apiFetch,
-  canFallBackToMock,
-  shouldUseMockData,
-  warnMockData,
-} from "@/lib/api/client";
-import { normalizeBooking, normalizeField } from "@/lib/api/normalizers";
+import { apiFetch } from "@/lib/api/client";
+import { normalizeBooking } from "@/lib/api/normalizers";
 import { getFields } from "@/lib/api/fields";
-import { mockBookings, mockMatchingBookings } from "@/lib/mock/bookings";
-import { mockFields } from "@/lib/mock/fields";
+
 import type { Booking, BookingPayload, MatchingSearch, PaymentMethod, PaymentOption } from "@/lib/types";
 
-// Legacy mock booking generator retained for review; real reservations require a server response.
-// function createMockBooking(payload: BookingPayload): Booking {
-//   const field = mockFields.find((item) => item.id === payload.fieldId);
-//
-//   return {
-//     id: `booking-${Date.now()}`,
-//     userId: payload.userId,
-//     fieldId: payload.fieldId,
-//     startTime: payload.startTime,
-//     endTime: payload.endTime,
-//     needMatching: payload.needMatching,
-//     teamSize: payload.teamSize,
-//     status: payload.needMatching ? "matching" : "pending",
-//     totalPrice:
-//       payload.fieldPrice *
-//       Math.max(
-//         1,
-//         (new Date(payload.endTime).getTime() -
-//           new Date(payload.startTime).getTime()) /
-//           3_600_000,
-//       ),
-//     currency: payload.currency,
-//     paymentStatus: "unpaid",
-//     field,
-//   };
-// }
-//
-
 export async function getUserBookings(userId: string): Promise<Booking[]> {
-  if (shouldUseMockData()) {
-    warnMockData("Bookings");
-    return mockBookings.map((booking) => ({ ...booking, userId }));
-  }
-
-  try {
-    const fields = await getFields();
-    const response = await apiFetch<unknown[]>(`/api/bookings/user/${userId}`);
-    return response.map((booking) => normalizeBooking(booking, fields));
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Bookings");
-      return mockBookings.map((booking) => ({ ...booking, userId }));
-    }
-
-    throw error;
-  }
+  const fields = await getFields();
+  const response = await apiFetch<unknown[]>(`/api/bookings/user/${userId}`);
+  return response.map((booking) => normalizeBooking(booking, fields));
 }
 
 export async function getBookingById(bookingId: string): Promise<Booking> {
-  if (shouldUseMockData()) {
-    warnMockData("Booking detail");
-    const booking = [...mockBookings, ...mockMatchingBookings].find(
-      (item) => item.id === bookingId,
-    );
-    if (!booking) {
-      throw new Error("Booking not found");
-    }
-    return booking;
-  }
-
-  try {
-// Legacy implementation retained for review; no longer executed.
-//     const booking = normalizeBooking(await apiFetch<unknown>(`/api/bookings/${bookingId}`));
-//     const field = normalizeField(
-//       await apiFetch<unknown>(`/api/bookings/${bookingId}/field`),
-//     );
-//     return { ...booking, field };
-    return normalizeBooking(await apiFetch<unknown>("/api/bookings/" + bookingId));
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Booking detail");
-      const booking = [...mockBookings, ...mockMatchingBookings].find(
-        (item) => item.id === bookingId,
-      );
-      if (!booking) {
-        throw error;
-      }
-      return booking;
-    }
-
-    throw error;
-  }
+  return normalizeBooking(await apiFetch<unknown>("/api/bookings/" + bookingId));
 }
-
-// Legacy implementation retained for review; no longer executed.
-// export async function createBooking(payload: BookingPayload): Promise<Booking> {
-//   if (shouldUseMockData()) {
-//     warnMockData("Create booking");
-//     return createMockBooking(payload);
-//   }
-//
-//   try {
-//     const fields = await getFields();
-//     const response = await apiFetch<unknown>("/api/bookings", {
-//       method: "POST",
-//       body: JSON.stringify(payload),
-//     });
-//     return normalizeBooking(response, fields);
-//   } catch (error) {
-//     if (canFallBackToMock(error)) {
-//       warnMockData("Create booking");
-//       return createMockBooking(payload);
-//     }
-//
-//     throw error;
-//   }
-// }
-//
 export async function createBooking(payload: Pick<BookingPayload, "fieldId" | "startTime" | "endTime">): Promise<Booking> {
   // Reservation failures must be visible; never replace a failed POST with a fake success.
   const response = await apiFetch<unknown>("/api/bookings", {
@@ -127,15 +22,6 @@ export async function createBooking(payload: Pick<BookingPayload, "fieldId" | "s
 }
 
 export async function cancelBooking(bookingId: string): Promise<Booking> {
-  if (shouldUseMockData()) {
-    warnMockData("Cancel booking");
-    const booking = mockBookings.find((item) => item.id === bookingId);
-    if (!booking) {
-      throw new Error("Booking not found");
-    }
-    return { ...booking, status: "canceled" };
-  }
-
   const fields = await getFields();
   const response = await apiFetch<unknown>(`/api/bookings/${bookingId}`, {
     method: "DELETE",
@@ -159,13 +45,6 @@ export async function confirmBooking(
 export async function searchMatchingBookings(
   search: MatchingSearch,
 ): Promise<Booking[]> {
-  if (shouldUseMockData()) {
-    warnMockData("Matching");
-    return mockMatchingBookings.filter(
-      (booking) => booking.teamSize === search.teamSize,
-    );
-  }
-
   const query = new URLSearchParams({
     teamsize: String(search.teamSize),
     startTime: search.startTime,
@@ -176,23 +55,12 @@ export async function searchMatchingBookings(
     query.set("fieldId", search.fieldId);
   }
 
-  try {
-    const endpoint = search.fieldId
-      ? `/api/bookings/matchingbyfieldid?${query.toString()}`
-      : `/api/bookings/matching?${query.toString()}`;
-    const fields = await getFields();
-    const response = await apiFetch<unknown[]>(endpoint);
-    return response.map((booking) => normalizeBooking(booking, fields));
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Matching");
-      return mockMatchingBookings.filter(
-        (booking) => booking.teamSize === search.teamSize,
-      );
-    }
-
-    throw error;
-  }
+  const endpoint = search.fieldId
+    ? `/api/bookings/matchingbyfieldid?${query.toString()}`
+    : `/api/bookings/matching?${query.toString()}`;
+  const fields = await getFields();
+  const response = await apiFetch<unknown[]>(endpoint);
+  return response.map((booking) => normalizeBooking(booking, fields));
 }
 
 export async function getPaymentOptions(bookingId: string): Promise<PaymentOption[]> {
@@ -311,15 +179,6 @@ export async function joinMatch(
   endTime: string,
   fieldId: string,
 ): Promise<{ updatedBooking1: Booking; updatedBooking2: Booking }> {
-  if (shouldUseMockData()) {
-    warnMockData("Join match");
-    const booking = mockMatchingBookings.find((item) => item.id === booking1Id);
-    const joined = booking
-      ? { ...booking, status: "confirmed" as const, needMatching: false }
-      : mockMatchingBookings[0];
-    return { updatedBooking1: joined, updatedBooking2: joined };
-  }
-
   const response = await apiFetch<{
     updatedBooking1: unknown;
     updatedBooking2: unknown;
@@ -334,4 +193,3 @@ export async function joinMatch(
     updatedBooking2: normalizeBooking(response.updatedBooking2, fields),
   };
 }
-

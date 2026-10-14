@@ -67,6 +67,7 @@ async function services() {
         team: { findUnique: async ({ where }) => ({ id: where.id, leaderId: "opponent", size: 5,
             members: [{ user: { id: "opponent" } }] }) },
         matchPost: {
+            findFirst: async ({ where }) => state.posts.find(row => matches(row, where)) ?? null,
             findUnique: async () => state.posts[0],
             updateMany: async ({ where, data }) => {
                 const rows = state.posts.filter(row => matches(row, where));
@@ -75,6 +76,7 @@ async function services() {
             update: async ({ data }) => Object.assign(state.posts[0], data),
         },
         match: {
+            findFirst: async () => null,
             create: async ({ data }) => {
                 const row = { id: "match-" + ++sequence, ...data }; state.matches.push(row);
                 for (const booking of data.bookings.create) await db.booking.create({ data: { ...booking, matchId: row.id } });

@@ -142,7 +142,7 @@ export function normalizeField(value: unknown, complexes: Complex[] = []): Field
     endTime: toDisplayTime(readString(record, "endTime", "22:00")),
     indoor: readBoolean(record, "indoor"),
     lights: readBoolean(record, "lights"),
-    metadata,
+    metadata: { ...metadata, timeZone: isRecord(record.metadata) ? readString(record.metadata, "timeZone") || undefined : undefined },
     occupiedTimes: readOccupiedTimes(record),
     complex,
   };

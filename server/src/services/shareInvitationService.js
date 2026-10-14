@@ -1,3 +1,4 @@
+import { reservationTimeZone } from "./reservationService.js";
 import { randomBytes, createHash } from "node:crypto";
 import prisma from "../db.cjs";
 import { joinLobby } from "./lobbyService.js";
@@ -22,14 +23,14 @@ export function createInvitationService(db = prisma, actions = { joinLobby, acce
             if (!post) fail("Match request no longer exists", 404);
             return { ownerId: post.team.leaderId, title: post.team.name, size: post.team.size,
                 teamId: post.teamId, status: post.status, fieldId: post.fieldId, fieldName: post.field?.name,
-                startTime: post.preferredStartTime, endTime: post.preferredEndTime, resource: post };
+                startTime: post.preferredStartTime, endTime: post.preferredEndTime, timeZone: reservationTimeZone(post.field ?? {}), resource: post };
         }
         if (kind === "lobby") {
             const lobby = await client.lobby.findUnique({ where: { id }, include: { slots: true, field: true } });
             if (!lobby) fail("Lobby no longer exists", 404);
             return { ownerId: lobby.creatorId, title: lobby.field?.name ?? "Lobby", size: lobby.teamSize,
                 count: lobby.initialSize + lobby.slots.length, status: lobby.status,
-                startTime: lobby.startTime, endTime: lobby.endTime, resource: lobby };
+                startTime: lobby.startTime, endTime: lobby.endTime, timeZone: reservationTimeZone(lobby.field ?? {}), resource: lobby };
         }
         fail("Invalid invitation type", 400);
     }

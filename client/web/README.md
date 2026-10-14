@@ -6,7 +6,6 @@ Create `client/web/.env.local` when you need custom API settings:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_USE_MOCK=false
 ```
 
 Install and run from `client/web`:
@@ -17,7 +16,7 @@ npm run dev
 npm run build
 ```
 
-Set `NEXT_PUBLIC_USE_MOCK=true` to use the built-in PitchBook demo data when the backend is unavailable.
+The app always uses the real API. Failed requests surface errors instead of substituting sample data.
 
 ## Getting Started
 
@@ -62,7 +61,6 @@ the Vercel project as follows:
    | Name                   | Value                                                   |
    | ---------------------- | ------------------------------------------------------- |
    | `NEXT_PUBLIC_API_URL`  | `https://soccer-field-booking-management-1.onrender.com` |
-   | `NEXT_PUBLIC_USE_MOCK` | `false`                                                 |
 
    These are `NEXT_PUBLIC_*` variables, so they are **inlined at build time**. If you add
    or change them after a deploy, you must redeploy for the new value to take effect.

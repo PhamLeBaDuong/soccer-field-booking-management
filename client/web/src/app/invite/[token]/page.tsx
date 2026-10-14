@@ -91,7 +91,7 @@ export default function InvitationPage() {
         <h2 className="mt-4 text-xl font-semibold">{invite.detail.title}</h2>
         <p className="mt-2 text-sm text-stone-600">{invite.kind === "lobby" ? `${invite.detail.count}/${invite.detail.size} players` : `${invite.detail.size}v${invite.detail.size} team`}</p>
         {invite.detail.fieldName && <p className="mt-1 text-sm">{invite.detail.fieldName}</p>}
-        {invite.detail.startTime && invite.detail.endTime && <p className="mt-2 text-sm">{formatDateRange(invite.detail.startTime, invite.detail.endTime)}</p>}
+        {invite.detail.startTime && invite.detail.endTime && <p className="mt-2 text-sm">{formatDateRange(invite.detail.startTime, invite.detail.endTime, invite.detail.timeZone)}</p>}
         {response ? <div className="mt-6" role="status">
           <p className="font-semibold">{response.decision === "accepted" ? (invite.kind === "lobby" ? "You joined the lobby." : invite.kind === "team" ? "You joined the team." : "Match accepted.") : "Invitation declined."}</p>
           <p className="mt-2 text-sm text-stone-600">{response.decision === "declined" ? "No membership or booking was created." : "Your response has been saved."}</p>

@@ -94,9 +94,6 @@ export default function DashboardPage() {
           <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-[0] text-white sm:text-5xl">
             {greeting}, {user.name}
           </h1>
-          <p className="mt-4 max-w-xl text-base leading-7 text-white/76">
-            {t("dash.tagline")}
-          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               className={buttonClasses(

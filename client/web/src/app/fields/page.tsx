@@ -85,9 +85,6 @@ export default function FieldsPage() {
             <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">
               {t("fields.title")}
             </h1>
-            <p className="mt-4 text-base leading-7 text-white/76">
-              {t("fields.subtitle")}
-            </p>
           </div>
         </div>
       </section>

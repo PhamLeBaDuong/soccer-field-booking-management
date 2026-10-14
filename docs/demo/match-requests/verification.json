@@ -1,0 +1,29 @@
+{
+  "screenshots": [
+    {
+      "name": "01-posted-open",
+      "caption": "Posting 18:30–20:30 creates an open request, uses the field timezone without extra database columns, and does not accept it."
+    },
+    {
+      "name": "02-multiple-requests",
+      "caption": "The same team can post a second request immediately next to the first one."
+    },
+    {
+      "name": "03-overlap-blocked",
+      "caption": "An overlapping request is rejected without changing the existing requests."
+    },
+    {
+      "name": "04-fresh-invitation",
+      "caption": "The freshly posted request link remains available and offers login or registration."
+    },
+    {
+      "name": "05-waiting-for-acceptance",
+      "caption": "The other team must explicitly accept; opening the link and signing in do not confirm a match."
+    },
+    {
+      "name": "06-explicitly-accepted",
+      "caption": "Only the opposing team's explicit acceptance confirms the match."
+    }
+  ],
+  "passed": true
+}

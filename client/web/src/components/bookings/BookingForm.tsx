@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/auth/hooks";
 import { ROUTES } from "@/lib/constants";
 import type { Field } from "@/lib/types";
 import {
+  bookingTimeZone,
   combineDateAndTime,
   durationHours,
   formatCurrency,
@@ -31,10 +32,10 @@ export function BookingForm({ field }: { field: Field }) {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const [date, setDate] = useState(todayInputValue());
+  const timeZone = field.metadata.timeZone || bookingTimeZone();
+  const [date, setDate] = useState(todayInputValue(timeZone));
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  // const [numPlayers, setNumPlayers] = useState("1"); // Legacy player-count input.
   const [openLobby, setOpenLobby] = useState(false);
   const [dateError, setDateError] = useState("");
   const [timeError, setTimeError] = useState("");
@@ -45,8 +46,8 @@ export function BookingForm({ field }: { field: Field }) {
   const endDate  = start && end && timeToMinutes(end) < timeToMinutes(start)
     ? nextCalendarDate(date)
     : date;
-  const startIso = start ? combineDateAndTime(date, start) : "";
-  const endIso   = end   ? combineDateAndTime(endDate, end) : "";
+  const startIso = start ? combineDateAndTime(date, start, timeZone) : "";
+  const endIso   = end   ? combineDateAndTime(endDate, end, timeZone) : "";
   const hours    = startIso && endIso ? durationHours(startIso, endIso) : 0;
   const total    = hours * field.metadata.price;
   const teamSize = fieldTeamSize(field);
@@ -56,7 +57,7 @@ export function BookingForm({ field }: { field: Field }) {
     setStart("");
     setEnd("");
     setTimeError("");
-    const today = todayInputValue();
+    const today = todayInputValue(timeZone);
     setDateError(value < today ? "Date cannot be in the past." : "");
   }
 
@@ -76,32 +77,13 @@ export function BookingForm({ field }: { field: Field }) {
     if (dateError) { setError(dateError); return; }
     if (!start || !end) { setError("Choose a time slot."); return; }
     if (timeError) { setError(timeError); return; }
-
-// Legacy implementation retained for review; no longer executed.
-//     const n = Number(numPlayers);
-//     if (n < 1 || n > teamSize) {
-//       setError(`Number of players must be between 1 and ${teamSize}.`); return;
-//     }
-//
-//
     setLoading(true);
     setError("");
     try {
-// Legacy implementation retained for review; no longer executed.
-//       await createLobby({
-//         fieldId:     field.id,
-//         startTime:   startIso,
-//         endTime:     endIso,
-//         teamSize,
-//         initialSize: n,
-//         visibility:  openLobby ? "public" : "private",
-//       });
-//       showToast(openLobby ? "Lobby created — others can join!" : "Slot reserved.");
-//       router.push(ROUTES.lobbies);
       if (openLobby) {
         await createLobby({ fieldId: field.id, startTime: startIso, endTime: endIso,
           teamSize, initialSize: 1, visibility: "public" });
-        showToast("Lobby created ? your booking confirms when it fills.");
+        showToast("Lobby created.");
         router.push(ROUTES.lobbies);
       } else {
         const booking = await createBooking({ fieldId: field.id, startTime: startIso, endTime: endIso });
@@ -122,7 +104,7 @@ export function BookingForm({ field }: { field: Field }) {
         type="date"
         leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
         value={date}
-        min={todayInputValue()}
+        min={todayInputValue(timeZone)}
         error={dateError}
         onChange={(e) => handleDateChange(e.target.value)}
       />
@@ -149,18 +131,6 @@ export function BookingForm({ field }: { field: Field }) {
         )}
       </div>
 
-      {/* Legacy player-count input, retained for review:
-      <Input
-        label="Initial number of players"
-        type="number"
-        min={1}
-        max={teamSize}
-        leadingIcon={<UsersRound className="h-4 w-4" aria-hidden="true" />}
-        value={numPlayers}
-        onChange={(e) => setNumPlayers(e.target.value)}
-      />
-      */}
-
       <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-stone-200 bg-white/72 p-3 transition-colors hover:bg-stone-50">
         <input
           className="mt-1 h-4 w-4 rounded border-stone-300 accent-neutral-950"
@@ -171,11 +141,10 @@ export function BookingForm({ field }: { field: Field }) {
         <span>
           <span className="flex items-center gap-2 text-sm font-semibold text-neutral-950">
             <DoorOpen className="h-4 w-4 text-stone-500" aria-hidden="true" />
-            Open lobby for others to join
+            Open lobby
           </span>
           <span className="text-xs text-stone-500">
-            {/* Legacy: A match forms when both sides are full. */}
-            Other players can join. Everyone receives a booking when the lobby is full.
+            Bookings confirm when full.
           </span>
         </span>
       </label>

@@ -55,6 +55,14 @@
     {
       "name": "12-match-link",
       "caption": "The posting team's leader sees one stable match-request URL with a Copy button."
+    },
+    {
+      "name": "13-cancel-confirmation",
+      "caption": "The posting team's leader can cancel an open request after confirmation."
+    },
+    {
+      "name": "14-request-canceled",
+      "caption": "The request becomes canceled and can no longer be accepted."
     }
   ],
   "passed": true

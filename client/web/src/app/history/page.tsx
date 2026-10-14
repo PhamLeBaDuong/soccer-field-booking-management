@@ -41,9 +41,6 @@ export default function HistoryPage() {
           {t("history.activity")}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-[0] text-neutral-950">{t("history.title")}</h1>
-        <p className="mt-2 text-sm text-stone-500">
-          {t("history.subtitle")}
-        </p>
       </section>
 
       {/* Tabs */}

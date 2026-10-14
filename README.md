@@ -61,7 +61,6 @@ soccer-field-booking-management/
     src/lib/api/           HTTP client and API wrappers
     src/lib/auth/          Auth context and hooks
     src/lib/i18n/          English/Vietnamese translations
-    src/lib/mock/          Frontend mock data mode
   server/                  Express API
     src/controllers/       Request handlers
     src/routes/            API route definitions
@@ -107,7 +106,6 @@ Create `client/web/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_USE_MOCK=false
 ```
 
 Address search uses the Photon geocoder through the web app's `/api/locations`
@@ -198,15 +196,7 @@ Use this frontend env value with Docker:
 NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-## Mock Frontend Mode
-
-To work on UI without a running backend, set:
-
-```env
-NEXT_PUBLIC_USE_MOCK=true
-```
-
-Mock mode uses local data from `client/web/src/lib/mock`.
+The frontend always uses the real API. Failed requests show errors instead of sample data.
 
 ## Common Scripts
 
@@ -293,7 +283,6 @@ soccer-field-booking-management/
 |           +-- bookings/           # Bookings context (cross-page state)
 |           +-- hooks/              # Shared lib-level hooks
 |           +-- i18n/               # EN/VI translation strings + toggle
-|           +-- mock/               # Offline fallback mock data
 |           +-- notifications/      # Notification helpers
 |           +-- types/              # Shared TypeScript interfaces
 |           +-- utils/              # cn() helper, formatCurrency, formatDateRange

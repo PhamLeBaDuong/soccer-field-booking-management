@@ -179,7 +179,7 @@ function BookingDetailContent() {
           </div>
           <p className="mt-3 flex items-center gap-2 font-mono text-stone-600">
             <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-            {formatDateRange(booking.startTime, booking.endTime)}
+            {formatDateRange(booking.startTime, booking.endTime, booking.field?.metadata.timeZone)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

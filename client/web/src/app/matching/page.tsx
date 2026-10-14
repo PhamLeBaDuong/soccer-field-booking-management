@@ -23,8 +23,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { useRequireAuth } from "@/lib/auth/hooks";
-import { useBookingsContext } from "@/lib/bookings/context";
-import { acceptMatchPost } from "@/lib/api/matchPosts";
+import { acceptMatchPost, cancelMatchPost, normalizeMatchPost } from "@/lib/api/matchPosts";
 import { createMatchPost } from "@/lib/api/teams";
 import { useMatchPosts } from "@/hooks/useMatchPosts";
 import { getSocket } from "@/lib/socket";
@@ -32,10 +31,12 @@ import { useTeams } from "@/hooks/useTeams";
 import { useFields } from "@/hooks/useFields";
 import { useField } from "@/hooks/useFields";
 import { useI18n } from "@/lib/i18n/context";
-import type { Booking, MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
+import type { MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
 import { cn } from "@/lib/utils/cn";
 import {
+  bookingTimeZone,
   combineDateAndTime,
+  durationHours,
   formatCurrency,
   formatDateRange,
   nextCalendarDate,
@@ -79,10 +80,9 @@ function MatchingContent() {
 
   const { user, loading: authLoading } = useRequireAuth();
   const { showToast } = useToast();
-  const { addBookings } = useBookingsContext();
 
-  const { fields, loading: fieldsLoading } = useFields();
-  const { teams, loading: teamsLoading } = useTeams();
+  const { fields, loading: fieldsLoading, error: fieldsError, refresh: refreshFields } = useFields();
+  const { teams, loading: teamsLoading, error: teamsError, refresh: refreshTeams } = useTeams();
   const { posts, setPosts, loading: postsLoading, error: postsError, refresh: refreshPosts } = useMatchPosts();
 
   const [form, setForm] = useState<PostForm>({
@@ -98,6 +98,12 @@ function MatchingContent() {
   const [filterStatus, setFilterStatus] = useState<MatchRequestStatus | "all">("all");
   const [acceptedIds, setAcceptedIds] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<MatchRequest | null>(null);
+  const [canceling, setCanceling] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [slotVersion, setSlotVersion] = useState(0);
+  const [acceptTarget, setAcceptTarget] = useState<MatchRequest | null>(null);
+  const [accepting, setAccepting] = useState(false);
 
   // Load the currently selected field to get its operating hours + occupied slots
   const { field: selectedField } = useField(form.fieldId || null);
@@ -139,6 +145,7 @@ function MatchingContent() {
 
   async function handlePost(event: React.FormEvent) {
     event.preventDefault();
+    if (posting) return;
     const team  = teams.find((t) => t.id === form.teamId);
     const field = fields.find((f) => f.id === form.fieldId);
     if (!team)  { showToast("Select a team.", "error");  return; }
@@ -151,23 +158,34 @@ function MatchingContent() {
         ? nextCalendarDate(form.date)
         : form.date;
 
+    setPosting(true);
     try {
-      await createMatchPost({
+      const created = await createMatchPost({
         teamId:             team.id,
         fieldId:            field.id,
-        preferredStartTime: combineDateAndTime(form.date, form.start),
-        preferredEndTime:   combineDateAndTime(endDate, form.end),
+        preferredStartTime: combineDateAndTime(form.date, form.start, selectedField?.metadata.timeZone || bookingTimeZone()),
+        preferredEndTime:   combineDateAndTime(endDate, form.end, selectedField?.metadata.timeZone || bookingTimeZone()),
         visibility:         form.visibility,
         note:               form.note || undefined,
       });
+      if (created.status !== "open" || typeof created.id !== "string" || !created.id) {
+        throw new Error("The server did not return an open match request.");
+      }
+      const request = normalizeMatchPost(created);
       await refreshPosts();
-      showToast("Match request posted.");
+      setPosts(prev => [request, ...prev.filter(post => post.id !== request.id)]);
+      setFilterStatus("open");
+      setConfirmation(null);
+      setForm(prev => ({ ...prev, start: "", end: "" }));
+      setSlotVersion(version => version + 1);
+      showToast(t("match.postedWaiting"));
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to post request.", "error");
-    }
+    } finally { setPosting(false); }
   }
 
   async function handleAccept(post: MatchRequest) {
+    if (accepting) return;
     if (!activeTeam) { showToast("Select a team first.", "error"); return; }
     if (activeTeam.id === post.teamId) { showToast("Cannot accept your own request.", "error"); return; }
     if (activeTeam.size !== post.teamSize) {
@@ -175,37 +193,19 @@ function MatchingContent() {
     }
     if (acceptedIds.includes(post.id)) { showToast("Already accepted.", "error"); return; }
 
+    setAccepting(true);
     try {
-      await acceptMatchPost(post.id, { acceptingTeamId: activeTeam.id });
+      const match = await acceptMatchPost(post.id, { acceptingTeamId: activeTeam.id, code: post.code });
+      setAcceptTarget(null);
       setAcceptedIds((prev) => [...prev, post.id]);
       await refreshPosts();
 
-      const field = post.field;
-      if (field && user) {
-        const hrs = (new Date(post.preferredEndTime).getTime() - new Date(post.preferredStartTime).getTime()) / 3_600_000;
-        const booking: Booking = {
-          id:           `booking-match-${post.id}-${Date.now()}`,
-          userId:       user.id,
-          fieldId:      field.id,
-          startTime:    post.preferredStartTime,
-          endTime:      post.preferredEndTime,
-          needMatching: false,
-          teamSize:     post.teamSize,
-          status:        "confirmed",
-          totalPrice:    field.metadata.price * Math.max(0, hrs),
-          currency:      field.metadata.currency ?? "VND",
-          paymentStatus: "unpaid",
-          field,
-        };
-        addBookings([booking]);
-      }
-
-      const hrs = (new Date(post.preferredEndTime).getTime() - new Date(post.preferredStartTime).getTime()) / 3_600_000;
+      const hrs = (new Date(match.endTime).getTime() - new Date(match.startTime).getTime()) / 3_600_000;
       setConfirmation({
         postingTeam:   post.teamName,
         acceptingTeam: activeTeam.name,
         fieldName:     post.field?.name ?? "Field",
-        dateRange:     formatDateRange(post.preferredStartTime, post.preferredEndTime),
+        dateRange:     formatDateRange(match.startTime, match.endTime, post.timeZone),
         teamSize:      post.teamSize,
         priceEstimate: (post.field?.metadata.price ?? 0) * Math.max(0, hrs),
         currency:      post.field?.metadata.currency,
@@ -214,11 +214,24 @@ function MatchingContent() {
       showToast(`Match confirmed — ${activeTeam.name} vs ${post.teamName}!`);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to accept.", "error");
-    }
+    } finally { setAccepting(false); }
   }
 
   function copyText(text: string) {
     navigator.clipboard.writeText(text).then(() => showToast("Copied."));
+  }
+
+  async function handleCancel() {
+    if (!cancelTarget || canceling) return;
+    setCanceling(true);
+    try {
+      const canceled = await cancelMatchPost(cancelTarget.id);
+      setPosts(prev => prev.map(post => post.id === canceled.id ? canceled : post));
+      setCancelTarget(null);
+      showToast(t("match.cancelSuccess"));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Unable to cancel match request.", "error");
+    } finally { setCanceling(false); }
   }
 
   return (
@@ -229,10 +242,26 @@ function MatchingContent() {
           {t("match.matchmaking")}
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("match.title")}</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          {t("match.subtitle")}
-        </p>
       </section>
+
+      <Modal open={!!acceptTarget} title={t("match.acceptRequest")} size="sm"
+        onClose={() => { if (!accepting) setAcceptTarget(null); }}
+        footer={<div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" disabled={accepting} onClick={() => setAcceptTarget(null)}>{t("common.close")}</Button>
+          <Button type="button" loading={accepting} onClick={() => { if (acceptTarget) void handleAccept(acceptTarget); }}>{t("match.confirmAcceptance")}</Button>
+        </div>}>
+        <p className="text-sm text-stone-600">{t("match.acceptConfirm")}</p>
+        <p className="mt-3 text-sm font-semibold">{t("match.playingAs")}: {activeTeam?.name}</p>
+      </Modal>
+
+      <Modal open={!!cancelTarget} title={t("match.cancelRequest")} size="sm"
+        onClose={() => { if (!canceling) setCancelTarget(null); }}
+        footer={<div className="flex justify-end gap-2">
+          <Button variant="secondary" disabled={canceling} onClick={() => setCancelTarget(null)}>{t("common.close")}</Button>
+          <Button variant="danger" loading={canceling} onClick={handleCancel}>{t("match.cancelRequest")}</Button>
+        </div>}>
+        <p className="text-sm text-stone-600">{t("match.cancelConfirm")}</p>
+      </Modal>
 
       <Modal
         open={!!confirmation}
@@ -276,6 +305,8 @@ function MatchingContent() {
               <p className="mb-2 text-xs font-semibold text-stone-500">{t("match.playingAs")}</p>
               {teamsLoading ? (
                 <Skeleton className="h-9" />
+              ) : teamsError ? (
+                <ErrorState message={teamsError} onRetry={refreshTeams} />
               ) : teams.length === 0 ? (
                 <p className="rounded-[8px] bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-200">
                   {t("match.noTeamsHint")} <a href="/teams" className="underline font-semibold">{t("match.teamsPage")}</a> {t("match.pageFirst")}
@@ -299,6 +330,7 @@ function MatchingContent() {
             </div>
 
             <form className="mt-4 grid gap-3" onSubmit={handlePost}>
+              {fieldsError && <ErrorState message={fieldsError} onRetry={refreshFields} />}
               {/* Field selector */}
               <label className="block space-y-1.5">
                 <span className="text-sm font-semibold text-neutral-900">{t("schedule.field")}</span>
@@ -334,7 +366,7 @@ function MatchingContent() {
                   <span className="text-xs font-medium text-stone-500">{t("field.hourSlots")}</span>
                 </div>
                 <TimeSlotPicker
-                  key={form.fieldId + form.date}
+                  key={`${form.fieldId}:${form.date}:${slotVersion}`}
                   startTime={selectedField?.startTime ?? "06:00"}
                   endTime={selectedField?.endTime ?? "22:00"}
                   occupiedSlots={selectedField?.occupiedTimes ?? []}
@@ -361,7 +393,7 @@ function MatchingContent() {
                   value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
               </div>
 
-              <Button className="w-full" type="submit" disabled={teams.length === 0 || fieldsLoading}>
+              <Button className="w-full" type="submit" loading={posting} disabled={teams.length === 0 || fieldsLoading}>
                 <Send className="h-4 w-4" aria-hidden="true" />
                 {t("match.post")}
               </Button>
@@ -414,7 +446,9 @@ function MatchingContent() {
                 isOwner={post.teamId === activeTeamId}
                 hasAccepted={acceptedIds.includes(post.id)}
                 canInvite={teams.some(team => team.id === post.teamId && team.leaderId === user.id)}
-                onAccept={handleAccept}
+                onAccept={setAcceptTarget}
+                onCancel={setCancelTarget}
+                isTeamLeader={activeTeam?.leaderId === user.id}
                 onCopy={copyText}
               />
             ))
@@ -428,20 +462,24 @@ function MatchingContent() {
 // ─── Match Post Card ──────────────────────────────────────────────────────────
 
 function MatchPostCard({
-  post, activeTeam, isOwner, hasAccepted, canInvite, onAccept, onCopy,
+  post, activeTeam, isOwner, hasAccepted, canInvite, isTeamLeader, onAccept, onCopy, onCancel,
 }: {
   post: MatchRequest;
   activeTeam?: Team;
   isOwner: boolean;
   hasAccepted: boolean;
   canInvite: boolean;
+  isTeamLeader: boolean;
+  onCancel: (p: MatchRequest) => void;
   onAccept: (p: MatchRequest) => void;
   onCopy: (text: string) => void;
 }) {
+  const { t } = useI18n();
   const canAccept =
     !hasAccepted &&
     post.status === "open" &&
     !isOwner &&
+    isTeamLeader &&
     !!activeTeam &&
     activeTeam.size === post.teamSize;
 
@@ -469,18 +507,9 @@ function MatchPostCard({
               {post.field?.name ?? "Field"} · {post.teamSize}v{post.teamSize}
             </p>
             <p className="mt-1 font-mono text-sm text-neutral-700">
-              {formatDateRange(post.preferredStartTime, post.preferredEndTime)}
+              {formatDateRange(post.preferredStartTime, post.preferredEndTime, post.timeZone)}
             </p>
             {post.note && <p className="mt-1.5 text-sm text-stone-500">{post.note}</p>}
-
-            <div className="mt-3 flex items-center gap-2">
-              <span className="rounded-[6px] bg-stone-50 px-2 py-1 font-mono text-xs text-stone-500 ring-1 ring-stone-200">
-                ID: {post.id}
-              </span>
-              <button type="button" onClick={() => onCopy(post.id)} className="text-stone-400 hover:text-neutral-950">
-                <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            </div>
 
             {post.visibility === "private" && post.code && (
               <div className="mt-2 flex items-center gap-2">
@@ -497,11 +526,11 @@ function MatchPostCard({
           <div className="flex flex-row items-center gap-2 md:flex-col md:items-end">
             <div className="text-left md:text-right">
               <p className="font-mono text-lg font-semibold text-neutral-950">
-                {formatCurrency((post.field?.metadata.price ?? 0) * 2, post.field?.metadata.currency)}
+                {formatCurrency((post.field?.metadata.price ?? 0) * durationHours(post.preferredStartTime, post.preferredEndTime), post.field?.metadata.currency)}
               </p>
-              <p className="text-xs text-stone-500">estimated slot</p>
             </div>
             <Button
+              type="button"
               disabled={!canAccept}
               onClick={() => onAccept(post)}
               variant={canAccept ? "primary" : "secondary"}
@@ -509,6 +538,7 @@ function MatchPostCard({
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               {hasAccepted ? "Accepted" : post.status === "matched" ? "Matched" : "Accept"}
             </Button>
+            {canInvite && post.status === "open" && <Button variant="danger" onClick={() => onCancel(post)}>{t("match.cancelRequest")}</Button>}
             {canInvite && <div className="w-full min-w-0 md:max-w-sm"><InvitationLink kind="match" targetId={post.id} /></div>}
           </div>
         </div>

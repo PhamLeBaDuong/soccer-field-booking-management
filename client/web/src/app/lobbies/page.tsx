@@ -120,7 +120,7 @@ export default function LobbiesPage() {
       if (result.lobby.status === "confirmed") {
         setConfirmation({
           fieldName:    lobby.field?.name ?? "Field",
-          dateRange:    formatDateRange(lobby.startTime, lobby.endTime),
+          dateRange:    formatDateRange(lobby.startTime, lobby.endTime, lobby.timeZone),
           teamSize:     lobby.teamSize,
           playerCount:  result.lobby.joinedCount,
           pricePerHour: lobby.field?.metadata.price ?? 0,
@@ -164,9 +164,6 @@ export default function LobbiesPage() {
           {t("lobby.openLobbies")}
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{t("lobby.title")}</h1>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-white/76">
-          {t("lobby.subtitle")}
-        </p>
       </section>
 
       <Modal
@@ -324,7 +321,7 @@ function LobbyCard({
               Host: {lobby.creatorName} · Initial {lobby.initialSize} · {lobby.teamSize / 2}v{lobby.teamSize / 2}
             </p>
             <p className="mt-1 font-mono text-sm text-neutral-700">
-              {formatDateRange(lobby.startTime, lobby.endTime)}
+              {formatDateRange(lobby.startTime, lobby.endTime, lobby.timeZone)}
             </p>
 
             <div className="mt-3 flex items-center gap-2">

@@ -34,6 +34,7 @@ export interface Field {
   lights: boolean;
   metadata: {
     price: number;
+    timeZone?: string;
     currency?: string;
   };
   occupiedTimes?: { startTime: string; endTime: string }[];
@@ -142,13 +143,13 @@ export interface Team {
   id: string;
   name: string;
   size: number;
-  rating: number;
   leaderId: string;
   membersCount: number;
   members?: { userId: string; name: string; username: string }[];
 }
 
 export interface MatchRequest {
+  timeZone?: string;
   id: string;
   teamId: string;
   teamName: string;
@@ -186,6 +187,7 @@ export interface Match {
 export type LobbyStatus = "open" | "full" | "confirmed" | "canceled";
 
 export interface Lobby {
+  timeZone?: string;
   id: string;
   fieldId: string;
   field?: Field;

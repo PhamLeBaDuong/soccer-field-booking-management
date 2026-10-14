@@ -1,5 +1,5 @@
-import { apiFetch, canFallBackToMock, shouldUseMockData, warnMockData } from "@/lib/api/client";
-import { mockTeams } from "@/lib/mock/matchmaking";
+import { apiFetch } from "@/lib/api/client";
+
 import type { Team } from "@/lib/types";
 
 // ─── Normalizer ───────────────────────────────────────────────────────────────
@@ -10,7 +10,6 @@ export function normalizeTeam(raw: Record<string, unknown>): Team {
     id:           String(raw.id ?? ""),
     name:         String(raw.name ?? ""),
     size:         Number(raw.size ?? 5),
-    rating:       Number(raw.rating ?? 0),
     leaderId:     String(raw.leaderId ?? ""),
     membersCount: members.length,
     members: members.map((value: unknown) => {
@@ -25,20 +24,8 @@ export function normalizeTeam(raw: Record<string, unknown>): Team {
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export async function getMyTeams(): Promise<Team[]> {
-  if (shouldUseMockData()) {
-    warnMockData("Teams");
-    return mockTeams;
-  }
-  try {
-    const raw = await apiFetch<Record<string, unknown>[]>("/api/teams/mine");
-    return raw.map(normalizeTeam);
-  } catch (error) {
-    if (canFallBackToMock(error)) {
-      warnMockData("Teams");
-      return mockTeams;
-    }
-    throw error;
-  }
+  const raw = await apiFetch<Record<string, unknown>[]>("/api/teams/mine");
+  return raw.map(normalizeTeam);
 }
 
 export async function createTeam(payload: { name: string; size: number }): Promise<Team> {

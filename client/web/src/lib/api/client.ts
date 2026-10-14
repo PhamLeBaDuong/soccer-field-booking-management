@@ -89,21 +89,3 @@ export async function apiFetch<T>(
 
   return (await response.json()) as T;
 }
-
-export function shouldUseMockData(): boolean {
-  return process.env.NEXT_PUBLIC_USE_MOCK === "true";
-}
-
-export function canFallBackToMock(error: unknown): boolean {
-  return (
-    error instanceof ApiFetchError &&
-    [0, 401, 403, 404].includes(error.status)
-  );
-}
-
-export function warnMockData(scope: string): void {
-  if (typeof window !== "undefined") {
-    console.warn(`${scope}: using mock data because the API is unavailable.`);
-  }
-}
-
