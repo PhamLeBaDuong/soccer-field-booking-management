@@ -6,14 +6,15 @@ import { randomBytes } from "node:crypto";
 import { validateReservationTime, groupReservations } from "../src/services/reservationService.js";
 import { bookingOccurrences, bookingDayRange } from "../src/services/bookingScheduleService.js";
 import { Prisma } from "@prisma/client";
+import * as venueTimeZone from "../src/services/venueTimeZoneService.js";
 
-const field = { id: "field", ownerId: "host", pricePerHour: 200000,
+const field = { id: "field", ownerId: "host", pricePerHour: 200000, metadata: { timeZone: "UTC" },
     startTime: new Date("2000-01-01T06:00:00Z"), endTime: new Date("2000-01-01T23:00:00Z") };
 const startTime = "2099-01-01T18:00:00Z", endTime = "2099-01-01T18:30:00Z";
 
 // Load actual services with an in-memory database module. Never import db.cjs or .env.
 async function services(fieldOverrides = {}) {
-    const actualField = { ...field, ...fieldOverrides };
+    const actualField = { ...field, complexId: "complex", ...fieldOverrides };
     let state = { bookings: [], lobbies: [], slots: [], matches: [], posts: [] };
     let queue = Promise.resolve(), locked = false, sequence = 0;
     const matches = (row, where) => Object.entries(where ?? {}).every(([key, value]) => {
@@ -40,7 +41,12 @@ async function services(fieldOverrides = {}) {
             queue = operation.catch(() => {});
             return operation;
         },
-        field: { findUnique: async ({ where }) => where.id === actualField.id ? actualField : null },
+        complex: { findUnique: async ({ where }) => where.id === "complex" ? { id: "complex", name: "Venue", ownerId: "host" } : null },
+        field: {
+            findUnique: async ({ where }) => where.id === actualField.id ? actualField : null,
+            findMany: async ({ where, include }) => where.complexId === actualField.complexId
+                ? [{ ...actualField, bookings: state.bookings.filter(row => matches(row, include.bookings.where)) }] : [],
+        },
         booking: {
             findMany: async ({ where, select }) => state.bookings.filter(row => matches(row, where)).map(row =>
                 select ? Object.fromEntries(Object.keys(select).map(key => [key, row[key]])) : row),
@@ -97,8 +103,12 @@ async function services(fieldOverrides = {}) {
     };
     const context = vm.createContext({ console, Date, Set });
     const modules = new Map();
+    const geography = new vm.SyntheticModule(Object.keys(venueTimeZone), function () {
+        for (const [key, value] of Object.entries(venueTimeZone)) this.setExport(key, value);
+    }, { context });
     const database = new vm.SyntheticModule(["default"], function () { this.setExport("default", db); }, { context });
     async function load(url) {
+        if (url.endsWith("/venueTimeZoneService.js")) return geography;
         if (url.endsWith("/crypto")) return new vm.SyntheticModule(["randomBytes"], function () {
             this.setExport("randomBytes", randomBytes);
         }, { context });
@@ -114,7 +124,9 @@ async function services(fieldOverrides = {}) {
         await mod.evaluate(); return mod.namespace;
     }
     const booking = await service("bookingService"), lobby = await service("lobbyService"), post = await service("matchPostService");
-    return { booking, lobby, post, db, state: () => state };
+    const venueModule = await load(new URL("../src/controllers/venueController.js", import.meta.url).href);
+    await venueModule.evaluate();
+    return { booking, lobby, post, venues: venueModule.namespace, db, state: () => state };
 }
 
 test("lobby creator and related field owner can cancel an unfilled lobby", async () => {
@@ -363,4 +375,47 @@ test("public availability includes fixed reservations without exposing their typ
     assert.deepEqual(Object.keys(slots[0]).sort(), ["endTime", "startTime"]);
     const range = bookingDayRange("2099-01-08", { ...field, metadata: { timeZone: "America/Indiana/Indianapolis" } });
     assert.equal(range.start.toISOString(), "2099-01-08T11:00:00.000Z");
+});
+
+test("venue map coordinates determine timezone even when legacy field metadata says UTC", async () => {
+    for (const [location, expectedStart] of [
+        [{ lat: 39.7684, lng: -86.1581 }, "2099-10-14T22:30:00.000Z"],
+        [{ lat: 10.7769, lng: 106.7009 }, "2099-10-14T11:30:00.000Z"],
+    ]) {
+        const app = await services({ complex: { ...location, metadata: { timeZone: "UTC" } } });
+        const result = await app.booking.createBookingBatch({ userId: "host", ownerId: "host", fieldId: "field",
+            date: "2099-10-14", startTime: "18:30", endTime: "19:00" });
+        assert.equal(result.bookings[0].startTime.toISOString(), expectedStart);
+        assert.notEqual(venueTimeZone.withFieldTimeZone({ ...field, complex: location }).metadata.timeZone, "UTC");
+    }
+});
+
+test("venues without coordinates or a configured timezone cannot create guessed UTC bookings", async () => {
+    const app = await services({ metadata: null });
+    await assert.rejects(app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime }), /Venue timezone is required/);
+    assert.equal(app.state().bookings.length, 0);
+    assert.equal(venueTimeZone.coordinatesTimeZone({ lat: 0, lng: 0 }), undefined);
+});
+
+test("owner tables and booking availability agree on completed, direct and fixed reservations", async () => {
+    const app = await services({ metadata: { timeZone: "America/Indiana/Indianapolis" }, endTime: "2000-01-01T22:00Z" });
+    for (const [clock, repeat] of [["18:30", undefined], ["21:30", { frequency: "weekly", until: "2099-10-21" }]]) {
+        await app.booking.createBookingBatch({ userId: "host", ownerId: "host", fieldId: "field", date: "2099-10-14",
+            startTime: clock, endTime: clock === "18:30" ? "19:00" : "22:00", repeat });
+    }
+    app.state().bookings[0].status = "completed";
+    await app.booking.createBookingBatch({ userId: "host", fieldId: "field", date: "2099-10-14", startTime: "19:00", endTime: "19:30" });
+    app.state().bookings.at(-1).status = "canceled";
+    const range = bookingDayRange("2099-10-14", { ...field, metadata: { timeZone: "America/Indiana/Indianapolis" }, endTime: "2000-01-01T22:00Z" });
+    const occupied = await app.booking.getOccupiedSlots("field", range.start, range.end);
+    assert.equal(occupied.length, 2);
+    let schedule, complex;
+    const response = assign => ({ json: assign, status() { return this; } });
+    await app.venues.getVenueFieldSchedule({ user: { id: "host" }, params: { id: "field" }, query: { date: "2099-10-14" } }, response(value => { schedule = value; }));
+    await app.venues.getComplexSchedule({ user: { id: "host" }, params: { complexId: "complex" }, query: { date: "2099-10-14" } }, response(value => { complex = value; }));
+    const dates = rows => Array.from(rows, row => row.startTime.toISOString());
+    assert.deepEqual(dates(occupied), dates(schedule));
+    assert.deepEqual(dates(occupied), dates(complex.fields[0].bookings));
+    await assert.rejects(app.booking.createBookingBatch({ userId: "player", fieldId: "field", date: "2099-10-14", startTime: "18:30", endTime: "19:00" }), /already booked/);
+    assert.equal((await app.booking.createBookingBatch({ userId: "player", fieldId: "field", date: "2099-10-14", startTime: "19:00", endTime: "19:30" })).bookings.length, 1);
 });

@@ -5,7 +5,7 @@ import vm from "node:vm";
 import ts from "typescript";
 
 async function fixture(fetch, browser = {}) {
-  const context = vm.createContext({ console, Headers, URLSearchParams, fetch,
+  const context = vm.createContext({ console, Headers, URLSearchParams, Event, fetch,
     process: { env: { NEXT_PUBLIC_USE_MOCK: "true" } }, ...browser });
   const cache = new Map();
   const values = {
@@ -104,4 +104,22 @@ test("teams and fields display the API response and send the saved login token",
   assert.equal((await api.teams.getMyTeams())[0].id, "server-team");
   assert.equal((await api.fields.getFields())[0].id, "server-field");
   assert.deepEqual(paths, ["http://localhost:5000/api/teams/mine", "http://localhost:5000/api/fields"]);
+});
+
+test("successful reservation changes notify open views, but failed requests do not", async () => {
+  const events = [];
+  let status = 201;
+  const api = await fixture(async () => new Response(JSON.stringify({ id: "booking" }), { status }), {
+    window: { dispatchEvent: event => { events.push(event.type); } },
+    localStorage: { getItem: () => null },
+  });
+  for (const path of ["/api/bookings", "/api/bookings/fixed", "/api/venues/fields/field/manual-booking",
+    "/api/match-posts/post/accept", "/api/lobbies/lobby/join", "/api/invites/links/token/respond"]) {
+    await api.client.apiFetch(path, { method: "POST" });
+  }
+  assert.equal(events.length, 6);
+  assert.ok(events.every(type => type === "reservations:changed"));
+  status = 500;
+  await assert.rejects(api.client.apiFetch("/api/bookings", { method: "POST" }));
+  assert.equal(events.length, 6);
 });

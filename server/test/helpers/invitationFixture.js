@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { createHash, randomBytes } from "node:crypto";
+import * as venueTimeZone from "../../src/services/venueTimeZoneService.js";
 
 // Actual services with isolated sample data. Never imports db.cjs or reads .env.
 export async function invitationFixture({ fullTeams = false } = {}) {
@@ -11,7 +12,7 @@ export async function invitationFixture({ fullTeams = false } = {}) {
         startTime: new Date("2099-10-12T15:30Z"), endTime: new Date("2099-10-12T17:00Z") }], slots: [], bookings: [],
     posts: [{ id: "post", teamId: "team", fieldId: "field", status: "open", visibility: "private", code: "PRIVATE",
         preferredStartTime: new Date("2099-10-13T15:30Z"), preferredEndTime: new Date("2099-10-13T17:00Z") }], matches: [] };
-    const field = { id: "field", name: "Central Pitch", ownerId: "owner", pricePerHour: 100,
+    const field = { id: "field", name: "Central Pitch", ownerId: "owner", pricePerHour: 100, metadata: { timeZone: "UTC" },
         startTime: new Date("2000-01-01T06:00Z"), endTime: new Date("2000-01-01T22:00Z") };
     if (fullTeams) {
         for (const team of state.teams) {
@@ -95,11 +96,15 @@ export async function invitationFixture({ fullTeams = false } = {}) {
     };
     const context = vm.createContext({ console, Date, Set, Object, Math });
     const modules = new Map();
+    const geography = new vm.SyntheticModule(Object.keys(venueTimeZone), function () {
+        for (const [key, value] of Object.entries(venueTimeZone)) this.setExport(key, value);
+    }, { context });
     const database = new vm.SyntheticModule(["default"], function () { this.setExport("default", db); }, { context });
     const crypto = new vm.SyntheticModule(["randomBytes", "createHash"], function () {
         this.setExport("randomBytes", randomBytes); this.setExport("createHash", createHash);
     }, { context });
     async function load(url) {
+        if (url.endsWith("/venueTimeZoneService.js")) return geography;
         if (url.endsWith("/db.cjs")) return database;
         if (modules.has(url)) return modules.get(url);
         const mod = new vm.SourceTextModule(await readFile(new URL(url), "utf8"), { context, identifier: url });
@@ -110,5 +115,6 @@ export async function invitationFixture({ fullTeams = false } = {}) {
     const serviceModule = await load(new URL("../../src/services/shareInvitationService.js", import.meta.url).href);
     await serviceModule.evaluate();
     const matchModule = modules.get(new URL("../../src/services/matchPostService.js", import.meta.url).href);
-    return { service: serviceModule.namespace.createInvitationService(db), matchPosts: matchModule.namespace, db, state: () => state };
+    const bookingModule = modules.get(new URL("../../src/services/bookingService.js", import.meta.url).href);
+    return { service: serviceModule.namespace.createInvitationService(db), matchPosts: matchModule.namespace, bookings: bookingModule.namespace, db, state: () => state };
 }

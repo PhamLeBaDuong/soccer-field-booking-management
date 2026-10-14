@@ -22,7 +22,8 @@ function handleError(res, error) {
 export async function getOccupiedSlots(req, res) {
     const { fieldId, startTime, endTime } = req.query;
     try {
-        res.json(await bookingService.getOccupiedSlots(fieldId, startTime, endTime));
+        const slots = await bookingService.getOccupiedSlots(fieldId, startTime, endTime);
+        res.set("Cache-Control", "no-store").json(slots);
     } catch (error) { handleError(res, error); }
 }
 

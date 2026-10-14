@@ -118,6 +118,7 @@ export function normalizeComplex(value: unknown): Complex {
     lng: typeof record.lat === "number" && typeof record.lng === "number" ? record.lng : 0,
     owner: readOwner(record.owner, readString(record, "ownerId", "PitchBook Admin")),
     fieldsCount: Array.isArray(fields) ? fields.length : undefined,
+    timeZone: isRecord(record.metadata) ? readString(record.metadata, "timeZone") || undefined : undefined,
   };
 }
 
@@ -142,7 +143,7 @@ export function normalizeField(value: unknown, complexes: Complex[] = []): Field
     endTime: toDisplayTime(readString(record, "endTime", "22:00")),
     indoor: readBoolean(record, "indoor"),
     lights: readBoolean(record, "lights"),
-    metadata: { ...metadata, timeZone: isRecord(record.metadata) ? readString(record.metadata, "timeZone") || undefined : undefined },
+    metadata: { ...metadata, timeZone: complex?.timeZone || (isRecord(record.metadata) ? readString(record.metadata, "timeZone") || undefined : undefined) },
     occupiedTimes: readOccupiedTimes(record),
     complex,
   };

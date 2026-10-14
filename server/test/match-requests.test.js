@@ -32,6 +32,47 @@ const request = (start = "15:30", end = "17:00", extra = {}) => ({
     preferredStartTime: `2099-10-13T${start}Z`, preferredEndTime: `2099-10-13T${end}Z`, ...extra,
 });
 
+test("match requests reject slots occupied by direct, fixed or completed bookings", async () => {
+    for (const [bookingType, status] of [["direct", "confirmed"], ["fixed", "confirmed"], ["direct", "completed"]]) {
+        const app = await invitationFixture({ fullTeams: true }); app.state().posts = [];
+        app.state().bookings.push({ id: "occupied", fieldId: "field", bookingType, status,
+            startTime: new Date("2099-10-13T15:30Z"), endTime: new Date("2099-10-13T17:00Z") });
+        await assert.rejects(app.matchPosts.createMatchPost(request()), /already booked/);
+        assert.equal(app.state().posts.length, 0);
+        assert.equal(app.state().bookings.length, 1);
+        assert.equal((await app.bookings.getOccupiedSlots("field", "2099-10-13T06:00Z", "2099-10-13T22:00Z")).length, 1);
+        assert.equal((await app.matchPosts.createMatchPost(request("17:00", "18:00"))).status, "open");
+    }
+});
+
+test("a booking created while a match request waits blocks its invitation without consuming it", async () => {
+    for (const repeat of [undefined, { frequency: "weekly", until: "2099-10-20" }]) {
+        const app = await invitationFixture({ fullTeams: true }); app.state().posts = [];
+        const post = await app.matchPosts.createMatchPost(request());
+        const link = await app.service.resourceLink("match", post.id, "owner");
+        assert.equal((await app.bookings.getOccupiedSlots("field", "2099-10-13T06:00Z", "2099-10-13T22:00Z")).length, 0);
+        await app.bookings.createBookingBatch({ userId: "customer", fieldId: "field", startTime: "2099-10-13T15:30Z", endTime: "2099-10-13T17:00Z", repeat });
+        await assert.rejects(app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" }), /already booked/);
+        assert.equal(app.state().posts[0].status, "open");
+        assert.equal(app.state().responses.length, 0);
+        assert.equal(app.state().matches.length, 0);
+    }
+});
+
+test("match acceptance and direct booking serialize across the shared field timetable", async () => {
+    for (const bookingFirst of [true, false]) {
+        const app = await invitationFixture({ fullTeams: true });
+        const link = await app.service.resourceLink("match", "post", "owner");
+        const accept = () => app.service.respond(link.token, "player", "accepted", { acceptingTeamId: "opponent" });
+        const reserve = () => app.bookings.createBooking({ userId: "customer", fieldId: "field", startTime: "2099-10-13T15:30Z", endTime: "2099-10-13T17:00Z" });
+        const results = await Promise.allSettled((bookingFirst ? [reserve, accept] : [accept, reserve]).map(action => action()));
+        assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+        const slots = await app.bookings.getOccupiedSlots("field", "2099-10-13T06:00Z", "2099-10-13T22:00Z");
+        assert.equal(slots.length, app.state().matches.length ? 10 : 1);
+        assert.ok(slots.every(slot => slot.startTime.toISOString() === "2099-10-13T15:30:00.000Z"));
+    }
+});
+
 test("posting requires distinct members and counts the leader once", async () => {
     for (const count of [1, 4]) {
         const app = await invitationFixture({ fullTeams: true }); app.state().posts = [];

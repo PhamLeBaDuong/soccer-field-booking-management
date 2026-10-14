@@ -1,5 +1,6 @@
 import prisma from "../db.cjs";
 import { haversineKm } from "./bookingService.js";
+import { withFieldTimeZone } from "./venueTimeZoneService.js";
 
 // ─── Shared include ───────────────────────────────────────────────────────────
 
@@ -9,7 +10,7 @@ import { haversineKm } from "./bookingService.js";
  */
 const FIELD_INCLUDE = {
     complex: {
-        select: { id: true, name: true, address: true, lat: true, lng: true },
+        select: { id: true, name: true, address: true, lat: true, lng: true, metadata: true },
     },
     owner: { select: { id: true, name: true, username: true } },
 };
@@ -27,7 +28,7 @@ export async function getAllFields({ complexId, type, indoor, lights } = {}) {
         ...(indoor    !== undefined && { indoor:  indoor  === "true" || indoor  === true }),
         ...(lights    !== undefined && { lights:  lights  === "true" || lights  === true }),
     };
-    return prisma.field.findMany({ where, include: FIELD_INCLUDE, orderBy: { name: "asc" } });
+    return (await prisma.field.findMany({ where, include: FIELD_INCLUDE, orderBy: { name: "asc" } })).map(withFieldTimeZone);
 }
 
 /**
@@ -37,7 +38,7 @@ export async function getFieldById(fieldId) {
     if (!fieldId) throw new Error("fieldId is required");
     const field = await prisma.field.findUnique({ where: { id: fieldId }, include: FIELD_INCLUDE });
     if (!field) throw new Error("Field not found");
-    return field;
+    return withFieldTimeZone(field);
 }
 
 /**
@@ -70,7 +71,7 @@ export async function getNearbyFields(lat, lng, radius = 50) {
 
     return fields
         .map(f => ({
-            ...f,
+            ...withFieldTimeZone(f),
             distanceKm: haversineKm(origin, { lat: f.complex.lat, lng: f.complex.lng }),
         }))
         .filter(f => f.distanceKm <= parsedRadius)

@@ -1,4 +1,5 @@
 import prisma from "../db.cjs";
+import { withReservationTimeZone } from "./venueTimeZoneService.js";
 
 // ─── Includes ─────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ const MATCH_INCLUDE = {
     bookings: {
         include: {
             user:  { select: { id: true, name: true, username: true } },
-            field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
+            field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true, metadata: true } } } },
         },
     },
 };
@@ -33,7 +34,7 @@ export async function getMatch(matchId) {
     if (!matchId) throw new Error("matchId is required");
     const match = await prisma.match.findUnique({ where: { id: matchId }, include: MATCH_INCLUDE });
     if (!match) throw new Error("Match not found");
-    return match;
+    return withReservationTimeZone(match);
 }
 
 export async function getMatchesByUser(userId) {
@@ -42,7 +43,7 @@ export async function getMatchesByUser(userId) {
         where:   { bookings: { some: { userId } } },
         include: MATCH_INCLUDE,
         orderBy: { createdAt: "desc" },
-    });
+    }).then(matches => matches.map(withReservationTimeZone));
 }
 
 // ─── Cancel ───────────────────────────────────────────────────────────────────

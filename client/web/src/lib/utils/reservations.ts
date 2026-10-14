@@ -3,6 +3,14 @@ import { combineDateAndTime, nextCalendarDate, timeToMinutes } from "./format";
 export type BookingRepeat = { frequency: "weekly" | "monthly"; until: string };
 export type OccupiedSlot = { startTime: string; endTime: string };
 
+export function slotHasStarted(startMinutes: number, date: string | undefined, timeZone: string, now: number) {
+  if (!date) return false;
+  const slotDate = startMinutes >= 1440 ? nextCalendarDate(date) : date;
+  const clock = `${String(Math.floor((startMinutes % 1440) / 60)).padStart(2, "0")}:${String(startMinutes % 60).padStart(2, "0")}`;
+  try { return Date.parse(combineDateAndTime(slotDate, clock, timeZone)) <= now; }
+  catch { return true; }
+}
+
 export function reservationClock(value: string, timeZone = "UTC") {
   return new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(value));
 }

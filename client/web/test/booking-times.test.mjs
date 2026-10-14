@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { bookingTimeZone, combineDateAndTime, durationHours, formatDateRange, nextCalendarDate } from "../src/lib/utils/format.ts";
 import { validateReservationTime } from "../../../server/src/services/reservationService.js";
-const field = { startTime: "2000-01-01T06:00Z", endTime: "2000-01-01T22:00Z", pricePerHour: 100 };
+const field = { startTime: "2000-01-01T06:00Z", endTime: "2000-01-01T22:00Z", pricePerHour: 100, metadata: { timeZone: "UTC" } };
 test("field schedule is independent of the viewer timezone", () => {
  const original=process.env.TZ;
  try {

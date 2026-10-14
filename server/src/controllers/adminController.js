@@ -1,5 +1,6 @@
 import { groupReservations } from "../services/reservationService.js";
 import prisma from "../db.cjs";
+import { coordinatesTimeZone, withVenueTimeZone, withFieldTimeZone } from "../services/venueTimeZoneService.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -7,7 +8,7 @@ dotenv.config();
 export async function getAllComplexes(req, res) {
     try {
         const complexes = await prisma.complex.findMany();
-        res.status(200).json(complexes);
+        res.status(200).json(complexes.map(withVenueTimeZone));
     } catch (error) {
         console.error("Error fetching complexes:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -16,8 +17,8 @@ export async function getAllComplexes(req, res) {
 
 export async function getAllFields(req, res) {
     try {
-        const fields = await prisma.field.findMany();
-        res.status(200).json(fields);
+        const fields = await prisma.field.findMany({ include: { complex: true } });
+        res.status(200).json(fields.map(withFieldTimeZone));
     } catch (error) {
         console.error("Error fetching fields:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -36,7 +37,7 @@ export async function getComplexById(req, res) {
             return res.status(404).json({ error: "Complex not found" });
         }
 
-        res.status(200).json(complex);
+        res.status(200).json(withVenueTimeZone(complex));
     } catch (error) {
         console.error("Error fetching complex:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -49,13 +50,14 @@ export async function getFieldsByComplexId(req, res) {
     try {
         const fields = await prisma.field.findMany({
             where: { complexId },
+            include: { complex: true },
         });
 
         if (fields.length === 0) {
             return res.status(404).json({ error: "No fields found for this complex" });
         }
 
-        res.status(200).json(fields);
+        res.status(200).json(fields.map(withFieldTimeZone));
     } catch (error) {
         console.error("Error fetching fields:", error);
         res.status(500).json({ error: "Internal server error" });
@@ -65,18 +67,21 @@ export async function getFieldsByComplexId(req, res) {
 // Add Controller
 
 export async function addComplex(req, res) {
-    const { ownerId, name, address, description } = req.body;
+    const { ownerId, name, address, description, lat, lng } = req.body;
 
     if (!ownerId || !name || !address) {
         return res.status(400).json({ error: "Owner ID, Name, and Address are required" });
     }
 
     try {
+        const timeZone = coordinatesTimeZone({ lat, lng });
+        if (!timeZone) return res.status(400).json({ error: "Venue map location is required" });
         const newComplex = await prisma.complex.create({
             data: {
                 name,
                 address,
                 desc: description || null,
+                lat, lng, metadata: { timeZone },
                 createdAt: new Date(),
                 owner: {
                     connect: { id: ownerId },
@@ -120,15 +125,21 @@ export async function addField(req, res) {
 
 export async function updateComplex(req, res) {
     const { id } = req.params;
-    const { name, address, description } = req.body;
+    const { name, address, description, lat, lng } = req.body;
 
     try {
+        const existing = await prisma.complex.findUnique({ where: { id } });
+        if (!existing) return res.status(404).json({ error: "Complex not found" });
+        const timeZone = coordinatesTimeZone({ lat: lat !== undefined ? lat : existing.lat, lng: lng !== undefined ? lng : existing.lng });
+        if (!timeZone) return res.status(400).json({ error: "Venue map location is required" });
         const updatedComplex = await prisma.complex.update({
             where: { id },
             data: {
                 name,
                 address,
                 desc: description || null,
+                ...(lat !== undefined && { lat }), ...(lng !== undefined && { lng }),
+                metadata: { ...existing.metadata, timeZone },
             },
         });
         res.status(200).json({ message: "Complex updated successfully", complex: updatedComplex });

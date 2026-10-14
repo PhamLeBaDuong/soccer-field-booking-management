@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CalendarDays, Check, Plus, Swords } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
 import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
 import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
+import { watchReservationChanges } from "@/lib/utils/reservationRefresh";
+import { VenueTimeNote } from "@/components/bookings/VenueTimeNote";
 
 type Props = {
   fieldId: string;
@@ -55,16 +57,24 @@ export function FieldSchedulePanel({
   const [savingManual,   setSavingManual]   = useState(false);
   const [repeat, setRepeat] = useState<BookingRepeat>();
   const preview = repeatBookingPreview(date, manualStart, manualEnd, timeZone, pricePerHour, repeat);
+  const loadVersion = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    const request = ++loadVersion.current;
+    if (!background) setLoading(true);
     setError("");
-    try { setSlots(await fetchSchedule(fieldId, date)); }
-    catch (error) { setSlots([]); setError(error instanceof Error ? error.message : "Unable to load schedule."); }
-    finally { setLoading(false); }
+    try {
+      const slots = await fetchSchedule(fieldId, date);
+      if (request === loadVersion.current) setSlots(slots);
+    }
+    catch (error) {
+      if (request === loadVersion.current) { setSlots([]); setError(error instanceof Error ? error.message : "Unable to load schedule."); }
+    }
+    finally { if (request === loadVersion.current) setLoading(false); }
   }, [fieldId, date, fetchSchedule]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); return () => { loadVersion.current++; }; }, [load]);
+  useEffect(() => watchReservationChanges(() => { void load(true); }), [load]);
 
   function selectSlot(b: ScheduleBooking) {
     if (selected?.id === b.id) { setSelected(null); return; }
@@ -143,6 +153,7 @@ export function FieldSchedulePanel({
 
   return (
     <div className="space-y-4">
+      <VenueTimeNote timeZone={timeZone} />
       {/* Date picker + Add manual booking */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">

@@ -1,7 +1,8 @@
-import { withFieldReservation, validateReservationTime, assertReservationAvailable } from "./reservationService.js";
+import { withFieldReservation, validateReservationTime, assertReservationAvailable, reservationOverlapWhere } from "./reservationService.js";
 import prisma from "../db.cjs";
 import { bookingOccurrences, zonedBookingTime, addCalendarDays, localBookingParts } from "./bookingScheduleService.js";
 import { reservationTimeZone } from "./reservationService.js";
+import { withFieldTimeZone, withReservationTimeZone } from "./venueTimeZoneService.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Current: direct bookings and full-lobby bookings do not require a match.
@@ -24,15 +25,7 @@ import { reservationTimeZone } from "./reservationService.js";
  */
 export async function isSlotFree(fieldId, startTime, endTime, excludeBookingIds = []) {
     const conflict = await prisma.booking.findFirst({
-        where: {
-            fieldId,
-            status: "confirmed",
-            id:     { notIn: excludeBookingIds },
-            AND: [
-                { startTime: { lt: new Date(endTime)   } },
-                { endTime:   { gt: new Date(startTime) } },
-            ],
-        },
+        where: reservationOverlapWhere(fieldId, startTime, endTime, excludeBookingIds),
     });
     return conflict === null;
 }
@@ -41,7 +34,7 @@ export async function isSlotFree(fieldId, startTime, endTime, excludeBookingIds 
 
 export const BOOKING_INCLUDE = {
     lobby: { select: { id: true, teamSize: true, initialSize: true } },
-    field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
+    field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true, metadata: true } } } },
     match: {
         include: {
             matchPost: { include: { team: { select: { id: true, name: true, size: true } } } },
@@ -55,16 +48,17 @@ export async function getBookingById(bookingId) {
     if (!bookingId) throw new Error("bookingId is required");
     const b = await prisma.booking.findUnique({ where: { id: bookingId }, include: BOOKING_INCLUDE });
     if (!b) throw new Error("Booking not found");
-    return b;
+    return { ...b, field: withFieldTimeZone(b.field) };
 }
 
 export async function getBookingsByUserId(userId) {
     if (!userId) throw new Error("userId is required");
-    return prisma.booking.findMany({
+    const bookings = await prisma.booking.findMany({
         where:   { userId },
         include: BOOKING_INCLUDE,
         orderBy: { createdAt: "desc" },
     });
+    return bookings.map(booking => ({ ...booking, field: withFieldTimeZone(booking.field) }));
 }
 
 /**
@@ -76,14 +70,7 @@ export async function getOccupiedSlots(fieldId, startTime, endTime) {
         throw new Error("fieldId, startTime and endTime are required");
     }
     return prisma.booking.findMany({
-        where: {
-            fieldId,
-            status: "confirmed",
-            AND: [
-                { startTime: { lt: new Date(endTime)   } },
-                { endTime:   { gt: new Date(startTime) } },
-            ],
-        },
+        where: reservationOverlapWhere(fieldId, startTime, endTime),
         select: { startTime: true, endTime: true },
         orderBy: { startTime: "asc" },
     });
@@ -200,6 +187,6 @@ export async function createBookingBatch({ userId, fieldId, startTime, endTime, 
                 currency: field.metadata?.currency ?? "VND", status: "confirmed", paymentStatus: "unpaid" },
             include: BOOKING_INCLUDE,
         }));
-        return { bookings, totalPrice: bookings.reduce((sum, booking) => sum + booking.totalPrice, 0) };
+        return { bookings: bookings.map(withReservationTimeZone), totalPrice: bookings.reduce((sum, booking) => sum + booking.totalPrice, 0) };
     });
 }

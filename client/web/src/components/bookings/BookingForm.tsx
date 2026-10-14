@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
 import { createBooking, createFixedBooking } from "@/lib/api/bookings";
 import { RepeatBookingFields } from "./RepeatBookingFields";
+import { VenueTimeNote } from "./VenueTimeNote";
 import { repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
 import { useOccupiedSlots } from "@/hooks/useOccupiedSlots";
 import { createLobby } from "@/lib/api/lobbies";
@@ -41,7 +42,7 @@ export function BookingForm({ field }: { field: Field }) {
   const [end, setEnd] = useState("");
   const [openLobby, setOpenLobby] = useState(false);
   const [repeat, setRepeat] = useState<BookingRepeat>();
-  const availability = useOccupiedSlots(field.id, date, field.startTime, field.endTime, timeZone);
+  const availability = useOccupiedSlots(field.metadata.timeZone ? field.id : "", date, field.startTime, field.endTime, timeZone);
   const [dateError, setDateError] = useState("");
   const [timeError, setTimeError] = useState("");
   const [error, setError] = useState("");
@@ -111,13 +112,16 @@ export function BookingForm({ field }: { field: Field }) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to reserve this slot.");
+      if (err instanceof Error && err.message.includes("already booked")) await availability.refresh();
     } finally {
       setLoading(false);
     }
   }
 
+  if (!field.metadata.timeZone) return <VenueTimeNote />;
   return (
     <div className="space-y-5">
+      <VenueTimeNote timeZone={field.metadata.timeZone} />
       <Input
         label="Date"
         type="date"
@@ -133,11 +137,13 @@ export function BookingForm({ field }: { field: Field }) {
           <span className="text-sm font-semibold text-neutral-900">Time slot</span>
           <span className="text-xs font-medium text-stone-500">30-minute slots</span>
         </div>
-        {availability.loading ? <p className="text-sm" role="status">Loading availability…</p> : availability.error ? <p role="alert" className="text-sm text-red-700">{availability.error}</p> : <TimeSlotPicker
+        {availability.loading ? <p className="text-sm" role="status">Loading availability…</p> : availability.error ? <div><p role="alert" className="text-sm text-red-700">{availability.error}</p><Button variant="secondary" onClick={() => { void availability.refresh(); }}>Retry</Button></div> : <TimeSlotPicker
           key={`${field.id}:${date}`}
           startTime={field.startTime}
           endTime={field.endTime}
           occupiedSlots={availability.slots}
+          date={date}
+          timeZone={timeZone}
           onRangeSelect={handleRangeSelect}
         />}
         {start && end && !timeError && (

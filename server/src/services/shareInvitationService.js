@@ -19,7 +19,7 @@ export function createInvitationService(db = prisma, actions = { joinLobby, acce
                 count: team.members.length, status: "open", teamId: team.id, resource: team };
         }
         if (kind === "match") {
-            const post = await client.matchPost.findUnique({ where: { id }, include: { team: { include: { members: true } }, field: true } });
+            const post = await client.matchPost.findUnique({ where: { id }, include: { team: { include: { members: true } }, field: { include: { complex: { select: { metadata: true, lat: true, lng: true } } } } } });
             if (!post) fail("Match request no longer exists", 404);
             return { ownerId: post.team.leaderId, title: post.team.name, size: post.team.size,
                 teamId: post.teamId, membersCount: new Set(post.team.members.map(member => member.userId)).size,
@@ -27,7 +27,7 @@ export function createInvitationService(db = prisma, actions = { joinLobby, acce
                 startTime: post.preferredStartTime, endTime: post.preferredEndTime, timeZone: reservationTimeZone(post.field ?? {}), resource: post };
         }
         if (kind === "lobby") {
-            const lobby = await client.lobby.findUnique({ where: { id }, include: { slots: true, field: true } });
+            const lobby = await client.lobby.findUnique({ where: { id }, include: { slots: true, field: { include: { complex: { select: { metadata: true, lat: true, lng: true } } } } } });
             if (!lobby) fail("Lobby no longer exists", 404);
             return { ownerId: lobby.creatorId, title: lobby.field?.name ?? "Lobby", size: lobby.teamSize,
                 count: lobby.initialSize + lobby.slots.length, status: lobby.status,

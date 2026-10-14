@@ -1,7 +1,8 @@
-import { groupReservations } from "../services/reservationService.js";
+import { groupReservations, reservationOverlapWhere, RESERVED_BOOKING_STATUSES } from "../services/reservationService.js";
 import { createBookingBatch } from "../services/bookingService.js";
 import { bookingDayRange } from "../services/bookingScheduleService.js";
 import prisma from "../db.cjs";
+import { coordinatesTimeZone, withVenueTimeZone, withFieldTimeZone } from "../services/venueTimeZoneService.js";
 
 function handleError(res, error) {
     if (error.status === 403) return res.status(403).json({ error: error.message });
@@ -23,7 +24,7 @@ export async function getMyComplexes(req, res) {
             include: { fields: { select: { id: true } } },
             orderBy: { createdAt: "desc" },
         });
-        res.json(complexes.map((c) => ({ ...c, fieldsCount: c.fields.length })));
+        res.json(complexes.map((c) => ({ ...withVenueTimeZone(c), fieldsCount: c.fields.length })));
     } catch (error) { handleError(res, error); }
 }
 
@@ -36,7 +37,7 @@ export async function getMyComplex(req, res) {
         });
         if (!complex) return res.status(404).json({ error: "Complex not found" });
         if (complex.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
-        res.json(complex);
+        res.json(withVenueTimeZone(complex));
     } catch (error) { handleError(res, error); }
 }
 
@@ -45,6 +46,8 @@ export async function createComplex(req, res) {
     const { name, address, description, lat, lng } = req.body;
     if (!name || !address) return res.status(400).json({ error: "name and address are required" });
     try {
+        const timeZone = coordinatesTimeZone({ lat, lng });
+        if (!timeZone) throw new Error("Venue map location is required");
         const complex = await prisma.complex.create({
             data: {
                 name,
@@ -52,6 +55,7 @@ export async function createComplex(req, res) {
                 desc:    description ?? null,
                 lat:     lat    ?? null,
                 lng:     lng    ?? null,
+                metadata: { timeZone },
                 ownerId: req.user.id,
             },
         });
@@ -66,6 +70,8 @@ export async function updateComplex(req, res) {
         const existing = await prisma.complex.findUnique({ where: { id: req.params.id } });
         if (!existing) return res.status(404).json({ error: "Complex not found" });
         if (existing.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
+        const timeZone = coordinatesTimeZone({ lat: lat !== undefined ? lat : existing.lat, lng: lng !== undefined ? lng : existing.lng });
+        if (!timeZone) throw new Error("Venue map location is required");
         const complex = await prisma.complex.update({
             where: { id: req.params.id },
             data:  {
@@ -74,6 +80,7 @@ export async function updateComplex(req, res) {
                 ...(description !== undefined && { desc: description }),
                 ...(lat         !== undefined && { lat }),
                 ...(lng         !== undefined && { lng }),
+                metadata: { ...existing.metadata, timeZone },
             },
         });
         res.json({ message: "Complex updated", complex });
@@ -101,9 +108,10 @@ export async function getFieldsForComplex(req, res) {
         if (complex.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
         const fields = await prisma.field.findMany({
             where:   { complexId: req.params.complexId },
+            include: { complex: { select: { metadata: true, lat: true, lng: true } } },
             orderBy: { createdAt: "asc" },
         });
-        res.json(fields);
+        res.json(fields.map(withFieldTimeZone));
     } catch (error) { handleError(res, error); }
 }
 
@@ -185,18 +193,14 @@ export async function getVenueFieldSchedule(req, res) {
     }
 
     try {
-        const field = await prisma.field.findUnique({ where: { id: fieldId } });
+        const field = await prisma.field.findUnique({ where: { id: fieldId }, include: { complex: { select: { metadata: true, lat: true, lng: true } } } });
         if (!field) return res.status(404).json({ error: "Field not found" });
         if (field.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
 
         const { start: dayStart, end: dayEnd } = bookingDayRange(date, field);
 
         const bookings = await prisma.booking.findMany({
-            where: {
-                fieldId,
-                status: { in: ["confirmed", "completed"] },
-                startTime: { lt: dayEnd }, endTime: { gt: dayStart },
-            },
+            where: reservationOverlapWhere(fieldId, dayStart, dayEnd),
             include: {
                 user:  { select: { id: true, name: true, username: true } },
                 lobby: { select: { id: true, teamSize: true } },
@@ -242,7 +246,7 @@ export async function getComplexSchedule(req, res) {
             include: {
                 bookings: {
                     where: {
-                        status:    { in: ["confirmed", "completed"] },
+                        status:    { in: RESERVED_BOOKING_STATUSES },
                         startTime: { lt: dayEnd }, endTime: { gt: dayStart },
                     },
                     include: {
@@ -261,10 +265,11 @@ export async function getComplexSchedule(req, res) {
             },
         });
 
-        res.json({ complex: { id: complex.id, name: complex.name },
+        res.json({ complex: { id: complex.id, name: complex.name, timeZone: withVenueTimeZone(complex).metadata.timeZone },
             fields: fields.map(field => {
-                const range = bookingDayRange(date, field);
-                return { ...field, bookings: groupReservations(field.bookings.filter(booking =>
+                const resolvedField = withFieldTimeZone({ ...field, complex });
+                const range = bookingDayRange(date, resolvedField);
+                return { ...resolvedField, bookings: groupReservations(field.bookings.filter(booking =>
                     +new Date(booking.startTime) < +range.end && +new Date(booking.endTime) > +range.start)) };
             }) });
     } catch (error) { handleError(res, error); }

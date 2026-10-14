@@ -83,6 +83,12 @@ export async function apiFetch<T>(
     throw new ApiFetchError(await readErrorMessage(response), response.status);
   }
 
+  if (typeof window !== "undefined" && typeof window.dispatchEvent === "function"
+      && options.method && !["GET", "HEAD", "OPTIONS"].includes(options.method.toUpperCase())
+      && /^\/api\/(bookings|venues|match-posts|lobbies|invites)(\/|$)/.test(path)) {
+    window.dispatchEvent(new Event("reservations:changed"));
+  }
+
   if (response.status === 204) {
     return undefined as T;
   }

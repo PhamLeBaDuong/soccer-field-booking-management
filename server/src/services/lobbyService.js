@@ -1,12 +1,13 @@
 import { withFieldReservation, validateReservationTime, assertReservationAvailable } from "./reservationService.js";
 import prisma from "../db.cjs";
+import { withReservationTimeZone } from "./venueTimeZoneService.js";
 
 // ─── Includes ─────────────────────────────────────────────────────────────────
 
 const LOBBY_INCLUDE = {
     field: {
         include: {
-            complex: { select: { id: true, name: true, address: true, lat: true, lng: true } },
+            complex: { select: { id: true, name: true, address: true, lat: true, lng: true, metadata: true } },
         },
     },
     slots: {
@@ -108,14 +109,14 @@ export async function getMyLobbies(userId) {
         },
         include: LOBBY_INCLUDE,
         orderBy: { createdAt: "desc" },
-    });
+    }).then(lobbies => lobbies.map(withReservationTimeZone));
 }
 
 export async function getLobbyById(lobbyId) {
     if (!lobbyId) throw new Error("lobbyId is required");
     const lobby = await prisma.lobby.findUnique({ where: { id: lobbyId }, include: LOBBY_INCLUDE });
     if (!lobby) throw new Error("Lobby not found");
-    return lobby;
+    return withReservationTimeZone(lobby);
 }
 
 export async function listLobbies({ fieldId, status, teamSize } = {}) {
@@ -130,7 +131,7 @@ export async function listLobbies({ fieldId, status, teamSize } = {}) {
         where,
         include: LOBBY_INCLUDE,
         orderBy: { createdAt: "desc" },
-    });
+    }).then(lobbies => lobbies.map(withReservationTimeZone));
 }
 
 // ─── Join ─────────────────────────────────────────────────────────────────────

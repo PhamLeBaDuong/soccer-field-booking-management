@@ -50,3 +50,50 @@ test("overnight and full-day occupied labels remain blocked past midnight", () =
   const allDay = fieldDayRange("2099-01-01", "00:00", "00:00", "UTC");
   assert.equal(occupiedSlotLabels([allDay], "2099-01-01", allDay, "UTC")[0].endTime, "24:00");
 });
+
+test("the screenshot's two reservations both block their field-local half-hour slots", () => {
+  const range = fieldDayRange("2099-10-14", "06:00", "22:00", "America/Indiana/Indianapolis");
+  const slots = occupiedSlotLabels([
+    { startTime: "2099-10-14T22:30Z", endTime: "2099-10-14T23:00Z" },
+    { startTime: "2099-10-15T01:30Z", endTime: "2099-10-15T02:00Z" },
+  ], "2099-10-14", range, "America/Indiana/Indianapolis");
+  assert.deepEqual(Array.from(slots, slot => `${slot.startTime}-${slot.endTime}`), ["18:30-19:00", "21:30-22:00"]);
+});
+
+test("elapsed and nonexistent local slots are unavailable, including after midnight", () => {
+  const now = Date.parse("2099-10-15T01:00Z");
+  assert.equal(module.namespace.slotHasStarted(18 * 60 + 30, "2099-10-14", "America/Indiana/Indianapolis", now), true);
+  assert.equal(module.namespace.slotHasStarted(21 * 60 + 30, "2099-10-14", "America/Indiana/Indianapolis", now), false);
+  assert.equal(module.namespace.slotHasStarted(24 * 60 + 30, "2099-10-14", "America/Indiana/Indianapolis", now), false);
+  assert.equal(module.namespace.slotHasStarted(2 * 60 + 30, "2027-03-14", "America/Indiana/Indianapolis", 0), true);
+});
+
+test("availability watchers refresh on changes and tab return, poll visible pages, and clean up", async () => {
+  const window = new EventTarget(), document = new EventTarget();
+  document.hidden = false;
+  let timer, interval, cleared = false, count = 0;
+  window.setInterval = (callback, delay) => { timer = callback; interval = delay; return 1; };
+  window.clearInterval = () => { cleared = true; };
+  const context = vm.createContext({ window, document });
+  const source = await readFile(new URL("../src/lib/utils/reservationRefresh.ts", import.meta.url), "utf8");
+  const module = new vm.SourceTextModule(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText, { context });
+  await module.link(() => { throw new Error("Unexpected dependency"); });
+  await module.evaluate();
+  const stop = module.namespace.watchReservationChanges(() => count++);
+  window.dispatchEvent(new Event("reservations:changed"));
+  window.dispatchEvent(new Event("focus"));
+  timer();
+  assert.equal(count, 3);
+  assert.equal(interval, 30000);
+  document.hidden = true;
+  timer();
+  assert.equal(count, 3);
+  document.hidden = false;
+  document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(count, 4);
+  stop();
+  assert.equal(cleared, true);
+  window.dispatchEvent(new Event("reservations:changed"));
+  document.dispatchEvent(new Event("visibilitychange"));
+  assert.equal(count, 4);
+});

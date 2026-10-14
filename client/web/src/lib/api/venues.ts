@@ -15,6 +15,7 @@ export async function createVenueComplex(payload: {
   description?: string;
   lat?: number;
   lng?: number;
+  timeZone?: string;
 }): Promise<Complex> {
   const res = await apiFetch<{ complex: unknown }>("/api/venues/complexes", {
     method: "POST",
@@ -27,6 +28,9 @@ export async function updateVenueComplex(id: string, payload: {
   name?: string;
   address?: string;
   description?: string;
+  timeZone?: string;
+  lat?: number;
+  lng?: number;
 }): Promise<Complex> {
   const res = await apiFetch<{ complex: unknown }>(`/api/venues/complexes/${id}`, {
     method: "PUT",
@@ -88,7 +92,7 @@ export async function deleteVenueField(id: string): Promise<void> {
 
 export async function getVenueFieldSchedule(fieldId: string, date: string) {
   return apiFetch<import("@/lib/api/adminSchedule").ScheduleBooking[]>(
-    `/api/venues/fields/${fieldId}/schedule?date=${date}`,
+    `/api/venues/fields/${fieldId}/schedule?date=${date}`, { cache: "no-store" },
   );
 }
 
@@ -104,7 +108,7 @@ export interface ComplexScheduleField {
 
 export async function getComplexSchedule(complexId: string, date: string) {
   return apiFetch<{ complex: { id: string; name: string }; fields: ComplexScheduleField[] }>(
-    `/api/venues/complexes/${complexId}/schedule?date=${date}`,
+    `/api/venues/complexes/${complexId}/schedule?date=${date}`, { cache: "no-store" },
   );
 }
 

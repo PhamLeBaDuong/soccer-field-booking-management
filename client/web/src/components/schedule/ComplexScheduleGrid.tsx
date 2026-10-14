@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,41 +18,50 @@ import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
 import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
 import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
+import { watchReservationChanges } from "@/lib/utils/reservationRefresh";
+import { VenueTimeNote } from "@/components/bookings/VenueTimeNote";
 
 const PX_PER_HOUR = 64; // row height
 
 export function ComplexScheduleGrid({
   complexId,
   canEditResult = true,
+  timeZone,
 }: {
   complexId: string;
   canEditResult?: boolean;
+  timeZone?: string;
 }) {
   const { t, lang } = useI18n();
   const { showToast } = useToast();
 
-  const [date, setDate]       = useState(todayInputValue());
+  const [date, setDate]       = useState(todayInputValue(timeZone));
   const [data, setData]       = useState<ComplexScheduleField[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<{ field: ComplexScheduleField; booking: ScheduleBooking } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const loadVersion = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    const request = ++loadVersion.current;
+    if (!background) setLoading(true);
     setError("");
     try {
       const res = await getComplexSchedule(complexId, date);
-      setData(res.fields);
+      if (request === loadVersion.current) setData(res.fields);
     } catch (error) {
-      setData([]);
-      setError(error instanceof Error ? error.message : "Unable to load schedule.");
+      if (request === loadVersion.current) {
+        setData([]);
+        setError(error instanceof Error ? error.message : "Unable to load schedule.");
+      }
     } finally {
-      setLoading(false);
+      if (request === loadVersion.current) setLoading(false);
     }
   }, [complexId, date]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); return () => { loadVersion.current++; }; }, [load]);
+  useEffect(() => watchReservationChanges(() => { void load(true); }), [load]);
 
   // ── Time range across all fields ──────────────────────────────────────────────
   const { rangeStart, rangeEnd, hours } = useMemo(() => {
@@ -108,8 +117,10 @@ export function ComplexScheduleGrid({
     }).format(d);
   }, [date, lang]);
 
+  if (!timeZone) return <VenueTimeNote />;
   return (
     <div>
+      <VenueTimeNote timeZone={timeZone} />
       {/* Date navigator */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -124,7 +135,7 @@ export function ComplexScheduleGrid({
             className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 bg-white text-stone-600 hover:bg-stone-50">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button type="button" onClick={() => { setDate(todayInputValue()); setSelected(null); }}
+          <button type="button" onClick={() => { setDate(todayInputValue(timeZone)); setSelected(null); }}
             className="rounded-[8px] border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-50">
             {t("common.today")}
           </button>

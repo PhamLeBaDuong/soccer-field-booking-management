@@ -29,6 +29,8 @@ import { useMatchPosts } from "@/hooks/useMatchPosts";
 import { getSocket } from "@/lib/socket";
 import { useTeams } from "@/hooks/useTeams";
 import { useFields } from "@/hooks/useFields";
+import { useOccupiedSlots } from "@/hooks/useOccupiedSlots";
+import { VenueTimeNote } from "@/components/bookings/VenueTimeNote";
 import { useField } from "@/hooks/useFields";
 import { useI18n } from "@/lib/i18n/context";
 import type { MatchRequest, MatchRequestStatus, MatchRequestVisibility, Team } from "@/lib/types";
@@ -104,9 +106,17 @@ function MatchingContent() {
   const [slotVersion, setSlotVersion] = useState(0);
   const [acceptTarget, setAcceptTarget] = useState<MatchRequest | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [dateChanged, setDateChanged] = useState(false);
 
   // Load the currently selected field to get its operating hours + occupied slots
   const { field: selectedField } = useField(form.fieldId || null);
+  const venueTimeZone = selectedField?.metadata.timeZone;
+  useEffect(() => {
+    if (venueTimeZone && !dateChanged) {
+      setForm(form => ({ ...form, date: todayInputValue(venueTimeZone), start: "", end: "" }));
+    }
+  }, [venueTimeZone, dateChanged]);
+  const availability = useOccupiedSlots(selectedField?.metadata.timeZone ? selectedField.id : "", form.date, selectedField?.startTime ?? "06:00", selectedField?.endTime ?? "22:00", selectedField?.metadata.timeZone ?? "UTC");
 
   // Default to first team once loaded
   useEffect(() => {
@@ -181,6 +191,7 @@ function MatchingContent() {
       showToast(t("match.postedWaiting"));
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to post request.", "error");
+      if (err instanceof Error && err.message.includes("already booked")) await availability.refresh();
     } finally { setPosting(false); }
   }
 
@@ -357,8 +368,8 @@ function MatchingContent() {
                 type="date"
                 leadingIcon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
                 value={form.date}
-                min={todayInputValue()}
-                onChange={(e) => setForm((p) => ({ ...p, date: e.target.value, start: "", end: "" }))}
+                min={todayInputValue(venueTimeZone)}
+                onChange={(e) => { setDateChanged(true); setForm((p) => ({ ...p, date: e.target.value, start: "", end: "" })); }}
               />
 
               {/* Time slot picker */}
@@ -367,13 +378,16 @@ function MatchingContent() {
                   <span className="text-sm font-semibold text-neutral-900">{t("field.timeSlot")}</span>
                   <span className="text-xs font-medium text-stone-500">{t("field.hourSlots")}</span>
                 </div>
-                <TimeSlotPicker
+                <VenueTimeNote timeZone={selectedField?.metadata.timeZone} />
+                {!selectedField?.metadata.timeZone ? null : availability.loading ? <Skeleton className="h-20" /> : availability.error ? <ErrorState message={availability.error} onRetry={availability.refresh} /> : <TimeSlotPicker
                   key={`${form.fieldId}:${form.date}:${slotVersion}`}
                   startTime={selectedField?.startTime ?? "06:00"}
                   endTime={selectedField?.endTime ?? "22:00"}
-                  occupiedSlots={selectedField?.occupiedTimes ?? []}
+                  occupiedSlots={availability.slots}
+                  date={form.date}
+                  timeZone={selectedField?.metadata.timeZone ?? "UTC"}
                   onRangeSelect={(s, e) => setForm((p) => ({ ...p, start: s, end: e }))}
-                />
+                />}
                 {form.start && form.end && (
                   <p className="mt-2 text-xs font-medium text-stone-500">
                     {form.start} – {form.end}
@@ -395,7 +409,7 @@ function MatchingContent() {
                   value={form.note} onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))} />
               </div>
 
-              <Button className="w-full" type="submit" loading={posting} disabled={!activeTeam || activeTeam.membersCount < activeTeam.size || fieldsLoading}>
+              <Button className="w-full" type="submit" loading={posting} disabled={!activeTeam || activeTeam.membersCount < activeTeam.size || fieldsLoading || !selectedField?.metadata.timeZone || availability.loading || !!availability.error}>
                 <Send className="h-4 w-4" aria-hidden="true" />
                 {t("match.post")}
               </Button>

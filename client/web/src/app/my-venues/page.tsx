@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 import { FieldSchedulePanel } from "@/components/schedule/FieldSchedulePanel";
+import { LocationPicker } from "@/components/fields/LocationPicker";
 import { ComplexScheduleGrid } from "@/components/schedule/ComplexScheduleGrid";
 import { getVenueFieldSchedule, createManualBooking } from "@/lib/api/venues";
 import { useI18n } from "@/lib/i18n/context";
@@ -34,10 +35,10 @@ import { FIELD_TYPES } from "@/lib/constants";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency } from "@/lib/utils/format";
 
-type ComplexForm = { name: string; address: string; description: string };
+type ComplexForm = { name: string; address: string; description: string; lat: number | null; lng: number | null };
 type FieldForm   = { name: string; type: string; startTime: string; endTime: string; price: string; indoor: boolean; lights: boolean; description: string };
 
-const EMPTY_COMPLEX: ComplexForm = { name: "", address: "", description: "" };
+const EMPTY_COMPLEX: ComplexForm = { name: "", address: "", description: "", lat: null, lng: null };
 const EMPTY_FIELD: FieldForm     = { name: "", type: "5v5", startTime: "06:00", endTime: "22:00", price: "", indoor: false, lights: false, description: "" };
 
 export default function MyVenuesPage() {
@@ -56,6 +57,7 @@ export default function MyVenuesPage() {
   const [complexForm, setComplexForm] = useState<ComplexForm>(EMPTY_COMPLEX);
   const [editingComplex, setEditingComplex] = useState<Complex | null>(null);
   const [showComplexForm, setShowComplexForm] = useState(false);
+  const [chooseVenueLocation, setChooseVenueLocation] = useState(false);
 
   // Create/edit field
   const [fieldForm, setFieldForm]     = useState<FieldForm>(EMPTY_FIELD);
@@ -101,7 +103,7 @@ export default function MyVenuesPage() {
 
   function startEditComplex(complex: Complex) {
     setEditingComplex(complex);
-    setComplexForm({ name: complex.name, address: complex.address, description: complex.description ?? "" });
+    setComplexForm({ name: complex.name, address: complex.address, description: complex.description ?? "", lat: complex.lat || complex.lng ? complex.lat : null, lng: complex.lat || complex.lng ? complex.lng : null });
     setShowComplexForm(true);
   }
 
@@ -110,16 +112,20 @@ export default function MyVenuesPage() {
     if (!complexForm.name.trim() || !complexForm.address.trim()) {
       showToast("Name and address are required.", "error"); return;
     }
+    if (complexForm.lat == null || complexForm.lng == null) { showToast("Choose the venue location on the map.", "error"); return; }
     try {
       if (editingComplex) {
-        await updateVenueComplex(editingComplex.id, complexForm);
+        await updateVenueComplex(editingComplex.id, { ...complexForm, lat: complexForm.lat, lng: complexForm.lng });
         showToast("Complex updated.");
       } else {
-        await createVenueComplex(complexForm);
+        await createVenueComplex({ ...complexForm, lat: complexForm.lat, lng: complexForm.lng });
         showToast("Complex created.");
       }
       setShowComplexForm(false);
       await loadComplexes();
+      setFieldsMap({});
+      setExpandedId(null);
+      setScheduleId(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to save complex.", "error");
     }
@@ -232,7 +238,11 @@ export default function MyVenuesPage() {
                 onChange={(e) => setComplexForm((p) => ({ ...p, name: e.target.value }))} />
               <Input label="Address" placeholder="120 Đinh Tiên Hoàng…"
                 value={complexForm.address}
-                onChange={(e) => setComplexForm((p) => ({ ...p, address: e.target.value }))} />
+                onChange={(e) => setComplexForm((p) => ({ ...p, address: e.target.value, lat: null, lng: null }))} />
+              <div className="sm:col-span-2">
+                <Button type="button" variant="secondary" onClick={() => setChooseVenueLocation(true)}>Choose venue location</Button>
+                <p className="mt-2 text-xs text-stone-500">{complexForm.lat == null ? "Select the address or a map pin to set the venue timezone." : "Location selected. Timezone follows this venue location."}</p>
+              </div>
               <div className="sm:col-span-2">
                 <Input label="Description (optional)" placeholder="Daytime only, no lights…"
                   value={complexForm.description}
@@ -252,6 +262,9 @@ export default function MyVenuesPage() {
       )}
 
       {/* Error */}
+      {chooseVenueLocation && <LocationPicker location={complexForm.lat != null && complexForm.lng != null ? { lat: complexForm.lat, lng: complexForm.lng, source: "selected", label: complexForm.address } : null}
+        center={{ lat: complexForm.lat ?? 10.7769, lng: complexForm.lng ?? 106.7009 }} onClose={() => setChooseVenueLocation(false)}
+        onSelect={selected => { setComplexForm(form => ({ ...form, lat: selected.lat, lng: selected.lng, address: selected.label || form.address })); setChooseVenueLocation(false); }} />}
       {error && <div className="mt-4"><ErrorState message={error} onRetry={loadComplexes} /></div>}
 
       {/* Complex list */}
@@ -395,7 +408,7 @@ export default function MyVenuesPage() {
                   {/* Combined schedule grid */}
                   {scheduleId === complex.id && (
                     <div className="mt-4 border-t border-stone-100 pt-4">
-                      <ComplexScheduleGrid complexId={complex.id} />
+                      <ComplexScheduleGrid key={complex.timeZone} complexId={complex.id} timeZone={complex.timeZone} />
                     </div>
                   )}
                 </CardContent>

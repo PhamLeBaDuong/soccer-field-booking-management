@@ -1,10 +1,12 @@
 # Fixed bookings
 
-Users and venue owners can reserve a weekly or monthly slot through an inclusive end date. Every occurrence is created immediately as an ordinary confirmed Booking; no background worker or rolling schedule is needed. The local clock follows Field metadata.timeZone (UTC for legacy fields), including daylight saving changes. Monthly schedules keep the original day and skip months without that date. A request may contain at most 104 dates.
+Users and venue owners can reserve a weekly or monthly slot through an inclusive end date. Every occurrence is created immediately as an ordinary confirmed Booking; no background worker or rolling schedule is needed. The local clock follows the venue's map coordinates using server-side timezone boundary data, including daylight saving changes. Existing configured venue or field timezone metadata is used when coordinates are absent; new bookings with neither location nor configured timezone are rejected instead of guessing UTC. Monthly schedules keep the original day and skip months without that date. A request may contain at most 104 dates.
 
 All occurrences use the existing field lock, operating-hour validation, server pricing and conflict checks. Any invalid or occupied date rejects the entire request. Payments remain per booking. The end date applies to the occurrence's start date, including overnight slots. The implementation creates individual reservations and does not add a series cancellation operation.
 
 Owners see direct bookings in blue and fixed bookings in purple, with labels for accessibility. User booking cards and public availability do not distinguish the types. The occupied-slot API returns only startTime and endTime, and the booking form fetches availability for the selected field date.
+
+Owner schedules, the public availability feed and conflict checks use the same confirmed/completed reservation states and overlapping time ranges; canceled bookings do not block slots. Booking and matchmaking pickers use the live feed in the field's timezone and disable elapsed or nonexistent local times. Visible views refresh every 30 seconds, on tab return, and immediately after successful reservation changes in the same page. Requests bypass browser caching, and older responses cannot replace a newer availability request. A selected range is cleared if refreshed data makes it unavailable. Server checks under the field lock remain authoritative when confirming.
 
 ## Schema and deployment
 

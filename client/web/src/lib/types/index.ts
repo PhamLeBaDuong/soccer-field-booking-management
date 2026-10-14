@@ -18,6 +18,7 @@ export interface Complex {
   lng: number;
   owner: string;
   fieldsCount?: number;
+  timeZone?: string;
 }
 
 export interface Field {

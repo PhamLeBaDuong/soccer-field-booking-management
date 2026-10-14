@@ -2,6 +2,7 @@ import { withFieldReservation, validateReservationTime, assertReservationAvailab
 import { randomBytes } from "crypto";
 import prisma from "../db.cjs";
 import { isSlotFree } from "./bookingService.js";
+import { withReservationTimeZone } from "./venueTimeZoneService.js";
 
 // ─── Includes ─────────────────────────────────────────────────────────────────
 
@@ -12,7 +13,7 @@ const POST_INCLUDE = {
             members: { include: { user: { select: { id: true, name: true, username: true } } } },
         },
     },
-    field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true } } } },
+    field: { include: { complex: { select: { id: true, name: true, address: true, lat: true, lng: true, metadata: true } } } },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,7 +98,7 @@ export async function createMatchPost({
 
         // Validate field exists if provided
         if (fieldId) {
-            const field = await tx.field.findUnique({ where: { id: fieldId } });
+            const field = await tx.field.findUnique({ where: { id: fieldId }, include: { complex: { select: { metadata: true, lat: true, lng: true } } } });
             if (!field) throw new Error("Field not found");
             validateReservationTime(field, start, end);
         }
@@ -108,6 +109,7 @@ export async function createMatchPost({
 
         // Adjacent slots and requests on other dates are allowed, across all fields.
         await assertTeamSlotAvailable(tx, teamId, start, end);
+        if (fieldId) await assertReservationAvailable(tx, fieldId, start, end);
 
         const code = visibility === "private" ? generateCode() : null;
 
@@ -124,7 +126,7 @@ export async function createMatchPost({
             include: POST_INCLUDE,
         });
 
-        return post;
+        return withReservationTimeZone(post);
     });
 }
 
@@ -145,7 +147,7 @@ export async function getMatchPost(postId, code) {
         if (post.code !== code.toUpperCase()) throw new Error("Invalid access code");
     }
 
-    return post;
+    return withReservationTimeZone(post);
 }
 
 /**
@@ -171,7 +173,7 @@ export async function listMatchPosts({ teamSize, fieldId, status = "open" } = {}
         where,
         include:  POST_INCLUDE,
         orderBy:  { createdAt: "desc" },
-    });
+    }).then(posts => posts.map(withReservationTimeZone));
 }
 
 /**
@@ -194,7 +196,7 @@ export async function getMyMatchPosts(userId) {
         },
         include: POST_INCLUDE,
         orderBy: { createdAt: "desc" },
-    });
+    }).then(posts => posts.map(withReservationTimeZone));
 }
 
 // ─── Accept ───────────────────────────────────────────────────────────────────
