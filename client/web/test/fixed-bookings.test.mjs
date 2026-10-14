@@ -15,7 +15,35 @@ await module.link(() => new vm.SyntheticModule(Object.keys(format), function () 
   for (const [key, value] of Object.entries(format)) this.setExport(key, value);
 }, { context }));
 await module.evaluate();
-const { repeatBookingPreview, fieldDayRange, occupiedSlotLabels } = module.namespace;
+const { repeatBookingPreview, fieldDayRange, occupiedSlotLabels, timetableSlots } = module.namespace;
+
+test("owner timetable offers future empty half-hours in venue time and excludes every overlapping booking", () => {
+  const zone = "America/Indiana/Indianapolis", date = "2099-10-14";
+  const bookings = [
+    { startTime: format.combineDateAndTime(date, "18:45", zone), endTime: format.combineDateAndTime(date, "19:15", zone) },
+    { startTime: format.combineDateAndTime(date, "20:00", zone), endTime: format.combineDateAndTime(date, "20:30", zone) },
+  ];
+  const now = Date.parse(format.combineDateAndTime(date, "18:10", zone));
+  const slots = timetableSlots(date, "18:00", "21:00", zone, bookings, now);
+  assert.deepEqual(Array.from(slots, s => `${s.start}-${s.end}`), ["19:30-20:00", "20:30-21:00"]);
+  assert.equal(slots[0].date, date);
+  assert.equal(slots[0].minute, 19 * 60 + 30);
+  assert.equal(slots[0].duration, 30);
+});
+
+test("owner timetable prefills the actual next date after midnight and stops at closing", () => {
+  const slots = timetableSlots("2099-12-31", "23:30", "00:45", "UTC", [], 0);
+  assert.deepEqual(Array.from(slots, s => [s.date, s.start, s.end, s.duration]), [
+    ["2099-12-31", "23:30", "00:00", 30],
+    ["2100-01-01", "00:00", "00:30", 30],
+    ["2100-01-01", "00:30", "00:45", 15],
+  ]);
+});
+
+test("owner timetable excludes nonexistent clock-change times", () => {
+  const slots = timetableSlots("2027-03-14", "01:00", "04:00", "America/Indiana/Indianapolis", [], 0);
+  assert.deepEqual(Array.from(slots, s => s.start), ["01:00", "03:00", "03:30"]);
+});
 
 test("recurring price preview agrees with the server across weekly DST and short monthly dates", () => {
   for (const [date, start, end, zone, repeat] of [

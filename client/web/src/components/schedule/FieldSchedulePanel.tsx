@@ -9,7 +9,8 @@ import { type ScheduleBooking } from "@/lib/api/adminSchedule";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
 import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
-import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
+import { reservationClock, repeatBookingPreview, timetableSlots, type BookingRepeat } from "@/lib/utils/reservations";
+import { ScheduleBookingButton } from "./ScheduleBookingButton";
 import { watchReservationChanges } from "@/lib/utils/reservationRefresh";
 import { VenueTimeNote } from "@/components/bookings/VenueTimeNote";
 
@@ -42,6 +43,8 @@ export function FieldSchedulePanel({
   const [error, setError] = useState("");
   const [selected, setSelected]     = useState<ScheduleBooking | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const [manualDate, setManualDate] = useState(date);
+  const formRef = useRef<HTMLDivElement>(null);
 
   // Result form
   const [homeScore,   setHomeScore]   = useState("");
@@ -56,7 +59,8 @@ export function FieldSchedulePanel({
   const [manualNote,     setManualNote]     = useState("");
   const [savingManual,   setSavingManual]   = useState(false);
   const [repeat, setRepeat] = useState<BookingRepeat>();
-  const preview = repeatBookingPreview(date, manualStart, manualEnd, timeZone, pricePerHour, repeat);
+  useEffect(() => { if (showManual) formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [showManual, manualDate]);
+  const preview = repeatBookingPreview(manualDate, manualStart, manualEnd, timeZone, pricePerHour, repeat);
   const loadVersion = useRef(0);
 
   const load = useCallback(async (background = false) => {
@@ -108,7 +112,7 @@ export function FieldSchedulePanel({
     setSavingManual(true);
     try {
       await createManual(fieldId, {
-        date,
+        date: manualDate,
         startTime:    manualStart,
         endTime:      manualEnd,
         customerName: manualCustomer || undefined,
@@ -168,7 +172,7 @@ export function FieldSchedulePanel({
           />
         </div>
         {createManual && (
-          <Button variant="secondary" onClick={() => { setShowManual((v) => !v); setSelected(null); }}>
+          <Button variant="secondary" onClick={() => { setManualDate(date); setShowManual((v) => !v); setSelected(null); }}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             Manual booking
           </Button>
@@ -192,13 +196,21 @@ export function FieldSchedulePanel({
 
         {/* Track */}
         <div className="relative mt-1 h-14 overflow-hidden rounded-[8px] bg-stone-100 ring-1 ring-stone-200">
+          {createManual && !loadingSlots && !error && timetableSlots(date, fieldStart, fieldEnd, timeZone, slots).map(slot => (
+            <button key={slot.minute} type="button"
+              aria-label={`Add booking: ${slot.date}, ${slot.start}–${slot.end}`}
+              style={{ left: `${(slot.minute - openMin) / totalMin * 100}%`, width: `${slot.duration / totalMin * 100}%` }}
+              className="absolute inset-y-0 border-r border-stone-200 hover:bg-amber-50 focus-visible:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-400"
+              onClick={() => { setManualDate(slot.date); setManualStart(slot.start); setManualEnd(slot.end); setShowManual(true); setSelected(null); }}
+            />
+          ))}
           {loadingSlots && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs text-stone-400">Loading…</span>
             </div>
           )}
           {!loadingSlots && !error && slots.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="text-xs text-stone-400">No bookings — field is open all day</span>
             </div>
           )}
@@ -207,7 +219,8 @@ export function FieldSchedulePanel({
             const hasRes = hasResult(b);
 
             return (
-              <button
+              <ScheduleBookingButton
+                booking={b} label={slotLabel(b)} timeZone={timeZone}
                 key={b.id}
                 type="button"
                 onClick={() => selectSlot(b)}
@@ -225,7 +238,7 @@ export function FieldSchedulePanel({
                     {b.match?.homeScore}–{b.match?.awayScore}
                   </span>
                 )}
-              </button>
+              </ScheduleBookingButton>
             );
           })}
         </div>
@@ -240,7 +253,7 @@ export function FieldSchedulePanel({
 
       {/* Manual booking form */}
       {showManual && createManual && (
-        <div className="rounded-[8px] border border-amber-200 bg-amber-50 p-4">
+        <div ref={formRef} className="rounded-[8px] border border-amber-200 bg-amber-50 p-4">
           <p className="mb-3 text-sm font-semibold text-amber-900">Add walk-in / manual booking</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Input label="Start (HH:MM)" placeholder="08:00"
@@ -252,7 +265,7 @@ export function FieldSchedulePanel({
             <Input label="Note (opt.)" placeholder="Paid cash"
               value={manualNote} onChange={(e) => setManualNote(e.target.value)} />
           </div>
-          <div className="mt-3"><RepeatBookingFields date={date} repeat={repeat} onChange={setRepeat} /></div>
+          <div className="mt-3"><RepeatBookingFields date={manualDate} repeat={repeat} onChange={setRepeat} /></div>
           {repeat && preview.count > 0 && <p className="mt-3 text-sm font-semibold">{preview.count} bookings · {formatCurrency(preview.total, currency)} total</p>}
           {preview.error && <p role="alert" className="mt-2 text-sm text-red-700">{preview.error}</p>}
           <div className="mt-3 flex gap-2">

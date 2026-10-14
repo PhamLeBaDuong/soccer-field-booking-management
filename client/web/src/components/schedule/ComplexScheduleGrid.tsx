@@ -17,7 +17,8 @@ import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
 import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
-import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
+import { reservationClock, repeatBookingPreview, timetableSlots, type BookingRepeat } from "@/lib/utils/reservations";
+import { ScheduleBookingButton } from "./ScheduleBookingButton";
 import { watchReservationChanges } from "@/lib/utils/reservationRefresh";
 import { VenueTimeNote } from "@/components/bookings/VenueTimeNote";
 
@@ -41,7 +42,10 @@ export function ComplexScheduleGrid({
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<{ field: ComplexScheduleField; booking: ScheduleBooking } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [initialSlot, setInitialSlot] = useState<{ fieldId: string; date: string; start: string; end: string }>();
+  const formRef = useRef<HTMLDivElement>(null);
   const loadVersion = useRef(0);
+  useEffect(() => { if (showAdd) formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [showAdd, initialSlot]);
 
   const load = useCallback(async (background = false) => {
     const request = ++loadVersion.current;
@@ -104,10 +108,11 @@ export function ComplexScheduleGrid({
 
   // ── Date navigation ─────────────────────────────────────────────────────────
   function shiftDay(delta: number) {
-    const d = new Date(`${date}T00:00:00`);
-    d.setDate(d.getDate() + delta);
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + delta);
     setDate(d.toISOString().slice(0, 10));
     setSelected(null);
+    setShowAdd(false);
   }
 
   const dateLabel = useMemo(() => {
@@ -135,12 +140,12 @@ export function ComplexScheduleGrid({
             className="grid h-9 w-9 place-items-center rounded-full border border-stone-200 bg-white text-stone-600 hover:bg-stone-50">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button type="button" onClick={() => { setDate(todayInputValue(timeZone)); setSelected(null); }}
+          <button type="button" onClick={() => { setDate(todayInputValue(timeZone)); setSelected(null); setShowAdd(false); }}
             className="rounded-[8px] border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-600 hover:bg-stone-50">
             {t("common.today")}
           </button>
         </div>
-        <Button variant="secondary" onClick={() => { setShowAdd((v) => !v); setSelected(null); }}>
+        <Button variant="secondary" onClick={() => { setInitialSlot(undefined); setShowAdd((v) => !v); setSelected(null); }}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           {t("schedule.addBooking")}
         </Button>
@@ -149,12 +154,16 @@ export function ComplexScheduleGrid({
       {/* Manual booking form */}
       {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
       {showAdd && (
-        <ManualBookingForm
-          fields={data}
-          date={date}
-          onClose={() => setShowAdd(false)}
-          onCreated={() => { setShowAdd(false); load(); }}
-        />
+        <div ref={formRef}>
+          <ManualBookingForm
+            key={initialSlot ? `${initialSlot.fieldId}-${initialSlot.date}-${initialSlot.start}` : date}
+            initialSlot={initialSlot}
+            fields={data}
+            date={initialSlot?.date ?? date}
+            onClose={() => setShowAdd(false)}
+            onCreated={() => { setShowAdd(false); load(); }}
+          />
+        </div>
       )}
 
       {/* Grid */}
@@ -170,9 +179,9 @@ export function ComplexScheduleGrid({
               <div className="h-10 border-b border-r border-stone-200 bg-stone-50" />
               <div className="relative border-r border-stone-200" style={{ height: gridHeight }}>
                 {hours.map((m, i) => (
-                  <div key={m} className="absolute left-0 right-0 px-1 text-right text-[11px] font-mono text-stone-400"
-                    style={{ top: i * PX_PER_HOUR - 6 }}>
-                    {minutesToTime(m % (24 * 60))}
+                  <div key={m} className="pointer-events-none absolute left-0 right-0 h-4 px-1 text-right text-[11px] leading-4 font-mono text-stone-500"
+                    style={{ top: i * PX_PER_HOUR, transform: i === 0 ? undefined : i === hours.length - 1 ? "translateY(-100%)" : "translateY(-50%)" }}>
+                    <span className="bg-white px-1">{minutesToTime(m % (24 * 60))}</span>
                   </div>
                 ))}
               </div>
@@ -187,9 +196,17 @@ export function ComplexScheduleGrid({
                 </div>
                 {/* Track */}
                 <div className="relative" style={{ height: gridHeight }}>
+                  {!error && timetableSlots(date, field.startTime, field.endTime, field.metadata?.timeZone ?? timeZone, field.bookings).map(slot => (
+                    <button key={slot.minute} type="button"
+                      aria-label={`Add booking: ${field.name}, ${slot.date}, ${slot.start}–${slot.end}`}
+                      style={{ top: ((slot.minute - rangeStart) / 60) * PX_PER_HOUR, height: slot.duration / 60 * PX_PER_HOUR }}
+                      className="absolute inset-x-0 border-b border-stone-100 hover:bg-amber-50 focus-visible:z-10 focus-visible:bg-amber-50 focus-visible:outline-2 focus-visible:outline-amber-400"
+                      onClick={() => { setInitialSlot({ fieldId: field.id, date: slot.date, start: slot.start, end: slot.end }); setShowAdd(true); setSelected(null); }}
+                    />
+                  ))}
                   {/* hour gridlines */}
                   {hours.map((m, i) => (
-                    <div key={m} className="absolute left-0 right-0 border-b border-stone-100"
+                    <div key={m} className="pointer-events-none absolute left-0 right-0 border-b border-stone-100"
                       style={{ top: i * PX_PER_HOUR }} />
                   ))}
                   {/* bookings */}
@@ -197,10 +214,11 @@ export function ComplexScheduleGrid({
                     const { top, height } = bookingGeometry(b, field);
                     const res = hasResult(b);
                     return (
-                      <button
+                      <ScheduleBookingButton
+                        booking={b} label={slotLabel(b)} fieldName={field.name} timeZone={field.metadata?.timeZone ?? timeZone}
                         key={b.id}
                         type="button"
-                        onClick={() => setSelected({ field, booking: b })}
+                        onClick={() => { setSelected({ field, booking: b }); setShowAdd(false); }}
                         style={{ top: top + 2, height: height - 4 }}
                         className={cn(
                           "absolute left-1 right-1 overflow-hidden rounded-[6px] px-1.5 py-1 text-left text-[11px] font-semibold leading-tight transition-all",
@@ -218,7 +236,7 @@ export function ComplexScheduleGrid({
                             {b.match?.homeScore}–{b.match?.awayScore}
                           </span>
                         )}
-                      </button>
+                      </ScheduleBookingButton>
                     );
                   })}
                 </div>
@@ -257,18 +275,19 @@ function timeRange(b: ScheduleBooking, timeZone = "UTC") {
 // ─── Manual booking form ────────────────────────────────────────────────────────
 
 function ManualBookingForm({
-  fields, date, onClose, onCreated,
+  fields, date, initialSlot, onClose, onCreated,
 }: {
   fields: ComplexScheduleField[];
   date: string;
+  initialSlot?: { fieldId: string; start: string; end: string };
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const [fieldId, setFieldId]   = useState(fields[0]?.id ?? "");
-  const [start, setStart]       = useState("08:00");
-  const [end, setEnd]           = useState("09:00");
+  const [fieldId, setFieldId]   = useState(initialSlot?.fieldId ?? fields[0]?.id ?? "");
+  const [start, setStart]       = useState(initialSlot?.start ?? "08:00");
+  const [end, setEnd]           = useState(initialSlot?.end ?? "09:00");
   const [customer, setCustomer] = useState("");
   const [note, setNote]         = useState("");
   const [repeat, setRepeat] = useState<BookingRepeat>();
@@ -300,7 +319,7 @@ function ManualBookingForm({
         </label>
         <Input label={t("common.start") + " (HH:MM)"} value={start} onChange={(e) => setStart(e.target.value)} />
         <Input label={t("common.end") + " (HH:MM)"} value={end} onChange={(e) => setEnd(e.target.value)} />
-        <Input label={t("schedule.customerName")} value={customer} onChange={(e) => setCustomer(e.target.value)} />
+        <Input autoFocus={!!initialSlot} label={t("schedule.customerName")} value={customer} onChange={(e) => setCustomer(e.target.value)} />
         <Input label={t("schedule.note")} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <div className="mt-3"><RepeatBookingFields date={date} repeat={repeat} onChange={setRepeat} /></div>

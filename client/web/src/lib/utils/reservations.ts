@@ -1,7 +1,28 @@
-import { combineDateAndTime, nextCalendarDate, timeToMinutes } from "./format";
+import { combineDateAndTime, minutesToTime, nextCalendarDate, timeToMinutes } from "./format";
 
 export type BookingRepeat = { frequency: "weekly" | "monthly"; until: string };
 export type OccupiedSlot = { startTime: string; endTime: string };
+
+export function timetableSlots(date: string, open: string, close: string, timeZone: string, bookings: OccupiedSlot[], now = Date.now()) {
+  const first = timeToMinutes(open);
+  let last = timeToMinutes(close);
+  if (last <= first) last += 1440;
+  const slots = [];
+  for (let minute = first; minute < last; minute += 30) {
+    const finish = Math.min(minute + 30, last);
+    const slotDate = minute >= 1440 ? nextCalendarDate(date) : date;
+    const start = minutesToTime(minute % 1440);
+    const end = minutesToTime(finish % 1440);
+    try {
+      const startTime = Date.parse(combineDateAndTime(slotDate, start, timeZone));
+      const endTime = Date.parse(combineDateAndTime(finish >= 1440 ? nextCalendarDate(date) : date, end, timeZone));
+      if (startTime <= now || endTime <= startTime) continue;
+      if (bookings.some(b => Date.parse(b.startTime) < endTime && Date.parse(b.endTime) > startTime)) continue;
+      slots.push({ date: slotDate, start, end, minute, duration: finish - minute });
+    } catch { /* A clock-change gap has no bookable local time. */ }
+  }
+  return slots;
+}
 
 export function slotHasStarted(startMinutes: number, date: string | undefined, timeZone: string, now: number) {
   if (!date) return false;
