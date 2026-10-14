@@ -2,6 +2,7 @@ import { apiFetch } from "@/lib/api/client";
 
 export interface ScheduleBooking {
   id: string;
+  bookingType?: "direct" | "fixed";
   // matchId: string; // Legacy required relation.
   matchId: string | null;
   lobbyId?: string | null;

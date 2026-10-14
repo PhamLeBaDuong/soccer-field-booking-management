@@ -8,6 +8,8 @@ import { useToast } from "@/components/ui/Toast";
 import { type ScheduleBooking } from "@/lib/api/adminSchedule";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
+import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
+import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
 
 type Props = {
   fieldId: string;
@@ -15,6 +17,7 @@ type Props = {
   fieldEnd: string;
   pricePerHour: number;
   currency?: string;
+  timeZone?: string;
   /** fetch bookings for a given (fieldId, date) */
   fetchSchedule: (fieldId: string, date: string) => Promise<ScheduleBooking[]>;
   /** optional: save a match result */
@@ -22,18 +25,19 @@ type Props = {
   /** optional: create a manual / walk-in booking */
   createManual?: (fieldId: string, payload: {
     date: string; startTime: string; endTime: string;
-    customerName?: string; note?: string;
-  }) => Promise<void>;
+    customerName?: string; note?: string; repeat?: BookingRepeat;
+  }) => Promise<unknown>;
 };
 
 export function FieldSchedulePanel({
-  fieldId, fieldStart, fieldEnd, pricePerHour, currency,
+  fieldId, fieldStart, fieldEnd, pricePerHour, currency, timeZone = "UTC",
   fetchSchedule, saveResult, createManual,
 }: Props) {
   const { showToast } = useToast();
-  const [date, setDate]             = useState(todayInputValue());
+  const [date, setDate]             = useState(todayInputValue(timeZone));
   const [slots, setSlots]           = useState<ScheduleBooking[]>([]);
   const [loadingSlots, setLoading]  = useState(false);
+  const [error, setError] = useState("");
   const [selected, setSelected]     = useState<ScheduleBooking | null>(null);
   const [showManual, setShowManual] = useState(false);
 
@@ -49,11 +53,14 @@ export function FieldSchedulePanel({
   const [manualCustomer, setManualCustomer] = useState("");
   const [manualNote,     setManualNote]     = useState("");
   const [savingManual,   setSavingManual]   = useState(false);
+  const [repeat, setRepeat] = useState<BookingRepeat>();
+  const preview = repeatBookingPreview(date, manualStart, manualEnd, timeZone, pricePerHour, repeat);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try { setSlots(await fetchSchedule(fieldId, date)); }
-    catch { setSlots([]); }
+    catch (error) { setSlots([]); setError(error instanceof Error ? error.message : "Unable to load schedule."); }
     finally { setLoading(false); }
   }, [fieldId, date, fetchSchedule]);
 
@@ -96,6 +103,7 @@ export function FieldSchedulePanel({
         endTime:      manualEnd,
         customerName: manualCustomer || undefined,
         note:         manualNote    || undefined,
+        repeat,
       });
       showToast("Manual booking created.");
       setShowManual(false);
@@ -116,8 +124,8 @@ export function FieldSchedulePanel({
   for (let m = openMin; m <= closeMin; m += 60) hourLabels.push(minutesToTime(m));
 
   function slotGeometry(b: ScheduleBooking) {
-    let s = timeToMinutes(new Date(b.startTime).toISOString().slice(11, 16));
-    let e = timeToMinutes(new Date(b.endTime).toISOString().slice(11, 16));
+    let s = timeToMinutes(reservationClock(b.startTime, timeZone));
+    let e = timeToMinutes(reservationClock(b.endTime, timeZone));
     if (s < openMin) s += 24 * 60;
     if (e <= openMin) e += 24 * 60;
     return {
@@ -126,7 +134,6 @@ export function FieldSchedulePanel({
     };
   }
 
-  const isPast    = (b: ScheduleBooking) => new Date(b.endTime) < new Date();
   const hasResult = (b: ScheduleBooking) => b.match?.homeScore != null && b.match?.awayScore != null;
 
   const slotLabel = (b: ScheduleBooking) =>
@@ -179,16 +186,14 @@ export function FieldSchedulePanel({
               <span className="text-xs text-stone-400">Loading…</span>
             </div>
           )}
-          {!loadingSlots && slots.length === 0 && (
+          {!loadingSlots && !error && slots.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-xs text-stone-400">No bookings — field is open all day</span>
             </div>
           )}
           {slots.map((b) => {
             const { left, width } = slotGeometry(b);
-            const done = isPast(b);
             const hasRes = hasResult(b);
-            const isManual = b.match?.source === "manual";
 
             return (
               <button
@@ -199,15 +204,10 @@ export function FieldSchedulePanel({
                 className={cn(
                   "absolute top-1 bottom-1 rounded-[6px] px-2 text-left text-xs font-semibold overflow-hidden transition-all",
                   selected?.id === b.id && "ring-2 ring-amber-400",
-                  isManual
-                    ? "bg-amber-500 text-white hover:bg-amber-600"
-                    : hasRes
-                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                      : done
-                        ? "bg-neutral-700 text-white hover:bg-neutral-800"
-                        : "bg-sky-500 text-white hover:bg-sky-600",
+                  b.bookingType === "fixed" ? "bg-violet-500 text-white hover:bg-violet-600" : "bg-sky-500 text-white hover:bg-sky-600",
                 )}
               >
+                <span className="sr-only">{b.bookingType === "fixed" ? "Fixed booking" : "Direct booking"}</span>
                 <span className="block truncate leading-tight">{slotLabel(b)}</span>
                 {hasRes && (
                   <span className="block font-mono text-[10px] text-white/80">
@@ -220,11 +220,10 @@ export function FieldSchedulePanel({
         </div>
 
         {/* Legend */}
+        {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] font-semibold text-stone-500">
-          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-500"/>Upcoming</span>
-          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-neutral-700"/>Played</span>
-          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500"/>Result recorded</span>
-          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500"/>Walk-in</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-500"/>Direct booking</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-violet-500"/>Fixed booking</span>
         </div>
       </div>
 
@@ -242,10 +241,13 @@ export function FieldSchedulePanel({
             <Input label="Note (opt.)" placeholder="Paid cash"
               value={manualNote} onChange={(e) => setManualNote(e.target.value)} />
           </div>
+          <div className="mt-3"><RepeatBookingFields date={date} repeat={repeat} onChange={setRepeat} /></div>
+          {repeat && preview.count > 0 && <p className="mt-3 text-sm font-semibold">{preview.count} bookings · {formatCurrency(preview.total, currency)} total</p>}
+          {preview.error && <p role="alert" className="mt-2 text-sm text-red-700">{preview.error}</p>}
           <div className="mt-3 flex gap-2">
-            <Button loading={savingManual} onClick={handleManualBooking}>
+            <Button loading={savingManual} disabled={!!preview.error} onClick={handleManualBooking}>
               <Check className="h-4 w-4" aria-hidden="true" />
-              Confirm booking
+              {repeat ? "Confirm recurring bookings" : "Confirm booking"}
             </Button>
             <Button variant="secondary" type="button" onClick={() => setShowManual(false)}>
               Cancel
@@ -264,13 +266,14 @@ export function FieldSchedulePanel({
                 {slotLabel(selected)}
               </p>
               <p className="mt-0.5 font-mono text-xs text-stone-500">
-                {new Date(selected.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {reservationClock(selected.startTime, timeZone)}
                 {" – "}
-                {new Date(selected.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {reservationClock(selected.endTime, timeZone)}
               </p>
               <p className="mt-0.5 text-xs text-stone-500">
                 Revenue: <span className="font-mono">{formatCurrency(selected.totalPrice, selected.currency)}</span>
               </p>
+              <p className="mt-0.5 text-xs text-stone-500">{selected.bookingType === "fixed" ? "Fixed booking" : "Direct booking"}</p>
             </div>
             <button type="button" onClick={() => setSelected(null)}
               className="rounded p-1 text-stone-400 hover:bg-stone-200 text-lg leading-none">×</button>

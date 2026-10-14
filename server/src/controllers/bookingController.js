@@ -6,6 +6,7 @@ import * as vnpayService   from "../services/vnpayService.js";
 import * as zalopayService from "../services/zalopayService.js";
 
 function handleError(res, error) {
+    if (error.status === 403) return res.status(403).json({ error: error.message });
     const clientPhrases = [
         "required", "not found", "invalid", "not authorized", "already paid",
         "must be", "already booked",
@@ -169,5 +170,14 @@ export async function createBooking(req, res) {
         const { fieldId, startTime, endTime } = req.body;
         const booking = await bookingService.createBooking({ userId: req.user.id, fieldId, startTime, endTime });
         res.status(201).json(booking);
+    } catch (error) { handleError(res, error); }
+}
+
+export async function createFixedBooking(req, res) {
+    try {
+        const { fieldId, startTime, endTime, repeat } = req.body;
+        if (!repeat) return res.status(400).json({ error: "repeat is required" });
+        const result = await bookingService.createBookingBatch({ userId: req.user.id, fieldId, startTime, endTime, repeat });
+        res.status(201).json(result);
     } catch (error) { handleError(res, error); }
 }

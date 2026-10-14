@@ -3,6 +3,7 @@ import { normalizeBooking } from "@/lib/api/normalizers";
 import { getFields } from "@/lib/api/fields";
 
 import type { Booking, BookingPayload, MatchingSearch, PaymentMethod, PaymentOption } from "@/lib/types";
+import type { BookingRepeat } from "@/lib/utils/reservations";
 
 export async function getUserBookings(userId: string): Promise<Booking[]> {
   const fields = await getFields();
@@ -19,6 +20,13 @@ export async function createBooking(payload: Pick<BookingPayload, "fieldId" | "s
     method: "POST", body: JSON.stringify(payload),
   });
   return normalizeBooking(response);
+}
+
+export async function createFixedBooking(payload: Pick<BookingPayload, "fieldId" | "startTime" | "endTime"> & { repeat: BookingRepeat }): Promise<{ bookings: Booking[]; totalPrice: number }> {
+  const result = await apiFetch<{ bookings: unknown[]; totalPrice: number }>("/api/bookings/fixed", {
+    method: "POST", body: JSON.stringify(payload),
+  });
+  return { bookings: result.bookings.map(booking => normalizeBooking(booking)), totalPrice: result.totalPrice };
 }
 
 export async function cancelBooking(bookingId: string): Promise<Booking> {

@@ -460,6 +460,7 @@ function FieldRow({ field, onEdit, onDelete }: { field: Field; onEdit: () => voi
             fieldEnd={field.endTime}
             pricePerHour={field.metadata.price}
             currency={field.metadata.currency}
+            timeZone={field.metadata.timeZone}
             fetchSchedule={getVenueFieldSchedule}
             createManual={createManualBooking}
           />

@@ -98,6 +98,7 @@ export interface ComplexScheduleField {
   startTime: string;
   endTime: string;
   pricePerHour: number;
+  metadata?: { timeZone?: string; currency?: string };
   bookings: import("@/lib/api/adminSchedule").ScheduleBooking[];
 }
 
@@ -113,8 +114,9 @@ export async function createManualBooking(fieldId: string, payload: {
   endTime: string;
   customerName?: string;
   note?: string;
-}): Promise<void> {
-  await apiFetch(`/api/venues/fields/${fieldId}/manual-booking`, {
+  repeat?: import("@/lib/utils/reservations").BookingRepeat;
+}): Promise<{ bookings: import("@/lib/api/adminSchedule").ScheduleBooking[]; totalPrice: number }> {
+  return apiFetch(`/api/venues/fields/${fieldId}/manual-booking`, {
     method: "POST",
     body:   JSON.stringify(payload),
   });

@@ -214,6 +214,7 @@ model Booking {
   matchId       String?
   lobbyId       String?
   note          String?
+  bookingType   String   @default("direct")
   startTime     DateTime
   endTime       DateTime
   totalPrice    Float    @default(0)

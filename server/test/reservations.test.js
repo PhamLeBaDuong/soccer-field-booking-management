@@ -4,13 +4,16 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import { randomBytes } from "node:crypto";
 import { validateReservationTime, groupReservations } from "../src/services/reservationService.js";
+import { bookingOccurrences, bookingDayRange } from "../src/services/bookingScheduleService.js";
+import { Prisma } from "@prisma/client";
 
 const field = { id: "field", ownerId: "host", pricePerHour: 200000,
     startTime: new Date("2000-01-01T06:00:00Z"), endTime: new Date("2000-01-01T23:00:00Z") };
 const startTime = "2099-01-01T18:00:00Z", endTime = "2099-01-01T18:30:00Z";
 
 // Load actual services with an in-memory database module. Never import db.cjs or .env.
-async function services() {
+async function services(fieldOverrides = {}) {
+    const actualField = { ...field, ...fieldOverrides };
     let state = { bookings: [], lobbies: [], slots: [], matches: [], posts: [] };
     let queue = Promise.resolve(), locked = false, sequence = 0;
     const matches = (row, where) => Object.entries(where ?? {}).every(([key, value]) => {
@@ -37,12 +40,16 @@ async function services() {
             queue = operation.catch(() => {});
             return operation;
         },
-        field: { findUnique: async ({ where }) => where.id === field.id ? field : null },
+        field: { findUnique: async ({ where }) => where.id === actualField.id ? actualField : null },
         booking: {
+            findMany: async ({ where, select }) => state.bookings.filter(row => matches(row, where)).map(row =>
+                select ? Object.fromEntries(Object.keys(select).map(key => [key, row[key]])) : row),
             findFirst: async ({ where }) => state.bookings.find(row => matches(row, where)) ?? null,
             create: async ({ data }) => {
                 assert.ok(locked, "booking writes must hold the field lock");
-                const row = { id: "booking-" + ++sequence, ...data }; state.bookings.push(row); return row;
+                const schemaFields = new Set(Prisma.dmmf.datamodel.models.find(model => model.name === "Booking").fields.map(field => field.name));
+                for (const key of Object.keys(data)) assert.ok(schemaFields.has(key), `Unknown Booking argument: ${key}`);
+                const row = { id: "booking-" + ++sequence, bookingType: "direct", ...data }; state.bookings.push(row); return row;
             },
             createMany: async ({ data }) => {
                 for (const row of data) await db.booking.create({ data: row });
@@ -256,4 +263,104 @@ test("schedules keep separate direct reservations and group participants by lobb
     const rows = [{ id: "a", matchId: null }, { id: "b", matchId: null },
         { id: "c", lobbyId: "l" }, { id: "d", lobbyId: "l" }, { id: "e", matchId: "m" }, { id: "f", matchId: "m" }];
     assert.deepEqual(groupReservations(rows).map(row => row.id), ["a", "b", "c", "e"]);
+});
+
+test("weekly fixed bookings reserve every date through the inclusive end date", async () => {
+    const app = await services();
+    const result = await app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime,
+        repeat: { frequency: "weekly", until: "2099-01-22" } });
+    assert.equal(result.bookings.length, 4);
+    assert.equal(result.totalPrice, 400000);
+    assert.deepEqual(Array.from(result.bookings, booking => booking.startTime.toISOString().slice(0, 10)), ["2099-01-01", "2099-01-08", "2099-01-15", "2099-01-22"]);
+    assert.ok(result.bookings.every(booking => booking.bookingType === "fixed" && booking.matchId === null && booking.lobbyId === null));
+    await assert.rejects(app.booking.createBooking({ userId: "other", fieldId: "field", startTime: "2099-01-15T18:00Z", endTime: "2099-01-15T18:30Z" }), /already booked/);
+});
+
+test("monthly bookings keep the date and skip months without that day", async () => {
+    const app = await services();
+    const result = await app.booking.createBookingBatch({ userId: "player", fieldId: "field",
+        startTime: "2099-01-31T18:00Z", endTime: "2099-01-31T19:00Z", repeat: { frequency: "monthly", until: "2099-05-31" } });
+    assert.deepEqual(Array.from(result.bookings, booking => booking.startTime.toISOString().slice(0, 10)), ["2099-01-31", "2099-03-31", "2099-05-31"]);
+});
+
+test("one conflict rejects the entire fixed booking without partial reservations", async () => {
+    const app = await services();
+    await app.booking.createBooking({ userId: "other", fieldId: "field", startTime: "2099-01-15T18:00Z", endTime: "2099-01-15T18:30Z" });
+    await assert.rejects(app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime,
+        repeat: { frequency: "weekly", until: "2099-01-22" } }), /already booked/);
+    assert.equal(app.state().bookings.length, 1);
+    assert.equal(app.state().bookings[0].userId, "other");
+});
+
+test("a failed recurring booking insert rolls back every occurrence", async () => {
+    const app = await services();
+    const create = app.db.booking.create;
+    let writes = 0;
+    app.db.booking.create = args => {
+        if (++writes === 2) throw new Error("Booking storage failed");
+        return create(args);
+    };
+    await assert.rejects(app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime,
+        repeat: { frequency: "weekly", until: "2099-01-22" } }), /Booking storage failed/);
+    assert.equal(app.state().bookings.length, 0);
+});
+
+test("concurrent fixed and direct booking requests cannot reserve the same occurrence", async () => {
+    const app = await services();
+    const results = await Promise.allSettled([
+        app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime, repeat: { frequency: "weekly", until: "2099-01-08" } }),
+        app.booking.createBooking({ userId: "other", fieldId: "field", startTime: "2099-01-08T18:00Z", endTime: "2099-01-08T18:30Z" }),
+    ]);
+    assert.equal(results.filter(result => result.status === "fulfilled").length, 1);
+    assert.equal(app.state().bookings.length, 2);
+});
+
+test("manual fixed bookings require venue ownership and preserve customer notes", async () => {
+    const app = await services({ metadata: { timeZone: "America/Indiana/Indianapolis" } });
+    const payload = { userId: "host", ownerId: "host", fieldId: "field", date: "2099-01-01", startTime: "18:00", endTime: "18:30",
+        note: "Customer — Thursday practice", repeat: { frequency: "weekly", until: "2099-01-08" } };
+    await assert.rejects(app.booking.createBookingBatch({ ...payload, ownerId: "other" }), error => error.status === 403);
+    assert.equal(app.state().bookings.length, 0);
+    const result = await app.booking.createBookingBatch(payload);
+    assert.equal(result.bookings.length, 2);
+    assert.equal(result.bookings[0].startTime.toISOString(), "2099-01-01T23:00:00.000Z");
+    assert.ok(result.bookings.every(booking => booking.note === payload.note));
+});
+
+test("weekly recurrence keeps the local clock across daylight saving changes", async () => {
+    const app = await services({ metadata: { timeZone: "America/Indiana/Indianapolis" } });
+    const result = await app.booking.createBookingBatch({ userId: "player", fieldId: "field",
+        startTime: "2027-03-07T23:30Z", endTime: "2027-03-08T00:00Z", repeat: { frequency: "weekly", until: "2027-03-21" } });
+    assert.deepEqual(Array.from(result.bookings, booking => booking.startTime.toISOString()), ["2027-03-07T23:30:00.000Z", "2027-03-14T22:30:00.000Z", "2027-03-21T22:30:00.000Z"]);
+    assert.equal(result.totalPrice, 300000);
+});
+
+test("overnight fixed bookings use the next local calendar day", async () => {
+    const app = await services({ startTime: "2000-01-01T18:00Z", endTime: "2000-01-01T03:00Z", metadata: { timeZone: "America/Indiana/Indianapolis" } });
+    const result = await app.booking.createBookingBatch({ userId: "host", ownerId: "host", fieldId: "field", date: "2099-01-01",
+        startTime: "23:30", endTime: "00:30", repeat: { frequency: "weekly", until: "2099-01-08" } });
+    assert.equal(result.bookings.length, 2);
+    assert.equal(result.bookings[0].endTime.toISOString(), "2099-01-02T05:30:00.000Z");
+});
+
+test("invalid recurrence rules and nonexistent local times create no reservations", async () => {
+    for (const repeat of [{ frequency: "daily", until: "2099-02-01" }, { frequency: "weekly", until: "2099-02-30" },
+        { frequency: "weekly", until: "2098-12-31" }, { frequency: "weekly", until: "2105-01-01" }]) {
+        const app = await services();
+        await assert.rejects(app.booking.createBookingBatch({ userId: "player", fieldId: "field", startTime, endTime, repeat }));
+        assert.equal(app.state().bookings.length, 0);
+    }
+    const allDay = { ...field, startTime: "2000-01-01T00:00Z", endTime: "2000-01-01T00:00Z", metadata: { timeZone: "America/Indiana/Indianapolis" } };
+    assert.throws(() => bookingOccurrences(allDay, "2027-03-07T07:30Z", "2027-03-07T08:00Z", { frequency: "weekly", until: "2027-03-14" }), /clocks change/);
+});
+
+test("public availability includes fixed reservations without exposing their type or customer", async () => {
+    const app = await services();
+    await app.booking.createBookingBatch({ userId: "host", fieldId: "field", startTime, endTime, note: "Private customer",
+        repeat: { frequency: "weekly", until: "2099-01-08" } });
+    const slots = await app.booking.getOccupiedSlots("field", "2099-01-08T00:00Z", "2099-01-09T00:00Z");
+    assert.equal(slots.length, 1);
+    assert.deepEqual(Object.keys(slots[0]).sort(), ["endTime", "startTime"]);
+    const range = bookingDayRange("2099-01-08", { ...field, metadata: { timeZone: "America/Indiana/Indianapolis" } });
+    assert.equal(range.start.toISOString(), "2099-01-08T11:00:00.000Z");
 });

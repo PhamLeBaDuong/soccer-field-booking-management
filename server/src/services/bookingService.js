@@ -1,5 +1,7 @@
 import { withFieldReservation, validateReservationTime, assertReservationAvailable } from "./reservationService.js";
 import prisma from "../db.cjs";
+import { bookingOccurrences, zonedBookingTime, addCalendarDays, localBookingParts } from "./bookingScheduleService.js";
+import { reservationTimeZone } from "./reservationService.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Current: direct bookings and full-lobby bookings do not require a match.
@@ -82,6 +84,7 @@ export async function getOccupiedSlots(fieldId, startTime, endTime) {
                 { endTime:   { gt: new Date(startTime) } },
             ],
         },
+        select: { startTime: true, endTime: true },
         orderBy: { startTime: "asc" },
     });
 }
@@ -164,15 +167,39 @@ export function haversineKm(loc1, loc2) {
 
 // Direct booking: authenticated user, server price, no match or player count.
 export async function createBooking({ userId, fieldId, startTime, endTime }) {
+    return (await createBookingBatch({ userId, fieldId, startTime, endTime })).bookings[0];
+}
+
+export async function createBookingBatch({ userId, fieldId, startTime, endTime, repeat, ownerId, date, note }, db = prisma) {
     if (!userId) throw new Error("userId is required");
-    return withFieldReservation(prisma, fieldId, async (tx, field) => {
-        const { start, end, totalPrice } = validateReservationTime(field, startTime, endTime);
-        await assertReservationAvailable(tx, fieldId, start, end);
-        return tx.booking.create({
-            data: { userId, fieldId, startTime: start, endTime: end,
+    return withFieldReservation(db, fieldId, async (tx, field) => {
+        if (ownerId && field.ownerId !== ownerId) throw Object.assign(new Error("Not authorized to book this venue"), { status: 403 });
+        if (date != null) {
+            const timeZone = reservationTimeZone(field);
+            const endDate = endTime < startTime ? addCalendarDays(date, 1) : date;
+            startTime = zonedBookingTime(date, startTime, timeZone);
+            endTime = zonedBookingTime(endDate, endTime, timeZone);
+        }
+        validateReservationTime(field, startTime, endTime);
+        const slots = bookingOccurrences(field, startTime, endTime, repeat).map(slot =>
+            validateReservationTime(field, slot.startTime, slot.endTime));
+        for (const slot of slots) {
+            try { await assertReservationAvailable(tx, fieldId, slot.start, slot.end); }
+            catch (error) {
+                if (repeat) {
+                    const local = localBookingParts(slot.start, reservationTimeZone(field));
+                    error.message = `${error.message} (${local.date} ${local.time.slice(0, 5)})`;
+                }
+                throw error;
+            }
+        }
+        const bookings = [];
+        for (const { start, end, totalPrice } of slots) bookings.push(await tx.booking.create({
+            data: { userId, fieldId, startTime: start, endTime: end, ...(repeat && { bookingType: "fixed" }), ...(note && { note }),
                 matchId: null, lobbyId: null, totalPrice,
                 currency: field.metadata?.currency ?? "VND", status: "confirmed", paymentStatus: "unpaid" },
             include: BOOKING_INCLUDE,
-        });
+        }));
+        return { bookings, totalPrice: bookings.reduce((sum, booking) => sum + booking.totalPrice, 0) };
     });
 }

@@ -7,7 +7,10 @@ import { TimeSlotPicker } from "@/components/fields/TimeSlotPicker";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
-import { createBooking } from "@/lib/api/bookings";
+import { createBooking, createFixedBooking } from "@/lib/api/bookings";
+import { RepeatBookingFields } from "./RepeatBookingFields";
+import { repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
+import { useOccupiedSlots } from "@/hooks/useOccupiedSlots";
 import { createLobby } from "@/lib/api/lobbies";
 import { useAuth } from "@/lib/auth/hooks";
 import { ROUTES } from "@/lib/constants";
@@ -37,6 +40,8 @@ export function BookingForm({ field }: { field: Field }) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [openLobby, setOpenLobby] = useState(false);
+  const [repeat, setRepeat] = useState<BookingRepeat>();
+  const availability = useOccupiedSlots(field.id, date, field.startTime, field.endTime, timeZone);
   const [dateError, setDateError] = useState("");
   const [timeError, setTimeError] = useState("");
   const [error, setError] = useState("");
@@ -46,10 +51,16 @@ export function BookingForm({ field }: { field: Field }) {
   const endDate  = start && end && timeToMinutes(end) < timeToMinutes(start)
     ? nextCalendarDate(date)
     : date;
-  const startIso = start ? combineDateAndTime(date, start, timeZone) : "";
-  const endIso   = end   ? combineDateAndTime(endDate, end, timeZone) : "";
+  let startIso = "", endIso = "", clockError = "";
+  try {
+    startIso = start ? combineDateAndTime(date, start, timeZone) : "";
+    endIso = end ? combineDateAndTime(endDate, end, timeZone) : "";
+  } catch (error) {
+    clockError = error instanceof Error ? error.message : "Invalid local booking time.";
+  }
   const hours    = startIso && endIso ? durationHours(startIso, endIso) : 0;
   const total    = hours * field.metadata.price;
+  const preview = repeatBookingPreview(date, start, end, timeZone, field.metadata.price, repeat);
   const teamSize = fieldTeamSize(field);
 
   function handleDateChange(value: string) {
@@ -77,6 +88,8 @@ export function BookingForm({ field }: { field: Field }) {
     if (dateError) { setError(dateError); return; }
     if (!start || !end) { setError("Choose a time slot."); return; }
     if (timeError) { setError(timeError); return; }
+    if (clockError) { setError(clockError); return; }
+    if (repeat && (!repeat.until || repeat.until < date)) { setError("End date must be on or after the first booking date."); return; }
     setLoading(true);
     setError("");
     try {
@@ -86,6 +99,12 @@ export function BookingForm({ field }: { field: Field }) {
         showToast("Lobby created.");
         router.push(ROUTES.lobbies);
       } else {
+        if (repeat) {
+          const result = await createFixedBooking({ fieldId: field.id, startTime: startIso, endTime: endIso, repeat });
+          showToast(`${result.bookings.length} bookings confirmed.`);
+          router.push(ROUTES.bookings);
+          return;
+        }
         const booking = await createBooking({ fieldId: field.id, startTime: startIso, endTime: endIso });
         showToast("Booking confirmed.");
         router.push("/bookings/" + booking.id);
@@ -114,13 +133,13 @@ export function BookingForm({ field }: { field: Field }) {
           <span className="text-sm font-semibold text-neutral-900">Time slot</span>
           <span className="text-xs font-medium text-stone-500">30-minute slots</span>
         </div>
-        <TimeSlotPicker
+        {availability.loading ? <p className="text-sm" role="status">Loading availability…</p> : availability.error ? <p role="alert" className="text-sm text-red-700">{availability.error}</p> : <TimeSlotPicker
           key={`${field.id}:${date}`}
           startTime={field.startTime}
           endTime={field.endTime}
-          occupiedSlots={field.occupiedTimes ?? []}
+          occupiedSlots={availability.slots}
           onRangeSelect={handleRangeSelect}
-        />
+        />}
         {start && end && !timeError && (
           <p className="mt-2 text-xs font-medium text-stone-500">
             Selected: {start} – {end} ({hours} hr)
@@ -129,6 +148,7 @@ export function BookingForm({ field }: { field: Field }) {
         {timeError && (
           <p className="mt-2 text-xs font-medium text-red-600">{timeError}</p>
         )}
+        {clockError && <p role="alert" className="mt-2 text-xs text-red-600">{clockError}</p>}
       </div>
 
       <label className="flex cursor-pointer items-start gap-3 rounded-[8px] border border-stone-200 bg-white/72 p-3 transition-colors hover:bg-stone-50">
@@ -136,7 +156,7 @@ export function BookingForm({ field }: { field: Field }) {
           className="mt-1 h-4 w-4 rounded border-stone-300 accent-neutral-950"
           type="checkbox"
           checked={openLobby}
-          onChange={(e) => setOpenLobby(e.target.checked)}
+          onChange={(e) => { setOpenLobby(e.target.checked); if (e.target.checked) setRepeat(undefined); }}
         />
         <span>
           <span className="flex items-center gap-2 text-sm font-semibold text-neutral-950">
@@ -148,6 +168,7 @@ export function BookingForm({ field }: { field: Field }) {
           </span>
         </span>
       </label>
+      {!openLobby && <RepeatBookingFields date={date} repeat={repeat} onChange={setRepeat} />}
 
       <div className="rounded-[8px] border border-stone-200 bg-stone-50/80 p-4">
         <div className="flex justify-between text-sm text-stone-600">
@@ -159,18 +180,20 @@ export function BookingForm({ field }: { field: Field }) {
           <span className="font-mono">{formatCurrency(field.metadata.price, field.metadata.currency)}</span>
         </div>
         <div className="mt-3 flex justify-between border-t border-stone-200 pt-3 font-semibold text-neutral-950">
-          <span>Total</span>
+          <span>{repeat ? "Per booking" : "Total"}</span>
           <span className="font-mono">{formatCurrency(total, field.metadata.currency)}</span>
         </div>
+        {repeat && preview.count > 0 && <p className="mt-2 text-sm font-semibold">{preview.count} bookings · {formatCurrency(preview.total, field.metadata.currency)} total</p>}
+        {preview.error && <p role="alert" className="mt-2 text-sm text-red-700">{preview.error}</p>}
       </div>
 
       {error && (
         <p className="rounded-[8px] bg-red-50 p-3 text-sm text-red-700 ring-1 ring-red-100">{error}</p>
       )}
 
-      <Button className="w-full" loading={loading} onClick={submit}>
+      <Button className="w-full" loading={loading} disabled={availability.loading || !!availability.error || !!preview.error || !!clockError} onClick={submit}>
         <Check className="h-4 w-4" aria-hidden="true" />
-        {openLobby ? "Create lobby" : "Book field"}
+        {openLobby ? "Create lobby" : repeat ? "Confirm recurring bookings" : "Book field"}
       </Button>
     </div>
   );

@@ -1,7 +1,10 @@
-import { withFieldReservation, validateReservationTime, assertReservationAvailable, groupReservations } from "../services/reservationService.js";
+import { groupReservations } from "../services/reservationService.js";
+import { createBookingBatch } from "../services/bookingService.js";
+import { bookingDayRange } from "../services/bookingScheduleService.js";
 import prisma from "../db.cjs";
 
 function handleError(res, error) {
+    if (error.status === 403) return res.status(403).json({ error: error.message });
     const msg = error.message?.toLowerCase() ?? "";
     if (["not found", "required", "forbidden", "not authorized", "invalid", "must be", "already booked"].some(text => msg.includes(text))) {
         return res.status(msg.includes("forbidden") ? 403 : 400).json({ error: error.message });
@@ -186,14 +189,13 @@ export async function getVenueFieldSchedule(req, res) {
         if (!field) return res.status(404).json({ error: "Field not found" });
         if (field.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
 
-        const dayStart = new Date(`${date}T00:00:00.000Z`);
-        const dayEnd   = new Date(`${date}T23:59:59.999Z`);
+        const { start: dayStart, end: dayEnd } = bookingDayRange(date, field);
 
         const bookings = await prisma.booking.findMany({
             where: {
                 fieldId,
                 status: { in: ["confirmed", "completed"] },
-                startTime: { gte: dayStart, lte: dayEnd },
+                startTime: { lt: dayEnd }, endTime: { gt: dayStart },
             },
             include: {
                 user:  { select: { id: true, name: true, username: true } },
@@ -230,8 +232,9 @@ export async function getComplexSchedule(req, res) {
         if (!complex) return res.status(404).json({ error: "Complex not found" });
         if (complex.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
 
-        const dayStart = new Date(`${date}T00:00:00.000Z`);
-        const dayEnd   = new Date(`${date}T23:59:59.999Z`);
+        // Cover every field timezone and overnight window, then filter per field.
+        const dayStart = new Date(+new Date(`${date}T00:00Z`) - 86400000);
+        const dayEnd = new Date(+new Date(`${date}T00:00Z`) + 3 * 86400000);
 
         const fields = await prisma.field.findMany({
             where:   { complexId },
@@ -240,7 +243,7 @@ export async function getComplexSchedule(req, res) {
                 bookings: {
                     where: {
                         status:    { in: ["confirmed", "completed"] },
-                        startTime: { gte: dayStart, lte: dayEnd },
+                        startTime: { lt: dayEnd }, endTime: { gt: dayStart },
                     },
                     include: {
                         user:  { select: { id: true, name: true, username: true } },
@@ -259,7 +262,11 @@ export async function getComplexSchedule(req, res) {
         });
 
         res.json({ complex: { id: complex.id, name: complex.name },
-            fields: fields.map(field => ({ ...field, bookings: groupReservations(field.bookings) })) });
+            fields: fields.map(field => {
+                const range = bookingDayRange(date, field);
+                return { ...field, bookings: groupReservations(field.bookings.filter(booking =>
+                    +new Date(booking.startTime) < +range.end && +new Date(booking.endTime) > +range.start)) };
+            }) });
     } catch (error) { handleError(res, error); }
 }
 
@@ -336,19 +343,11 @@ export async function getComplexSchedule(req, res) {
 
 export async function createManualBooking(req, res) {
     const { id: fieldId } = req.params;
-    const { date, startTime, endTime, customerName, note } = req.body;
+    const { date, startTime, endTime, customerName, note, repeat } = req.body;
     if (!date || !startTime || !endTime) return res.status(400).json({ error: "date, startTime, and endTime are required" });
     try {
-        const booking = await withFieldReservation(prisma, fieldId, async (tx, field) => {
-            if (field.ownerId !== req.user.id) throw new Error("Not authorized to book this venue");
-            const times = validateReservationTime(field, new Date(date + "T" + startTime + ":00.000Z"), new Date(date + "T" + endTime + ":00.000Z"));
-            await assertReservationAvailable(tx, fieldId, times.start, times.end);
-            return tx.booking.create({ data: { userId: req.user.id, fieldId,
-                matchId: null, lobbyId: null, startTime: times.start, endTime: times.end,
-                totalPrice: times.totalPrice, currency: field.metadata?.currency ?? "VND", status: "confirmed",
-                note: [customerName, note].filter(Boolean).join(" ? ") || "Manual booking" },
-                include: { user: { select: { id: true, name: true } } } });
-        });
-        res.status(201).json({ message: "Manual booking created", booking });
+        const result = await createBookingBatch({ userId: req.user.id, ownerId: req.user.id, fieldId,
+            date, startTime, endTime, repeat, note: [customerName, note].filter(Boolean).join(" — ") || "Manual booking" });
+        res.status(201).json({ message: "Booking created", booking: result.bookings[0], ...result });
     } catch (error) { handleError(res, error); }
 }

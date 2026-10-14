@@ -16,6 +16,8 @@ import type { ScheduleBooking } from "@/lib/api/adminSchedule";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency, minutesToTime, timeToMinutes, todayInputValue } from "@/lib/utils/format";
+import { RepeatBookingFields } from "@/components/bookings/RepeatBookingFields";
+import { reservationClock, repeatBookingPreview, type BookingRepeat } from "@/lib/utils/reservations";
 
 const PX_PER_HOUR = 64; // row height
 
@@ -32,16 +34,19 @@ export function ComplexScheduleGrid({
   const [date, setDate]       = useState(todayInputValue());
   const [data, setData]       = useState<ComplexScheduleField[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [selected, setSelected] = useState<{ field: ComplexScheduleField; booking: ScheduleBooking } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await getComplexSchedule(complexId, date);
       setData(res.fields);
-    } catch {
+    } catch (error) {
       setData([]);
+      setError(error instanceof Error ? error.message : "Unable to load schedule.");
     } finally {
       setLoading(false);
     }
@@ -71,9 +76,9 @@ export function ComplexScheduleGrid({
   const totalMin = rangeEnd - rangeStart;
   const gridHeight = (totalMin / 60) * PX_PER_HOUR;
 
-  function bookingGeometry(b: ScheduleBooking) {
-    let s = timeToMinutes(b.startTime);
-    let e = timeToMinutes(b.endTime);
+  function bookingGeometry(b: ScheduleBooking, field: ComplexScheduleField) {
+    let s = timeToMinutes(reservationClock(b.startTime, field.metadata?.timeZone));
+    let e = timeToMinutes(reservationClock(b.endTime, field.metadata?.timeZone));
     if (s < rangeStart) s += 24 * 60;
     if (e <= rangeStart) e += 24 * 60;
     const top    = ((s - rangeStart) / 60) * PX_PER_HOUR;
@@ -87,7 +92,6 @@ export function ComplexScheduleGrid({
       : (b.match?.matchPost?.team.name ?? b.note ?? b.user?.name ?? (b.lobbyId ? "Lobby" : "Field booking"));
 
   const hasResult = (b: ScheduleBooking) => b.match?.homeScore != null && b.match?.awayScore != null;
-  const isPast    = (b: ScheduleBooking) => new Date(b.endTime) < new Date();
 
   // ── Date navigation ─────────────────────────────────────────────────────────
   function shiftDay(delta: number) {
@@ -132,6 +136,7 @@ export function ComplexScheduleGrid({
       </div>
 
       {/* Manual booking form */}
+      {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
       {showAdd && (
         <ManualBookingForm
           fields={data}
@@ -178,10 +183,8 @@ export function ComplexScheduleGrid({
                   ))}
                   {/* bookings */}
                   {field.bookings.map((b) => {
-                    const { top, height } = bookingGeometry(b);
-                    const manual = b.match?.source === "manual";
+                    const { top, height } = bookingGeometry(b, field);
                     const res = hasResult(b);
-                    const past = isPast(b);
                     return (
                       <button
                         key={b.id}
@@ -191,18 +194,13 @@ export function ComplexScheduleGrid({
                         className={cn(
                           "absolute left-1 right-1 overflow-hidden rounded-[6px] px-1.5 py-1 text-left text-[11px] font-semibold leading-tight transition-all",
                           selected?.booking.id === b.id && "ring-2 ring-amber-400",
-                          manual
-                            ? "bg-amber-400 text-amber-950 hover:bg-amber-500"
-                            : res
-                              ? "bg-emerald-400 text-emerald-950 hover:bg-emerald-500"
-                              : past
-                                ? "bg-stone-300 text-stone-700 hover:bg-stone-400"
-                                : "bg-sky-400 text-sky-950 hover:bg-sky-500",
+                          b.bookingType === "fixed" ? "bg-violet-400 text-violet-950 hover:bg-violet-500" : "bg-sky-400 text-sky-950 hover:bg-sky-500",
                         )}
                       >
+                        <span className="sr-only">{b.bookingType === "fixed" ? "Fixed booking" : "Direct booking"}</span>
                         <span className="block truncate">{slotLabel(b)}</span>
                         <span className="block font-mono text-[10px] opacity-80">
-                          {timeRange(b)}
+                          {timeRange(b, field.metadata?.timeZone)}
                         </span>
                         {res && (
                           <span className="block font-mono text-[10px]">
@@ -221,10 +219,8 @@ export function ComplexScheduleGrid({
 
       {/* Legend */}
       <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-semibold text-stone-500">
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />{t("schedule.legendUpcoming")}</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-stone-300" />{t("schedule.legendPlayed")}</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" />{t("schedule.legendResult")}</span>
-        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />{t("schedule.legendWalkIn")}</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />Direct booking</span>
+        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-violet-400" />Fixed booking</span>
       </div>
 
       {/* Selected booking detail + result form */}
@@ -241,9 +237,9 @@ export function ComplexScheduleGrid({
   );
 }
 
-function timeRange(b: ScheduleBooking) {
-  const s = timeToMinutes(b.startTime);
-  const e = timeToMinutes(b.endTime);
+function timeRange(b: ScheduleBooking, timeZone = "UTC") {
+  const s = timeToMinutes(reservationClock(b.startTime, timeZone));
+  const e = timeToMinutes(reservationClock(b.endTime, timeZone));
   return `${minutesToTime(s % (24 * 60))}-${minutesToTime(e % (24 * 60))}`;
 }
 
@@ -264,13 +260,16 @@ function ManualBookingForm({
   const [end, setEnd]           = useState("09:00");
   const [customer, setCustomer] = useState("");
   const [note, setNote]         = useState("");
+  const [repeat, setRepeat] = useState<BookingRepeat>();
+  const field = fields.find(field => field.id === fieldId);
+  const preview = repeatBookingPreview(date, start, end, field?.metadata?.timeZone ?? "UTC", field?.pricePerHour ?? 0, repeat);
   const [saving, setSaving]     = useState(false);
 
   async function submit() {
     if (!fieldId) { showToast(t("schedule.field"), "error"); return; }
     setSaving(true);
     try {
-      await createManualBooking(fieldId, { date, startTime: start, endTime: end, customerName: customer || undefined, note: note || undefined });
+      await createManualBooking(fieldId, { date, startTime: start, endTime: end, customerName: customer || undefined, note: note || undefined, repeat });
       showToast(t("schedule.manualBooking"));
       onCreated();
     } catch (e) {
@@ -293,9 +292,12 @@ function ManualBookingForm({
         <Input label={t("schedule.customerName")} value={customer} onChange={(e) => setCustomer(e.target.value)} />
         <Input label={t("schedule.note")} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
+      <div className="mt-3"><RepeatBookingFields date={date} repeat={repeat} onChange={setRepeat} /></div>
+      {repeat && preview.count > 0 && <p className="mt-3 text-sm font-semibold">{preview.count} bookings · {formatCurrency(preview.total, field?.metadata?.currency ?? "VND")} total</p>}
+      {preview.error && <p role="alert" className="mt-2 text-sm text-red-700">{preview.error}</p>}
       <div className="mt-3 flex gap-2">
-        <Button loading={saving} onClick={submit}>
-          <Check className="h-4 w-4" aria-hidden="true" />{t("common.confirm")}
+        <Button loading={saving} disabled={!!preview.error} onClick={submit}>
+          <Check className="h-4 w-4" aria-hidden="true" />{repeat ? "Confirm recurring bookings" : t("common.confirm")}
         </Button>
         <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
       </div>
@@ -345,7 +347,8 @@ function BookingDetail({
           <p className="text-sm font-bold text-neutral-950">
             {field.name} · {isManual ? (booking.match?.resultNote || t("schedule.walkIn")) : (booking.match?.matchPost?.team.name ?? booking.note ?? (booking.lobbyId ? "Lobby" : "Field booking"))}
           </p>
-          <p className="mt-0.5 font-mono text-xs text-stone-500">{timeRange(booking)}</p>
+          <p className="mt-0.5 font-mono text-xs text-stone-500">{timeRange(booking, field.metadata?.timeZone)}</p>
+          <p className="mt-0.5 text-xs text-stone-500">{booking.bookingType === "fixed" ? "Fixed booking" : "Direct booking"}</p>
           <p className="mt-0.5 text-xs text-stone-500">
             {t("schedule.revenue")}: <span className="font-mono">{formatCurrency(booking.totalPrice, booking.currency)}</span>
           </p>
