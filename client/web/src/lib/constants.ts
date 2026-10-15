@@ -15,9 +15,10 @@ export const ROUTES = {
   matching: "/matching",
   lobbies: "/lobbies",
   history: "/history",
-  myVenues: "/my-venues",
+  myVenues: "/admin",
   friends: "/friends",
   admin: "/admin",
+  adminOverview: "/admin/overview",
   adminComplexes: "/admin/complexes",
   adminFields: "/admin/fields",
 } as const;

@@ -72,7 +72,7 @@ export function Navbar() {
     { href: ROUTES.history,   label: t("nav.history"),   icon: History },
     { href: ROUTES.myVenues,  label: t("nav.myVenues"),  icon: Building2 },
     ...(user?.role === "admin"
-      ? [{ href: ROUTES.admin, label: t("nav.admin"), icon: Shield }]
+      ? [{ href: ROUTES.adminOverview, label: t("nav.admin"), icon: Shield }]
       : []),
   ];
 
@@ -158,7 +158,7 @@ export function Navbar() {
                   {user.role === "admin" ? (
                     <Link
                       className="flex items-center gap-2.5 rounded-[7px] px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-stone-50 hover:text-neutral-950"
-                      href={ROUTES.admin}
+                      href={ROUTES.adminOverview}
                       onClick={() => setMenuOpen(false)}
                     >
                       <Shield className="h-4 w-4 text-stone-400" aria-hidden="true" />

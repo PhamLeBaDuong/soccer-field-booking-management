@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   ChevronDown,
   LogIn,
@@ -17,11 +18,13 @@ import { useI18n } from "@/lib/i18n/context";
 import { ROUTES } from "@/lib/constants";
 import { getInitials } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
+import { isManagementRoute } from "@/lib/navigation";
 
 export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, logout } = useAuth();
   const { t, lang, toggle } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  const management = isManagementRoute(usePathname());
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 h-14 border-b border-stone-200/70 bg-white/76 shadow-[0_8px_30px_rgba(23,23,23,0.05)] backdrop-blur-xl lg:pl-[var(--sidebar-width)]">
@@ -36,6 +39,17 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
 
+        <nav aria-label={t("nav.managementSection")} className="flex items-center gap-1 rounded-[8px] bg-stone-100 p-1 text-xs font-semibold">
+          <Link href={ROUTES.home} aria-current={!management ? "page" : undefined}
+            className={cn("rounded-[6px] px-2 py-1.5 sm:px-3", !management ? "bg-white text-neutral-950 shadow-sm" : "text-stone-500 hover:text-neutral-950")}>
+            {t("nav.bookingSection")}
+          </Link>
+          {user && <Link href={ROUTES.admin} aria-current={management ? "page" : undefined}
+            className={cn("rounded-[6px] px-2 py-1.5 sm:px-3", management ? "bg-white text-neutral-950 shadow-sm" : "text-stone-500 hover:text-neutral-950")}>
+            <span className="hidden sm:inline">{t("nav.managementSection")}</span>
+            <span className="sm:hidden">{t("nav.myVenues")}</span>
+          </Link>}
+        </nav>
         {/* Spacer pushes controls to the right */}
         <div className="flex-1" />
 
@@ -46,9 +60,10 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
           className="flex items-center gap-1 rounded-[8px] border border-stone-200 bg-white/80 px-2.5 py-1.5 text-xs font-bold text-neutral-700 hover:bg-white"
           title={lang === "en" ? "Chuyển sang Tiếng Việt" : "Switch to English"}
         >
-          <span className={lang === "en" ? "text-neutral-950" : "text-stone-400"}>EN</span>
-          <span className="text-stone-300">|</span>
-          <span className={lang === "vi" ? "text-neutral-950" : "text-stone-400"}>VI</span>
+          <span className="uppercase sm:hidden">{lang}</span>
+          <span className={cn("hidden sm:inline", lang === "en" ? "text-neutral-950" : "text-stone-400")}>EN</span>
+          <span className="hidden text-stone-300 sm:inline">|</span>
+          <span className={cn("hidden sm:inline", lang === "vi" ? "text-neutral-950" : "text-stone-400")}>VI</span>
         </button>
 
         {/* Profile menu */}
@@ -88,7 +103,7 @@ export function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
                 {user.role === "admin" && (
                   <Link
                     className="flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-stone-100"
-                    href={ROUTES.admin}
+                    href={ROUTES.adminOverview}
                     onClick={() => setMenuOpen(false)}
                   >
                     <Shield className="h-4 w-4 text-stone-500" aria-hidden="true" />

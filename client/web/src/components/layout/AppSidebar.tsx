@@ -9,7 +9,6 @@ import {
   History,
   LayoutDashboard,
   MapPinned,
-  Shield,
   Swords,
   Trophy,
   Users,
@@ -19,6 +18,7 @@ import { useAuth } from "@/lib/auth/hooks";
 import { useI18n } from "@/lib/i18n/context";
 import { APP_NAME, ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils/cn";
+import { isManagementRoute, isNavigationActive, sectionNavigation } from "@/lib/navigation";
 
 type NavLink = { href: string; label: string; icon: LucideIcon };
 
@@ -27,17 +27,11 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
   const { user } = useAuth();
   const { t } = useI18n();
 
-  const navItems: NavLink[] = [
-    { href: ROUTES.dashboard, label: t("nav.dashboard"), icon: LayoutDashboard },
-    { href: ROUTES.fields,    label: t("nav.fields"),    icon: MapPinned },
-    { href: ROUTES.bookings,  label: t("nav.bookings"),  icon: CalendarCheck },
-    { href: ROUTES.teams,     label: t("nav.teams"),     icon: Users },
-    { href: ROUTES.matching,  label: t("nav.matches"),   icon: Swords },
-    { href: ROUTES.lobbies,   label: t("nav.lobbies"),   icon: DoorOpen },
-    { href: ROUTES.history,   label: t("nav.history"),   icon: History },
-    { href: ROUTES.myVenues,  label: t("nav.myVenues"),  icon: Building2 },
-    ...(user?.role === "admin" ? [{ href: ROUTES.admin, label: t("nav.admin"), icon: Shield }] : []),
-  ];
+  const management = isManagementRoute(pathname);
+  const icons: Record<string, LucideIcon> = { dashboard: LayoutDashboard, fields: MapPinned, bookings: CalendarCheck,
+    teams: Users, matches: Swords, lobbies: DoorOpen, history: History, venues: Building2 };
+  const navItems: NavLink[] = sectionNavigation(management, user?.role === "admin")
+    .map(item => ({ href: item.href, label: t(item.label), icon: icons[item.icon] }));
 
   return (
     <>
@@ -59,7 +53,7 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
       >
         {/* Logo */}
         <Link
-          href={ROUTES.dashboard}
+          href={management ? ROUTES.admin : ROUTES.home}
           aria-label={APP_NAME}
           onClick={onClose}
           className="flex h-16 shrink-0 items-center gap-3 border-b border-stone-200/70 px-5"
@@ -71,9 +65,9 @@ export function AppSidebar({ open, onClose }: { open: boolean; onClose: () => vo
         </Link>
 
         {/* Nav links */}
-        <nav className="grid flex-1 gap-1 overflow-x-hidden overflow-y-auto p-3">
+        <nav aria-label={t(management ? "nav.managementSection" : "nav.bookingSection")} className="flex flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto p-3">
           {navItems.map((item) => {
-            const active = pathname.startsWith(item.href) && item.href !== ROUTES.home;
+            const active = isNavigationActive(pathname, item.href) || (item.href === ROUTES.home && isNavigationActive(pathname, ROUTES.fields));
             return (
               <Link
                 key={item.href}

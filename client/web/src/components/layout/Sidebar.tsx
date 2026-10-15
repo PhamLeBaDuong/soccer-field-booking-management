@@ -10,7 +10,7 @@ import { getInitials } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
 const adminLinks = [
-  { href: ROUTES.admin, label: "Overview", icon: LayoutDashboard },
+  { href: ROUTES.adminOverview, label: "Overview", icon: LayoutDashboard },
   { href: ROUTES.adminComplexes, label: "Complexes", icon: Building2 },
   { href: ROUTES.adminFields, label: "Fields", icon: MapPinned },
 ];

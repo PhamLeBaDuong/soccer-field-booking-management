@@ -19,8 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hideNav =
     pathname.startsWith("/invite/") ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/register") ||
-    pathname.startsWith("/admin");
+    pathname.startsWith("/register");
 
   if (hideNav) {
     return <main id="main-content">{children}</main>;

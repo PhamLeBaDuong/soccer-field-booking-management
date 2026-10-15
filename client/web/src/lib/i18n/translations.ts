@@ -3,6 +3,11 @@ export type Lang = "en" | "vi";
 // Flat key → { en, vi } translation table.
 // Add new keys here; missing keys fall back to the key itself.
 export const translations: Record<string, { en: string; vi: string }> = {
+  "nav.bookingSection": { en: "Booking", vi: "Đặt sân" },
+  "nav.managementSection": { en: "Venue management", vi: "Quản lý sân" },
+  "nav.overview": { en: "Overview", vi: "Tổng quan" },
+  "nav.allComplexes": { en: "All complexes", vi: "Tất cả khu sân" },
+  "nav.allFields": { en: "All fields", vi: "Tất cả sân" },
   // ── Navigation ──────────────────────────────────────────────────────────────
   "nav.dashboard":  { en: "Dashboard",   vi: "Trang chủ" },
   "nav.fields":     { en: "Fields",      vi: "Sân bóng" },
