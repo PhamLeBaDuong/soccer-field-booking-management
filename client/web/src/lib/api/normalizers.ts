@@ -13,6 +13,11 @@ function readString(record: DataRecord, key: string, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function readImages(record: DataRecord): string[] {
+  const images = isRecord(record.metadata) ? record.metadata.images : undefined;
+  return Array.isArray(images) ? images.filter((url): url is string => typeof url === "string" && /^\/api\/fields\/images\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(url)) : [];
+}
+
 function readNumber(record: DataRecord, key: string, fallback = 0): number {
   const value = record[key];
   return typeof value === "number" ? value : fallback;
@@ -109,6 +114,7 @@ export function normalizeComplex(value: unknown): Complex {
   const fields = record.fields;
 
   return {
+    images: readImages(record),
     id: readString(record, "id"),
     name: readString(record, "name", "Unnamed Complex"),
     description: readString(record, "description", readString(record, "desc")),
@@ -132,6 +138,7 @@ export function normalizeField(value: unknown, complexes: Complex[] = []): Field
   const metadata = readPrice(record);
 
   return {
+    images: readImages(record),
     id: readString(record, "id"),
     complexId: readString(record, "complexId", complex?.id ?? ""),
     ownerId: readString(record, "ownerId") || undefined,

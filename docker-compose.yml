@@ -95,6 +95,9 @@ services:
       <<: *service-env
       SERVICE: catalog
       PORT: "5000"
+      PHOTO_DIRECTORY: /app/uploads
+    volumes:
+      - venue_photos:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -227,4 +230,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  venue_photos:
   pgdata:

@@ -1,0 +1,175 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowLeft, Clock, CloudSun, MapPin, Trophy, Zap } from "lucide-react";
+import { AmenitiesList } from "@/components/fields/AmenitiesList";
+import { FieldMap } from "@/components/fields/FieldMap";
+import { BookingForm } from "@/components/bookings/BookingForm";
+import { Card, CardContent } from "@/components/ui/Card";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { buttonClasses } from "@/components/ui/Button";
+import { ROUTES } from "@/lib/constants";
+import { formatCurrency } from "@/lib/utils/format";
+import { useFields } from "@/hooks/useFields";
+import { PhotoGallery } from "./PhotoGallery";
+
+export function ComplexDetail({ complexId, initialFieldId }: { complexId?: string; initialFieldId?: string }) {
+  const { fields, loading, error, refresh } = useFields();
+  const [selectedId, setSelectedId] = useState(initialFieldId ?? "");
+  const resolvedId = complexId ?? fields.find(field => field.id === initialFieldId)?.complexId;
+  const choices = fields.filter(field => field.complexId === resolvedId);
+  const selectedField = choices.find(field => field.id === selectedId);
+  const field = selectedField ?? choices[0];
+  const complex = field?.complex;
+
+  if (loading) {
+    return <FieldDetailSkeleton />;
+  }
+
+  if (error || !field) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <ErrorState message={error ?? "Field not found."} onRetry={refresh} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section className="pitch-hero-bg mb-6 overflow-hidden rounded-[8px] px-5 py-8 text-white shadow-[0_30px_90px_rgba(23,23,23,0.18)] sm:px-8 lg:px-10">
+        <Link className="inline-flex items-center gap-2 text-sm font-semibold text-white/82 hover:text-white" href={ROUTES.fields}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to complexes
+        </Link>
+        <div className="mt-12 max-w-3xl">
+          {selectedField && <AmenitiesList field={selectedField} />}
+          <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">{complex?.name ?? field.name}</h1>
+          <p className="mt-3 flex items-center gap-2 text-white/74">
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            {complex?.address ?? field.address}
+          </p>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
+        <div className="space-y-6">
+          <PhotoGallery images={complex?.images ?? []} name={complex?.name ?? field.name} />
+          {selectedField && <PhotoGallery key={selectedField.id} images={selectedField.images ?? []} name={selectedField.name} />}
+          <Card>
+            <CardContent>
+              <p className="text-base leading-7 text-stone-600">
+                {selectedField ? (selectedField.description || complex?.description) : complex?.description}
+              </p>
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <Info icon={MapPin} label="Address" value={selectedField ? field.address : complex?.address || field.address} />
+                {selectedField && <Info
+                  icon={Clock}
+                  label="Operating hours"
+                  value={`${field.startTime}-${field.endTime}`}
+                />}
+                {selectedField && <Info
+                  icon={Trophy}
+                  label="Price"
+                  value={`${formatCurrency(
+                    field.metadata.price,
+                    field.metadata.currency,
+                  )}/hr`}
+                />}
+                {selectedField && <Info icon={CloudSun} label="Surface" value={field.indoor ? "Indoor" : "Outdoor"} />}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <h2 className="text-lg font-semibold text-neutral-950">Location</h2>
+              <div className="mt-4">
+                <FieldMap field={field} />
+              </div>
+            </CardContent>
+          </Card>
+          {selectedField && <Card>
+            <CardContent>
+              <h2 className="text-lg font-semibold text-neutral-950">Amenities</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <Amenity icon={Trophy} title="Field type" value={field.type} />
+                <Amenity icon={Zap} title="Lighting" value={field.lights ? "Available" : "No lights"} />
+                <Amenity icon={CloudSun} title="Weather" value={field.indoor ? "Covered" : "Open air"} />
+              </div>
+            </CardContent>
+          </Card>}
+        </div>
+
+        <Card className="bottom-0 lg:sticky lg:top-24 lg:self-start">
+          <CardContent>
+            <div className="mb-5">
+              <h2 className="text-lg font-semibold text-neutral-950">Book at this complex</h2>
+              {selectedField && <p className="mt-1 text-sm text-stone-500">
+                {formatCurrency(field.metadata.price, field.metadata.currency)} per hour
+              </p>}
+            </div>
+            <label className="mb-5 block space-y-1.5">
+              <span className="text-sm font-semibold text-neutral-900">Field</span>
+              <select className="select-control" value={selectedField?.id ?? ""} onChange={event => setSelectedId(event.target.value)}>
+                <option value="" disabled>Choose a field</option>
+                {choices.map(option => <option key={option.id} value={option.id}>
+                  {option.name} · {option.type} · {formatCurrency(option.metadata.price, option.metadata.currency)}/hr
+                </option>)}
+              </select>
+            </label>
+            {selectedField && <BookingForm key={selectedField.id} field={selectedField} />}
+            {selectedField && <Link className={buttonClasses("secondary", "md", "mt-4 w-full")} href={`/matching?fieldId=${selectedField.id}`}>Post match request</Link>}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Info({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[8px] border border-stone-200 bg-white/66 p-4">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase text-stone-500">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-neutral-950">{value}</p>
+    </div>
+  );
+}
+
+function Amenity({
+  icon: Icon,
+  title,
+  value,
+}: {
+  icon: typeof Trophy;
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[8px] bg-stone-50 p-4 ring-1 ring-stone-200/70">
+      <Icon className="h-4 w-4 text-stone-500" aria-hidden="true" />
+      <p className="mt-3 text-sm font-semibold text-neutral-950">{title}</p>
+      <p className="mt-1 text-sm text-stone-500">{value}</p>
+    </div>
+  );
+}
+
+function FieldDetailSkeleton() {
+  return (
+    <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[minmax(0,3fr)_minmax(340px,2fr)]">
+      <Skeleton className="h-96" />
+      <Skeleton className="h-[34rem]" />
+    </div>
+  );
+}

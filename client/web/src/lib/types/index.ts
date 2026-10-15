@@ -10,6 +10,7 @@ export interface User {
 }
 
 export interface Complex {
+  images?: string[];
   id: string;
   name: string;
   description: string;
@@ -22,6 +23,7 @@ export interface Complex {
 }
 
 export interface Field {
+  images?: string[];
   id: string;
   ownerId?: string;
   complexId: string;

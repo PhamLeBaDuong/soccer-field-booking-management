@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { FieldSchedulePanel } from "@/components/schedule/FieldSchedulePanel";
 import { LocationPicker } from "@/components/fields/LocationPicker";
+import { PhotoManager } from "@/components/fields/PhotoManager";
 import { ComplexScheduleGrid } from "@/components/schedule/ComplexScheduleGrid";
 import { getVenueFieldSchedule, createManualBooking } from "@/lib/api/venues";
 import { useI18n } from "@/lib/i18n/context";
@@ -322,6 +323,10 @@ export default function MyVenuesPage() {
                   {/* Fields section (expanded) */}
                   {expandedId === complex.id && (
                     <div className="mt-4 border-t border-stone-100 pt-4">
+                      <div className="mb-5">
+                        <PhotoManager kind="complexes" id={complex.id} images={complex.images ?? []}
+                          onChange={images => setComplexes(current => current.map(c => c.id === complex.id ? { ...c, images } : c))} />
+                      </div>
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold uppercase text-stone-500">{t("venues.fields")}</p>
                         <Button variant="secondary" onClick={() => startAddField(complex.id)}>
@@ -425,6 +430,8 @@ export default function MyVenuesPage() {
 
 function FieldRow({ field, onEdit, onDelete }: { field: Field; onEdit: () => void; onDelete: () => void }) {
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showPhotos, setShowPhotos] = useState(false);
+  const [images, setImages] = useState(field.images ?? []);
 
   return (
     <div className="rounded-[8px] border border-stone-200 bg-white/80">
@@ -443,6 +450,7 @@ function FieldRow({ field, onEdit, onDelete }: { field: Field; onEdit: () => voi
           </div>
         </div>
         <div className="flex shrink-0 gap-1 ml-2">
+          <Button size="sm" variant="secondary" onClick={() => setShowPhotos(value => !value)}>Photos</Button>
           <button type="button" title="Schedule & bookings"
             onClick={() => setShowSchedule((v) => !v)}
             className={cn(
@@ -465,6 +473,9 @@ function FieldRow({ field, onEdit, onDelete }: { field: Field; onEdit: () => voi
       </div>
 
       {/* Inline schedule panel */}
+      {showPhotos && <div className="border-t border-stone-100 px-3 py-4">
+        <PhotoManager kind="fields" id={field.id} images={images} onChange={setImages} />
+      </div>}
       {showSchedule && (
         <div className="border-t border-stone-100 px-3 py-4">
           <FieldSchedulePanel

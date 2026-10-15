@@ -1,4 +1,5 @@
-import { FieldCard } from "@/components/fields/FieldCard";
+import { ComplexCard } from "@/components/fields/ComplexCard";
+import { groupFieldsByComplex } from "@/lib/utils/complexes";
 import { CardSkeleton } from "@/components/ui/Skeleton";
 import type { Field } from "@/lib/types";
 
@@ -23,8 +24,8 @@ export function FieldGrid({
 
   return (
     <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-      {fields.map((field) => (
-        <FieldCard key={field.id} field={field} distanceKm={distances ? distances.get(field.id) ?? null : undefined} />
+      {groupFieldsByComplex(fields).map(group => (
+        <ComplexCard key={group.id} fields={group.fields} distanceKm={distances ? distances.get(group.fields[0].id) ?? null : undefined} />
       ))}
     </div>
   );

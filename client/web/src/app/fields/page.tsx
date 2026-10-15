@@ -15,6 +15,7 @@ import { todayInputValue } from "@/lib/utils/format";
 import { useFields } from "@/hooks/useFields";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/utils/cn";
+import { groupFieldsByComplex } from "@/lib/utils/complexes";
 
 type SurfaceFilter = "all" | "indoor" | "outdoor";
 type SortOption = "name" | "price" | "nearby";
@@ -68,7 +69,7 @@ export default function FieldsPage() {
           ? compareFieldDistances(a, b, distances)
           : sort === "price"
           ? a.metadata.price - b.metadata.price
-          : a.name.localeCompare(b.name),
+          : (a.complex?.name || a.name).localeCompare(b.complex?.name || b.name),
       );
   }, [fields, search, sort, surface, type, distances]);
 
@@ -80,7 +81,7 @@ export default function FieldsPage() {
           <div className="max-w-2xl text-white">
             <p className="inline-flex items-center gap-2 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/16 backdrop-blur-sm">
               <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-              {filteredFields.length} {t("fields.availableFor")} {date}
+              {groupFieldsByComplex(filteredFields).length} complexes
             </p>
             <h1 className="mt-5 text-4xl font-semibold tracking-[0] sm:text-5xl">
               {t("fields.title")}

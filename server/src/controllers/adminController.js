@@ -110,7 +110,7 @@ export async function addField(req, res) {
                 endTime: new Date(endTime),
                 indoor: indoor ?? false,
                 lights: lights ?? false,
-                metadata: price != null ? { price } : undefined,
+                pricePerHour: price ?? 0,
                 createdAt: new Date(),
             },
         });
@@ -132,15 +132,19 @@ export async function updateComplex(req, res) {
         if (!existing) return res.status(404).json({ error: "Complex not found" });
         const timeZone = coordinatesTimeZone({ lat: lat !== undefined ? lat : existing.lat, lng: lng !== undefined ? lng : existing.lng });
         if (!timeZone) return res.status(400).json({ error: "Venue map location is required" });
-        const updatedComplex = await prisma.complex.update({
+        const updatedComplex = await prisma.$transaction(async tx => {
+          await tx.$queryRaw`SELECT id FROM "Complex" WHERE id = ${id} FOR UPDATE`;
+          const current = await tx.complex.findUnique({ where: { id } });
+          return tx.complex.update({
             where: { id },
             data: {
                 name,
                 address,
                 desc: description || null,
                 ...(lat !== undefined && { lat }), ...(lng !== undefined && { lng }),
-                metadata: { ...existing.metadata, timeZone },
+                metadata: { ...current.metadata, timeZone },
             },
+          });
         });
         res.status(200).json({ message: "Complex updated successfully", complex: updatedComplex });
     } catch (error) {
@@ -153,7 +157,7 @@ export async function updateField(req, res) {
     const { id } = req.params;
     const { name, type, price, startTime, endTime, indoor, lights } = req.body;
 
-    // Build update payload — price lives in metadata since the schema has no price column
+    // Keep photo metadata intact; pricing uses the existing dedicated column.
     const data = {
         ...(name !== undefined && { name }),
         ...(type !== undefined && { type }),
@@ -161,7 +165,7 @@ export async function updateField(req, res) {
         ...(endTime !== undefined && { endTime: new Date(endTime) }),
         ...(indoor !== undefined && { indoor }),
         ...(lights !== undefined && { lights }),
-        ...(price !== undefined && { metadata: { price } }),
+        ...(price !== undefined && { pricePerHour: price }),
     };
 
     try {

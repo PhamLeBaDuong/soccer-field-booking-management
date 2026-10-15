@@ -10,7 +10,7 @@ export const translations: Record<string, { en: string; vi: string }> = {
   "nav.allFields": { en: "All fields", vi: "Tất cả sân" },
   // ── Navigation ──────────────────────────────────────────────────────────────
   "nav.dashboard":  { en: "Dashboard",   vi: "Trang chủ" },
-  "nav.fields":     { en: "Fields",      vi: "Sân bóng" },
+  "nav.fields":     { en: "Complexes",   vi: "Khu sân" },
   "nav.bookings":   { en: "Bookings",    vi: "Đặt sân" },
   "nav.teams":      { en: "Teams",       vi: "Đội bóng" },
   "nav.matches":    { en: "Matches",     vi: "Trận đấu" },
@@ -124,7 +124,7 @@ export const translations: Record<string, { en: string; vi: string }> = {
 
   // ── Fields page ─────────────────────────────────────────────────────────────
   "fields.availableFor":  { en: "available for",   vi: "sân trống cho" },
-  "fields.title":         { en: "Choose your pitch", vi: "Chọn sân của bạn" },
+  "fields.title":         { en: "Choose a complex", vi: "Chọn khu sân" },
   "fields.subtitle":      { en: "Browse curated fields by format, surface, light, and price.", vi: "Duyệt sân theo loại hình, mặt sân, đèn và giá." },
   "fields.search":        { en: "Search",          vi: "Tìm kiếm" },
   "fields.searchPlaceholder": { en: "Field or complex", vi: "Sân hoặc khu phức hợp" },

@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, raw } from "express";
+import { managePhotos } from "../controllers/photoController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 import {
     getMyComplexes, getMyComplex,
@@ -11,6 +12,14 @@ const router = Router();
 
 // All venue routes require authentication — no admin role needed
 router.use(authenticate);
+
+router.post("/:kind/:id/photos", raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: "5mb" }), managePhotos);
+router.put("/:kind/:id/photos", managePhotos);
+router.delete("/:kind/:id/photos/:name", managePhotos);
+router.use((error, req, res, next) => {
+    if (error.type === "entity.too.large") return res.status(413).json({ error: "Choose an image up to 5 MB." });
+    next(error);
+});
 
 // Complexes
 router.get("/complexes",          getMyComplexes);

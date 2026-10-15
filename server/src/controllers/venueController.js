@@ -72,7 +72,10 @@ export async function updateComplex(req, res) {
         if (existing.ownerId !== req.user.id) return res.status(403).json({ error: "Forbidden" });
         const timeZone = coordinatesTimeZone({ lat: lat !== undefined ? lat : existing.lat, lng: lng !== undefined ? lng : existing.lng });
         if (!timeZone) throw new Error("Venue map location is required");
-        const complex = await prisma.complex.update({
+        const complex = await prisma.$transaction(async tx => {
+          await tx.$queryRaw`SELECT id FROM "Complex" WHERE id = ${req.params.id} FOR UPDATE`;
+          const current = await tx.complex.findUnique({ where: { id: req.params.id } });
+          return tx.complex.update({
             where: { id: req.params.id },
             data:  {
                 ...(name        !== undefined && { name }),
@@ -80,8 +83,9 @@ export async function updateComplex(req, res) {
                 ...(description !== undefined && { desc: description }),
                 ...(lat         !== undefined && { lat }),
                 ...(lng         !== undefined && { lng }),
-                metadata: { ...existing.metadata, timeZone },
+                metadata: { ...current.metadata, timeZone },
             },
+          });
         });
         res.json({ message: "Complex updated", complex });
     } catch (error) { handleError(res, error); }

@@ -7,12 +7,15 @@ import { buttonClasses } from "@/components/ui/Button";
 import { useI18n } from "@/lib/i18n/context";
 import type { Field } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils/format";
+import { photoUrl } from "@/lib/api/photos";
 
 export function FieldCard({ field, distanceKm }: { field: Field; distanceKm?: number | null }) {
   const { t } = useI18n();
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-stone-200/75 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_14px_44px_rgba(12,12,12,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_32px_rgba(0,0,0,0.10),0_24px_64px_rgba(12,12,12,0.12)]">
       <div className="pitch-card-bg relative min-h-52 overflow-hidden">
+        {field.complex?.images?.[0] && <>{/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photoUrl(field.complex.images[0])} alt={field.complex.name} className="absolute inset-0 h-full w-full object-cover" loading="lazy" /></>}
         <div className="absolute left-4 top-4 flex flex-wrap gap-1.5">
           <AmenitiesList field={field} />
         </div>
